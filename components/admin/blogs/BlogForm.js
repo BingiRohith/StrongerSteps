@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Loader2, Save, Send } from 'lucide-react';
+import { AlertCircle, Loader2, Save, Send, Star } from 'lucide-react';
 import RichTextEditor from './RichTextEditor';
 import CoverImageUpload from './CoverImageUpload';
 import CategorySelect from './CategorySelect';
@@ -19,6 +19,7 @@ const EMPTY_BLOG = {
   tags: [],
   seo: { title: '', metaDescription: '' },
   status: 'draft',
+  featured: false,
 };
 
 function estimateWords(html) {
@@ -36,6 +37,7 @@ export default function BlogForm({ blogId, initialData }) {
     coverImage: { ...EMPTY_BLOG.coverImage, ...initialData?.coverImage },
     seo: { ...EMPTY_BLOG.seo, ...initialData?.seo },
     category: initialData?.category?._id || initialData?.category || '',
+    featured: Boolean(initialData?.featured),
   }));
   const [slugTouched, setSlugTouched] = useState(isEdit);
   const [errors, setErrors] = useState({});
@@ -251,6 +253,19 @@ export default function BlogForm({ blogId, initialData }) {
             )}
             {form.status === 'published' && isEdit ? 'Update & keep published' : 'Publish'}
           </button>
+
+          <label className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-line px-3.5 py-2.5">
+            <span className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
+              <Star size={15} className={form.featured ? 'fill-current text-accent-dark' : 'text-muted'} aria-hidden="true" />
+              Featured
+            </span>
+            <input
+              type="checkbox"
+              checked={form.featured}
+              onChange={(e) => update('featured', e.target.checked)}
+              className="h-4 w-4 rounded border-line text-primary focus:ring-primary/20"
+            />
+          </label>
         </div>
 
         <div className="rounded-xl2 border border-line bg-surface p-5 sm:p-6">

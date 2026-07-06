@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 /**
  * GET /api/admin/blogs
  * Query params: status ('draft'|'published'), category (id), search (text),
- * page (default 1), limit (default 20).
+ * featured ('true'|'false'), page (default 1), limit (default 20).
  */
 export const GET = withErrorHandling(async (request) => {
   const user = await requireAuth(request);
@@ -21,6 +21,7 @@ export const GET = withErrorHandling(async (request) => {
   const status = searchParams.get('status');
   const category = searchParams.get('category');
   const search = searchParams.get('search')?.trim();
+  const featured = searchParams.get('featured');
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20', 10)));
 
@@ -28,6 +29,7 @@ export const GET = withErrorHandling(async (request) => {
   if (status && ['draft', 'published'].includes(status)) query.status = status;
   if (category) query.category = category;
   if (search) query.$text = { $search: search };
+  if (featured === 'true' || featured === 'false') query.featured = featured === 'true';
 
   const [blogs, total] = await Promise.all([
     Blog.find(query)
@@ -83,6 +85,7 @@ export const POST = withErrorHandling(async (request) => {
       metaDescription: body.seo?.metaDescription || '',
     },
     status: body.status === 'published' ? 'published' : 'draft',
+    featured: Boolean(body.featured),
     author: user._id,
   });
 

@@ -71,6 +71,7 @@ export const PUT = withErrorHandling(async (request, { params }) => {
     if (!['draft', 'published'].includes(body.status)) return fail('Invalid status', 400);
     blog.status = body.status;
   }
+  if (body.featured !== undefined) blog.featured = Boolean(body.featured);
 
   await blog.save();
   await blog.populate('category', 'name slug');

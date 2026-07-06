@@ -12,14 +12,20 @@ import {
   EyeOff,
   Loader2,
   Clock,
+  Star,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import StatusBadge from './StatusBadge';
+import { Badge } from '@/components/ui';
 
 const STATUS_TABS = [
   { value: '', label: 'All' },
   { value: 'published', label: 'Published' },
   { value: 'draft', label: 'Drafts' },
 ];
+
+const PAGE_SIZE = 20;
 
 function formatDate(dateStr) {
   if (!dateStr) return '—';
@@ -32,12 +38,29 @@ function formatDate(dateStr) {
 
 export default function BlogsListClient() {
   const [blogs, setBlogs] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, limit: PAGE_SIZE, total: 0, pages: 1 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
+  const [category, setCategory] = useState('');
+  const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [busyId, setBusyId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+
+  useEffect(() => {
+    async function loadCategories() {
+      try {
+        const res = await fetch('/api/admin/categories');
+        const data = await res.json();
+        if (res.ok && data.success) setCategories(data.categories);
+      } catch (err) {
+        // Non-fatal — the category filter just stays empty.
+      }
+    }
+    loadCategories();
+  }, []);
 
   const loadBlogs = useCallback(async () => {
     setLoading(true);
@@ -45,7 +68,10 @@ export default function BlogsListClient() {
     try {
       const params = new URLSearchParams();
       if (status) params.set('status', status);
+      if (category) params.set('category', category);
       if (search.trim()) params.set('search', search.trim());
+      params.set('page', String(page));
+      params.set('limit', String(PAGE_SIZE));
 
       const res = await fetch(`/api/admin/blogs?${params.toString()}`);
       const data = await res.json();
@@ -55,12 +81,18 @@ export default function BlogsListClient() {
         return;
       }
       setBlogs(data.blogs);
+      setPagination(data.pagination);
     } catch (err) {
       setError('Failed to load blogs. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [status, search]);
+  }, [status, category, search, page]);
+
+  // Any filter change should reset back to page 1.
+  useEffect(() => {
+    setPage(1);
+  }, [status, category, search]);
 
   useEffect(() => {
     const timeout = setTimeout(loadBlogs, search ? 350 : 0);
@@ -85,6 +117,23 @@ export default function BlogsListClient() {
     }
   }
 
+  async function toggleFeatured(blog) {
+    setBusyId(blog._id);
+    try {
+      const res = await fetch(`/api/admin/blogs/${blog._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ featured: !blog.featured }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setBlogs((prev) => prev.map((b) => (b._id === blog._id ? data.blog : b)));
+      }
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function confirmDelete() {
     if (!deleteTarget) return;
     setBusyId(deleteTarget._id);
@@ -93,6 +142,7 @@ export default function BlogsListClient() {
       const data = await res.json();
       if (res.ok && data.success) {
         setBlogs((prev) => prev.filter((b) => b._id !== deleteTarget._id));
+        setPagination((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }));
       }
     } finally {
       setBusyId(null);
@@ -109,7 +159,7 @@ export default function BlogsListClient() {
           </span>
           <div>
             <h2 className="font-display text-xl font-bold text-primary-dark">Blogs</h2>
-            <p className="text-xs text-muted">{blogs.length} article{blogs.length === 1 ? '' : 's'}</p>
+            <p className="text-xs text-muted">{pagination.total} article{pagination.total === 1 ? '' : 's'}</p>
           </div>
         </div>
         <Link
@@ -139,15 +189,30 @@ export default function BlogsListClient() {
           ))}
         </div>
 
-        <div className="relative sm:w-72">
-          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search blogs…"
-            className="w-full rounded-full border border-line bg-white py-2 pl-9 pr-3.5 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="rounded-full border border-line bg-white py-2 pl-3.5 pr-8 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+          >
+            <option value="">All categories</option>
+            {categories.map((cat) => (
+              <option key={cat._id} value={cat._id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+
+          <div className="relative sm:w-72">
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search blogs…"
+              className="w-full rounded-full border border-line bg-white py-2 pl-9 pr-3.5 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
         </div>
       </div>
 
@@ -166,11 +231,11 @@ export default function BlogsListClient() {
             </span>
             <p className="font-display text-sm font-semibold text-ink">No blogs yet</p>
             <p className="mt-1 max-w-xs text-sm text-muted">
-              {search || status
+              {search || status || category
                 ? 'No blogs match your current filters.'
                 : 'Get started by writing your first article.'}
             </p>
-            {!search && !status && (
+            {!search && !status && !category && (
               <Link
                 href="/admin/blogs/new"
                 className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 font-display text-sm font-semibold text-white hover:bg-primary-dark"
@@ -201,6 +266,12 @@ export default function BlogsListClient() {
                     <p className="truncate font-display text-sm font-semibold text-ink">{blog.title}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
                       <StatusBadge status={blog.status} />
+                      {blog.featured && (
+                        <Badge tone="primary">
+                          <Star size={11} className="mr-1 -ml-0.5 fill-current" />
+                          Featured
+                        </Badge>
+                      )}
                       {blog.category?.name && <span>{blog.category.name}</span>}
                       <span className="inline-flex items-center gap-1">
                         <Clock size={12} />
@@ -212,6 +283,17 @@ export default function BlogsListClient() {
                 </div>
 
                 <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => toggleFeatured(blog)}
+                    disabled={busyId === blog._id}
+                    title={blog.featured ? 'Remove from featured' : 'Mark as featured'}
+                    className={`rounded-lg p-2 hover:bg-sage disabled:opacity-50 ${
+                      blog.featured ? 'text-accent-dark' : 'text-muted'
+                    }`}
+                  >
+                    <Star size={16} className={blog.featured ? 'fill-current' : ''} />
+                  </button>
                   <button
                     type="button"
                     onClick={() => toggleStatus(blog)}
@@ -248,6 +330,34 @@ export default function BlogsListClient() {
           </ul>
         )}
       </div>
+
+      {!loading && !error && blogs.length > 0 && pagination.pages > 1 && (
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-xs text-muted">
+            Page {pagination.page} of {pagination.pages}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={pagination.page <= 1}
+              className="inline-flex items-center gap-1 rounded-full border border-line px-3.5 py-1.5 text-sm font-semibold text-primary-dark hover:bg-sage disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ChevronLeft size={15} />
+              Prev
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(pagination.pages, p + 1))}
+              disabled={pagination.page >= pagination.pages}
+              className="inline-flex items-center gap-1 rounded-full border border-line px-3.5 py-1.5 text-sm font-semibold text-primary-dark hover:bg-sage disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Next
+              <ChevronRight size={15} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 px-4">

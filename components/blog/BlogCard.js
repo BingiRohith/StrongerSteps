@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Clock, Calendar, BookOpen } from 'lucide-react';
+import { Clock, Calendar, BookOpen, Star } from 'lucide-react';
 import { Badge } from '@/components/ui';
 
 export function formatBlogDate(dateStr) {
@@ -35,6 +35,14 @@ export default function BlogCard({ blog }) {
         {blog.category?.name && (
           <span className="absolute left-3 top-3">
             <Badge tone="accent">{blog.category.name}</Badge>
+          </span>
+        )}
+        {blog.featured && (
+          <span className="absolute right-3 top-3">
+            <Badge tone="primary">
+              <Star size={11} className="mr-1 -ml-0.5 fill-current" aria-hidden="true" />
+              Featured
+            </Badge>
           </span>
         )}
       </div>

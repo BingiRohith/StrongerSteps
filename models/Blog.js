@@ -63,6 +63,10 @@ const BlogSchema = new Schema(
       type: Date,
       default: null,
     },
+    featured: {
+      type: Boolean,
+      default: false,
+    },
     author: {
       type: Schema.Types.ObjectId,
       ref: 'User',
@@ -72,6 +76,7 @@ const BlogSchema = new Schema(
 );
 
 BlogSchema.index({ status: 1, createdAt: -1 });
+BlogSchema.index({ featured: 1, publishedAt: -1 });
 BlogSchema.index({ title: 'text', excerpt: 'text', tags: 'text' });
 
 // Auto-generate a unique slug from the title (only when the title changes
@@ -129,6 +134,7 @@ BlogSchema.methods.toSafeObject = function toSafeObject() {
     readingTime: this.readingTime,
     status: this.status,
     publishedAt: this.publishedAt,
+    featured: this.featured,
     author: this.author,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,

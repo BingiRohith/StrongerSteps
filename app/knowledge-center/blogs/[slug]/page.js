@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Clock, Calendar, ArrowLeft } from 'lucide-react';
+import { Clock, Calendar, ArrowLeft, Star } from 'lucide-react';
 import { Badge, SectionHeading } from '@/components/ui';
 import StepDivider from '@/components/StepDivider';
 import BlogCard, { formatBlogDate } from '@/components/blog/BlogCard';
@@ -72,7 +72,15 @@ export default async function BlogDetailPage({ params }) {
           </Link>
 
           <div className="mt-6 max-w-2xl">
-            {blog.category?.name && <Badge tone="accent">{blog.category.name}</Badge>}
+            <div className="flex flex-wrap items-center gap-2">
+              {blog.category?.name && <Badge tone="accent">{blog.category.name}</Badge>}
+              {blog.featured && (
+                <Badge tone="primary">
+                  <Star size={11} className="mr-1 -ml-0.5 fill-current" aria-hidden="true" />
+                  Featured
+                </Badge>
+              )}
+            </div>
             <h1 className="mt-3 font-display text-3xl font-bold leading-tight text-primary-dark md:text-4xl">
               {blog.title}
             </h1>
