@@ -7,9 +7,16 @@ import { ImagePlus, Loader2, X } from 'lucide-react';
  * Click-to-upload image field with preview, alt text, and a remove button.
  * Generic version of components/admin/blogs/CoverImageUpload.js — used here
  * for both the thumbnail and full-size infographic images, uploading to
- * /api/admin/infographics/upload instead of the blogs upload route.
+ * /api/admin/infographics/upload by default. Pass `uploadUrl` to point it at
+ * a different upload route (e.g. the Team module's photo upload) without
+ * duplicating this component.
  */
-export default function ImageUploadField({ value, onChange, heightClass = 'h-48' }) {
+export default function ImageUploadField({
+  value,
+  onChange,
+  heightClass = 'h-48',
+  uploadUrl = '/api/admin/infographics/upload',
+}) {
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -23,7 +30,7 @@ export default function ImageUploadField({ value, onChange, heightClass = 'h-48'
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch('/api/admin/infographics/upload', { method: 'POST', body: formData });
+      const res = await fetch(uploadUrl, { method: 'POST', body: formData });
       const data = await res.json();
 
       if (!res.ok || !data.success) {
