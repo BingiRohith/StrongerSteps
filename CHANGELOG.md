@@ -1,5 +1,117 @@
 # Changelog
 
+## Sprint: Products Pricing & E-commerce Card — 2026-07-07
+
+Follow-up to the Products Module sprint below. Fixes the image bug found
+during your own admin testing and turns the public card from a "coming
+soon" placeholder into a real (checkout-pending) e-commerce catalog card.
+
+### Fixed
+- **Product image not rendering on `/products`** — root cause: `app/products/page.js`
+  passed `icon`/`title`/`description` into `ComingSoonCard`, which has no
+  `image` prop at all, so `product.image.url` was never read anywhere on the
+  public page. Replaced with a dedicated `ProductCard` (below) that renders
+  it, with the category icon as fallback when a product has no image.
+
+### Added
+- **`lib/productPricing.js`** — `discountFromPrices()` / `sellingPriceFromDiscount()`,
+  imported by both `models/Product.js`'s pre-validate hook (authoritative)
+  and the admin `ProductForm` (live preview), so the two can't drift apart.
+- **Pricing/stock/featured fields on `models/Product.js`**: `originalPrice`,
+  `sellingPrice`, `discountPercentage` (always server-derived — never
+  trusts a client-sent value), `stockStatus`, `featured`. All default to
+  0/'in-stock'/false rather than being required, so products created before
+  this change keep loading/saving with no migration; `lib/publicProducts.js`
+  additionally backfills defaults at read time for any doc missing the keys
+  entirely (pre-dates the schema change).
+- **`components/products/ProductCard.js`** — the new e-commerce-style public
+  card: image, category, name, description, selling price + strikethrough
+  original + discount-% badge (all straight from the API, never computed in
+  this component), stock status, featured badge, and non-functional
+  "View Details"/"Add to Cart" buttons with a "coming soon" tooltip until
+  checkout exists. The "Coming Soon" badge is gone entirely.
+- Admin: `ProductForm` gained an Original Price / Selling Price / Discount %
+  section with two-way live auto-calculation (editing either price
+  recalculates the discount; editing the discount recalculates selling
+  price) plus a live preview strip, a Featured toggle, and a Stock status
+  select. `ProductsListClient` now shows price/discount/stock inline and a
+  featured-toggle button, mirroring Team's.
+- `app/api/admin/products/{route,[id]/route}.js` validate `originalPrice`/`sellingPrice`
+  (non-negative, selling ≤ original) and accept `stockStatus`/`featured`.
+
+### Notes from verification
+- Found a stray test product ("bob") and 7 of the 9 originally-seeded
+  catalog items missing from the live database — evidence of your own
+  admin-panel testing between sessions. Re-ran `scripts/seedProducts.mjs`
+  (now idempotent for backfilling pricing onto existing docs, not just
+  creating new ones) to restore the catalog with realistic sample pricing;
+  your "bob" test product was left as-is and now correctly shows its
+  uploaded image with a "Pricing coming soon" fallback since it has no
+  price set.
+- `npm run build` passes; verified in-browser end-to-end: image rendering
+  (admin + public), live discount calculation both directions, server-side
+  price validation (rejects selling > original), create/edit/delete via the
+  admin API, and responsive layout at mobile/desktop widths.
+
+---
+
+## Sprint: Products Module — 2026-07-06
+
+Scope: Made the public `/products` page admin-managed, following the same
+architecture Sprint 8 used for Team (`models/Team.js`,
+`app/api/admin/team/*`, `lib/publicTeam.js`). Category is a closed 3-value
+enum (Mobility Aids, Educational Products, Merchandise) instead of Team's
+flat list, since the public page only ever renders those three fixed
+sections.
+
+### Added
+- **`lib/productCategories.js`** — single source of truth for the 3 category
+  value/label pairs, shared by the model, admin form, admin/public APIs, and
+  public page.
+- **`lib/localUpload.js`** — factors out the local-disk image-upload pattern
+  that `app/api/admin/upload`, `.../infographics/upload`, and
+  `.../team/upload` each already duplicated independently, so the new
+  Products upload route doesn't add a 4th copy. Those three existing routes
+  are untouched.
+- **`models/Product.js`** — mirrors `models/Team.js`'s conventions
+  (draft/published lifecycle, single image sub-document, no slug/detail
+  page).
+- **`app/api/admin/products/*`** (list/create, get/update/delete,
+  publish-toggle, upload) and **`app/api/products/route.js`** +
+  **`lib/publicProducts.js`** (public, published-only) — mirror the Team
+  module's admin/public API split.
+- **`components/admin/products/{ProductForm,ProductsListClient}.js`** and
+  **`app/admin/(protected)/products/{page,new/page,[id]/edit/page}.js`** —
+  mirror the Team admin UI, reusing
+  `components/admin/infographics/ImageUploadField.js` and
+  `components/admin/blogs/StatusBadge.js` as-is.
+- **`scripts/seedProducts.mjs`** (+ `seed:products` npm script) — idempotent
+  bootstrap that seeded the 9 items that used to be hardcoded on the
+  Products page as published products, so the page kept working immediately.
+  Already run against the live database for this sprint.
+
+### Modified
+- **`app/products/page.js`** — now an async server component fetching
+  `getPublishedProducts()` and grouping by category, in place of the 3
+  hardcoded arrays. All non-product copy (hero, dividers, bottom CTA) is
+  unchanged.
+- **`components/admin/AdminSidebar.js`**, **`dashboard/page.js`** — added a
+  Products nav entry/dashboard card, same as Blogs/Infographics/Team.
+- **`package.json`** — added `seed:products` script.
+
+Verified: `npm run build` succeeds, all new `/admin/products*` routes build
+dynamic (`ƒ`). Smoke-tested against the live MongoDB Atlas cluster with
+`npm run dev`: `/products` renders the seeded catalog correctly (verified
+in-browser before and after seeding), `/api/admin/products` correctly
+401s unauthenticated, `/api/products` correctly returns 200 publicly. The
+admin-login → `/admin/products` CRUD flow itself was **not** exercised
+end-to-end in this session (the sandbox's credential-safety policy blocked
+scripted use of the seeded admin's password) — please sign in manually and
+smoke-test creating/editing/publishing/deleting a product before relying on
+it.
+
+---
+
 ## Sprint: Infographics Module — 2026-07-02
 
 Scope: Full Infographics Management CRUD inside the existing Admin

@@ -8,6 +8,7 @@ import {
   Newspaper,
   Image as ImageIcon,
   Users,
+  Package,
   FolderTree,
   X,
 } from 'lucide-react';
@@ -17,6 +18,7 @@ export const NAV_ITEMS = [
   { href: '/admin/blogs', label: 'Blogs', icon: Newspaper },
   { href: '/admin/infographics', label: 'Infographics', icon: ImageIcon },
   { href: '/admin/team', label: 'Team', icon: Users },
+  { href: '/admin/products', label: 'Products', icon: Package },
   { href: '/admin/categories', label: 'Categories', icon: FolderTree },
 ];
 
