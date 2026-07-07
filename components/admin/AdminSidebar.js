@@ -9,6 +9,7 @@ import {
   Image as ImageIcon,
   Users,
   Package,
+  CreditCard,
   FolderTree,
   X,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ export const NAV_ITEMS = [
   { href: '/admin/infographics', label: 'Infographics', icon: ImageIcon },
   { href: '/admin/team', label: 'Team', icon: Users },
   { href: '/admin/products', label: 'Products', icon: Package },
+  { href: '/admin/membership', label: 'Membership', icon: CreditCard },
   { href: '/admin/categories', label: 'Categories', icon: FolderTree },
 ];
 

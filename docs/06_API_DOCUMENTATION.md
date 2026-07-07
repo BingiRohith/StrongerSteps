@@ -105,6 +105,26 @@ unhandled errors → 500.
 |---|---|---|---|
 | `/api/team` | GET | Public | Query: `search`. No pagination. Published-only. Returns `{ teamMembers }`. |
 
+## Membership
+
+### Admin — `app/api/admin/membership/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/membership` | GET | Any session | Query: `status` (`active`\|`inactive`), `search`. No pagination. Returns `{ plans }`. |
+| `/api/admin/membership` | POST | Admin/editor | Body: `name`, `shortDescription` required. `currency`/`billingPeriod`/`theme` validated against closed enums (falls back to defaults if invalid/missing). Returns `{ plan }`, 201. |
+| `/api/admin/membership/[id]` | GET | Any session | Single, populated author. |
+| `/api/admin/membership/[id]` | PUT | Admin/editor | Partial update; also used by the admin list's reorder controls to swap `displayOrder` between two adjacent plans. |
+| `/api/admin/membership/[id]` | DELETE | Admin/editor | `{ deleted: true }`. |
+| `/api/admin/membership/[id]/status` | PATCH | Admin/editor | Active/inactive toggle (not a publish toggle — this module uses `active`/`inactive`, not `draft`/`published`). |
+| `/api/admin/membership/upload` | POST | Admin/editor | multipart `file`, via `lib/localUpload.js`. Returns `{ url }`, 201. |
+
+### Public — `app/api/membership/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/membership` | GET | Public | No query params, no pagination. Active-only. Returns `{ plans }`. |
+
 ## Blog cover image upload — `app/api/admin/upload/`
 
 | Route | Method | Auth | Notes |

@@ -1,5 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
-import { Newspaper, Image as ImageIcon, Users, Package, FolderTree } from 'lucide-react';
+import { Newspaper, Image as ImageIcon, Users, Package, CreditCard, FolderTree } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,6 +8,7 @@ const CARDS = [
   { label: 'Infographics', icon: ImageIcon, href: '/admin/infographics' },
   { label: 'Team', icon: Users, href: '/admin/team' },
   { label: 'Products', icon: Package, href: '/admin/products' },
+  { label: 'Membership', icon: CreditCard, href: '/admin/membership' },
   { label: 'Categories', icon: FolderTree, href: '/admin/categories' },
 ];
 

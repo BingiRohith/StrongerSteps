@@ -129,6 +129,36 @@ Feeds the About page's team roster. No slug/detail page.
 
 Indexes: `{status, displayOrder}`, text index on `name`/`designation`/`qualifications`/`bio`.
 
+## Membership — [`models/Membership.js`](../models/Membership.js)
+
+Feeds the public `/join` page's plan cards (Sprint 11). Mirrors
+Product/Team's shape (single `image` sub-document, `displayOrder`-driven
+sort) but uses `status: 'active' | 'inactive'` instead of the other
+modules' `draft`/`published` lifecycle, per this module's own spec.
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | String | required, max 100 |
+| `shortDescription` | String | required, max 200 |
+| `longDescription` | String | optional, max 2000 |
+| `price` | Number | default 0, ≥0 |
+| `currency` | String enum | `INR` \| `USD` (see [`lib/membershipOptions.js`](../lib/membershipOptions.js)) |
+| `billingPeriod` | String enum | `one-time` \| `monthly` \| `quarterly` \| `yearly` \| `free` |
+| `discountPercentage` | Number | 0–100 |
+| `status` | String enum | `active` \| `inactive` — **not** draft/published |
+| `featured` | Boolean | |
+| `badgeLabel` | String | optional, max 40 — shown on featured plans, defaults to "Most Popular" on the public page if empty |
+| `theme` | String enum | `sage` \| `accent` \| `primary` — plan card border/accent colour |
+| `displayOrder` | Number | manual sort order |
+| `ctaLabel` | String | default `'Join Now'` |
+| `ctaUrl` | String | primary CTA button target |
+| `externalUrl` | String | optional secondary link; also the CTA fallback if `ctaUrl` is empty |
+| `benefits` | [String] | trimmed, filtered; array order is display order |
+| `image` | `{ url, alt }` | optional |
+| `author` | ObjectId ref → `User` | |
+
+Indexes: `{status, displayOrder}`, text index on `name`/`shortDescription`/`longDescription`.
+
 ## Relationships summary
 
 ```
@@ -136,6 +166,7 @@ User 1---* Blog (author)
 User 1---* Infographic (author)
 User 1---* Product (author)
 User 1---* Team (author)
+User 1---* Membership (author)
 Category 1---* Blog (category)
 ```
 
@@ -147,3 +178,4 @@ text or closed string enum, not a `Category` ref.
 - `npm run seed:admin` → [`scripts/createAdmin.mjs`](../scripts/createAdmin.mjs) — first admin user, idempotent
 - `npm run seed:team` → [`scripts/seedTeam.mjs`](../scripts/seedTeam.mjs)
 - `npm run seed:products` → [`scripts/seedProducts.mjs`](../scripts/seedProducts.mjs) — idempotent, also backfills pricing fields onto pre-existing docs
+- `npm run seed:membership` → [`scripts/seedMembership.mjs`](../scripts/seedMembership.mjs) — idempotent, migrates the 3 plans that used to be hardcoded on `/join`

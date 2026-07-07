@@ -1,5 +1,106 @@
 # Changelog
 
+## Sprint 11: Membership CMS — 2026-07-07
+
+Scope (per `docs/03_CLIENT_REQUIREMENTS.md` §8, plus a client-approved
+addition of an optional plan `image` field to match the CRS field list —
+see "CRS assumptions" below). Replaces Sprint 10's hardcoded
+`MEMBERSHIP_PLANS` array on `/join` with a full Membership CMS, following
+the exact CRUD architecture Products/Team already established. No
+Programs Calendar, Event Booking, Payment Gateway, Recipes CMS, Team Tree,
+or Vision redesign work in this sprint.
+
+### Added
+- **`models/Membership.js`** — new collection for `/join` plan cards.
+  Mirrors `models/Product.js`/`models/Team.js` (single `image` sub-document,
+  `displayOrder`-driven sort, text index for search) but uses a
+  `status: 'active' | 'inactive'` pair instead of the other modules'
+  `draft`/`published` lifecycle, per the sprint's explicit field spec.
+  Fields: `name`, `shortDescription`, `longDescription` (optional), `price`,
+  `currency`, `billingPeriod`, `discountPercentage`, `status`, `featured`,
+  `badgeLabel`, `theme` (plan colour), `displayOrder`, `ctaLabel`, `ctaUrl`,
+  `externalUrl` (optional), `benefits` ([String]), `image` (optional),
+  `author`.
+- **`lib/membershipOptions.js`** — closed option sets (`CURRENCIES`,
+  `BILLING_PERIODS`, `PLAN_THEMES`) shared by the model's enum validation,
+  the admin form's `<select>`s, and the public page's label/formatting
+  helpers — same single-source-of-truth pattern as `lib/productCategories.js`.
+- **`lib/publicMembership.js`** — `getActiveMembershipPlans()`, hard-scoped
+  to `status: 'active'`, sorted by `displayOrder`. Mirrors `lib/publicTeam.js`.
+- **Admin API** — `app/api/admin/membership/route.js` (GET list with
+  status/search filters, POST create), `.../[id]/route.js` (GET/PUT/DELETE),
+  `.../[id]/status/route.js` (PATCH active/inactive toggle),
+  `.../upload/route.js` (image upload via the shared `lib/localUpload.js`
+  helper, own `/public/uploads/membership/` folder).
+- **Public API** — `app/api/membership/route.js`, unauthenticated,
+  active-only, no pagination. Mirrors `app/api/products/route.js`.
+- **Admin UI** — `/admin/membership` (list), `/admin/membership/new`,
+  `/admin/membership/[id]/edit`. `MembershipListClient.js` mirrors
+  `ProductsListClient.js`'s list/filter/toggle/delete pattern, plus
+  up/down reorder buttons that swap `displayOrder` between two adjacent
+  plans via the existing PUT endpoint (no dedicated reorder API needed).
+  `MembershipForm.js` mirrors `ProductForm.js`'s layout/validation/save-draft
+  pattern. `BenefitsEditor.js` is new — unlike Team's comma-separated
+  `qualifications` text input, Sprint 11 calls out benefits as individually
+  add/edit/delete/reorder-able, so each benefit is its own row with
+  up/down/delete controls.
+- **`scripts/seedMembership.mjs`** — one-time, re-run-safe bootstrap script
+  (`npm run seed:membership`) that migrates the 3 plans that used to be
+  hardcoded on `/join` (Community/Plus/Family) into the new collection, so
+  the public page keeps working immediately after this module ships.
+  Mirrors `scripts/seedProducts.mjs`.
+
+### Modified
+- **`app/join/page.js`** — `MEMBERSHIP_PLANS` hardcoded array removed;
+  plans now fetched server-side via `getActiveMembershipPlans()`. Card
+  rendering updated: currency-aware price formatting (`currencySymbol()`),
+  billing-period label, `theme`-driven border colour (sage/accent/primary,
+  replacing the old boolean-only featured/non-featured styling), configurable
+  `badgeLabel` (falls back to "Most Popular" when a featured plan has none
+  set), optional plan image, and a CTA `href` that falls back from `ctaUrl`
+  to `externalUrl`. Added a friendly empty state ("Membership plans are
+  coming soon") for when no active plans exist, per this sprint's
+  requirement — previously impossible since the array was always populated.
+- **`components/admin/AdminSidebar.js`** / **`app/admin/(protected)/dashboard/page.js`**
+  — added a "Membership" nav item / dashboard card, same pattern as the
+  existing Products entry.
+- **`package.json`** — added `seed:membership` script.
+
+### CRS assumptions
+- CRS §8 lists `image` as a Membership field; this sprint's own field list
+  didn't include it. Confirmed with the client before writing the schema —
+  added an optional `image` sub-document (shown as a small icon on the
+  plan card when set) to satisfy both.
+- CRS §8 lists a single `duration` field; this sprint's field list splits
+  that into `currency` + `billingPeriod` (both closed enums) — a superset,
+  not a conflict.
+- Sprint 11 lists `CTA Button Label`/`CTA URL` and a separate, optional
+  `External URL`. Interpreted `externalUrl` as a secondary link (e.g. a
+  future full plan-comparison page) that also serves as the CTA button's
+  fallback destination when `ctaUrl` is left empty.
+- `status` uses `active`/`inactive` (not `draft`/`published` like the other
+  CMS modules) per this sprint's explicit wording ("Status (Active /
+  Inactive)", "Toggle Active/Inactive").
+
+### Notes from verification
+- `npm run build` passes cleanly; all new routes compile (3 admin pages, 5
+  API routes, 1 public API route).
+- Full CRUD verified end-to-end against the live MongoDB Atlas instance
+  (not just build-checked): logged into `/admin`, ran the seed script,
+  exercised create/edit/delete/reorder/featured-toggle/active-toggle from
+  the admin list and form, added/edited/reordered/deleted individual
+  benefits and confirmed the change round-tripped through `/api/membership`,
+  verified the empty state by deactivating all 3 seeded plans and reloading
+  `/join`, then reactivated them.
+- Verified no regression: `/api/admin/products` and `/api/admin/team` still
+  return their existing records unchanged; neither module's files were
+  touched this sprint.
+- Checked `/join` at desktop (1280px) and mobile (375px) — 3-column grid
+  collapses to a single column, featured plan's accent border and badge
+  render at both sizes. No console errors at any point during verification.
+
+---
+
 ## Sprint 10: Homepage, Navigation & Membership Entry Page — 2026-07-07
 
 Scope (per `docs/03_CLIENT_REQUIREMENTS.md` §4–7, strictly limited to

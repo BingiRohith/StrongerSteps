@@ -63,6 +63,21 @@ module. No data fetching beyond the current user.
   bio, photo upload, LinkedIn/Twitter links, display order, featured toggle,
   Save as Draft / Publish.
 
+## Membership — `/admin/membership`
+
+**Status: full CRUD, production-capable. No payment integration yet.**
+
+- List (`MembershipListClient.js`): mirrors `ProductsListClient.js`'s
+  list/filter/toggle/delete pattern (status tabs are Active/Inactive here,
+  not Draft/Published), plus up/down reorder buttons that swap
+  `displayOrder` between two adjacent plans via the existing PUT endpoint.
+- Create/Edit (`MembershipForm.js`): name, short/long description, price +
+  currency + billing period, discount %, benefits (`BenefitsEditor.js` —
+  individually add/edit/delete/reorder-able rows, unlike Team's
+  comma-separated qualifications input), CTA label/URL, external URL,
+  featured toggle, badge label, plan colour/theme, display order, optional
+  image upload, Save as Inactive / Activate actions.
+
 ## Categories — `/admin/categories`
 
 **Status: placeholder only.** Renders `PagePlaceholder` with a "Coming in a

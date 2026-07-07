@@ -1,71 +1,16 @@
-import { Check, Crown, MessageCircle, ArrowRight, HeartHandshake, CalendarCheck, Percent, Users } from 'lucide-react';
+import { Check, Crown, MessageCircle, ArrowRight, HeartHandshake, CalendarCheck, Percent, Users, CreditCard } from 'lucide-react';
 import { Button, Badge, Eyebrow, SectionHeading } from '@/components/ui';
 import StepDivider from '@/components/StepDivider';
+import { getActiveMembershipPlans } from '@/lib/publicMembership';
+import { currencySymbol, billingPeriodLabel } from '@/lib/membershipOptions';
 
-// Placeholder membership catalog. Field names deliberately mirror the future
-// Membership CMS (CRS §8: name, description, price, discount, duration,
-// benefits, image, displayOrder, status, featured, ctaLabel, externalUrl) so
-// this array can be swapped for a DB fetch later without touching the
-// layout below — the same pattern Products/Team followed before their CMS
-// existed. `externalUrl` is a placeholder WhatsApp contact until a real
-// payment/membership platform link is configured.
-const MEMBERSHIP_PLANS = [
-  {
-    displayOrder: 1,
-    status: 'published',
-    featured: false,
-    name: 'Community',
-    description: 'Stay connected and get started with free access to our community and basic resources.',
-    price: 0,
-    discount: 0,
-    duration: 'Free forever',
-    benefits: [
-      'Weekly health tips for adults 50+',
-      'Access to the community WhatsApp group',
-      'Free monthly newsletter',
-      'Invitations to select public events',
-    ],
-    ctaLabel: 'Join for Free',
-    externalUrl: 'https://wa.me/919999999999',
-  },
-  {
-    displayOrder: 2,
-    status: 'published',
-    featured: true,
-    name: 'Stronger Steps Plus',
-    description: 'Structured support for members who want more than the free community — priority access and real savings.',
-    price: 1499,
-    discount: 10,
-    duration: 'Per month',
-    benefits: [
-      'Everything in Community',
-      'Discounted pricing on workshops & events',
-      'Priority booking for limited-seat sessions',
-      'Quarterly 1-on-1 check-in call',
-      'Access to exclusive member-only content',
-    ],
-    ctaLabel: 'Become a Member',
-    externalUrl: 'https://wa.me/919999999999',
-  },
-  {
-    displayOrder: 3,
-    status: 'published',
-    featured: false,
-    name: 'Stronger Steps Family',
-    description: 'For families supporting a loved one’s healthy ageing journey together, at a lower annual rate.',
-    price: 14999,
-    discount: 15,
-    duration: 'Per year',
-    benefits: [
-      'Everything in Stronger Steps Plus',
-      'Covers up to 2 family members',
-      'Shared family progress updates',
-      'Founding member pricing locked in for renewal',
-    ],
-    ctaLabel: 'Enquire Now',
-    externalUrl: 'https://wa.me/919999999999',
-  },
-];
+export const dynamic = 'force-dynamic';
+
+const THEME_BORDER = {
+  sage: 'border-line',
+  accent: 'border-accent',
+  primary: 'border-primary',
+};
 
 const MEMBER_BENEFITS = [
   {
@@ -90,12 +35,14 @@ const MEMBER_BENEFITS = [
   },
 ];
 
-function formatPrice(price) {
-  if (!price) return 'Free';
-  return `₹${price.toLocaleString('en-IN')}`;
+function formatPrice(plan) {
+  if (!plan.price) return 'Free';
+  return `${currencySymbol(plan.currency)}${plan.price.toLocaleString('en-IN')}`;
 }
 
-export default function JoinPage() {
+export default async function JoinPage() {
+  const plans = await getActiveMembershipPlans();
+
   return (
     <>
       <section className="bg-bg">
@@ -122,54 +69,80 @@ export default function JoinPage() {
             description="Realistic starting prices — our team can adjust pricing, discounts, and benefits for your household at any time."
             align="center"
           />
-          <div className="grid gap-6 md:grid-cols-3">
-            {MEMBERSHIP_PLANS.map((plan) => (
-              <div
-                key={plan.name}
-                className={`flex flex-col rounded-xl2 border bg-white p-8 ${
-                  plan.featured ? 'border-2 border-accent shadow-lg' : 'border-line'
-                }`}
-              >
-                {plan.featured && (
-                  <Badge tone="accent" className="mb-4 w-fit">
-                    <Crown size={12} className="mr-1 -ml-0.5" aria-hidden="true" />
-                    Most Popular
-                  </Badge>
-                )}
-                <h3 className="font-display text-xl font-bold text-primary-dark">{plan.name}</h3>
-                <p className="mt-2 text-sm text-muted">{plan.description}</p>
-
-                <div className="mt-6 flex items-baseline gap-2">
-                  <span className="font-display text-3xl font-bold text-primary-dark">
-                    {formatPrice(plan.price)}
-                  </span>
-                  {plan.price > 0 && (
-                    <span className="text-sm text-muted">/ {plan.duration.toLowerCase()}</span>
-                  )}
-                </div>
-                {plan.discount > 0 && (
-                  <Badge tone="sage" className="mt-2 w-fit">{plan.discount}% member discount applied</Badge>
-                )}
-
-                <ul className="mt-6 flex-1 space-y-3">
-                  {plan.benefits.map((benefit) => (
-                    <li key={benefit} className="flex items-start gap-3">
-                      <Check size={18} className="mt-0.5 shrink-0 text-primary" aria-hidden="true" />
-                      <span className="text-sm text-ink">{benefit}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Button
-                  href={plan.externalUrl}
-                  variant={plan.featured ? 'accent' : 'primary'}
-                  className="mt-8 w-full"
+          {plans.length === 0 ? (
+            <div className="mx-auto flex max-w-md flex-col items-center rounded-xl2 border border-line bg-white px-6 py-16 text-center">
+              <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-sage text-primary-dark">
+                <CreditCard size={20} aria-hidden="true" />
+              </span>
+              <p className="font-display text-base font-semibold text-primary-dark">
+                Membership plans are coming soon
+              </p>
+              <p className="mt-2 text-sm text-muted">
+                We&apos;re putting the finishing touches on our membership plans. Check back shortly, or
+                reach out to us directly to learn more.
+              </p>
+              <Button href="https://wa.me/919999999999" variant="primary" className="mt-6">
+                <MessageCircle size={18} aria-hidden="true" /> Talk to Us on WhatsApp
+              </Button>
+            </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-3">
+              {plans.map((plan) => (
+                <div
+                  key={plan._id}
+                  className={`flex flex-col rounded-xl2 bg-white p-8 ${
+                    plan.featured ? 'border-2 shadow-lg' : 'border'
+                  } ${THEME_BORDER[plan.theme] || 'border-line'}`}
                 >
-                  {plan.ctaLabel} <ArrowRight size={18} aria-hidden="true" />
-                </Button>
-              </div>
-            ))}
-          </div>
+                  {plan.featured && (
+                    <Badge tone="accent" className="mb-4 w-fit">
+                      <Crown size={12} className="mr-1 -ml-0.5" aria-hidden="true" />
+                      {plan.badgeLabel || 'Most Popular'}
+                    </Badge>
+                  )}
+                  {plan.image?.url && (
+                    // eslint-disable-next-line @next/next/no-img-element -- locally-uploaded file, not an optimizable remote image
+                    <img
+                      src={plan.image.url}
+                      alt={plan.image.alt || ''}
+                      className="mb-4 h-12 w-12 rounded-lg object-cover"
+                    />
+                  )}
+                  <h3 className="font-display text-xl font-bold text-primary-dark">{plan.name}</h3>
+                  <p className="mt-2 text-sm text-muted">{plan.shortDescription}</p>
+
+                  <div className="mt-6 flex items-baseline gap-2">
+                    <span className="font-display text-3xl font-bold text-primary-dark">
+                      {formatPrice(plan)}
+                    </span>
+                    {plan.price > 0 && (
+                      <span className="text-sm text-muted">/ {billingPeriodLabel(plan.billingPeriod).toLowerCase()}</span>
+                    )}
+                  </div>
+                  {plan.discountPercentage > 0 && (
+                    <Badge tone="sage" className="mt-2 w-fit">{plan.discountPercentage}% member discount applied</Badge>
+                  )}
+
+                  <ul className="mt-6 flex-1 space-y-3">
+                    {plan.benefits.map((benefit) => (
+                      <li key={benefit} className="flex items-start gap-3">
+                        <Check size={18} className="mt-0.5 shrink-0 text-primary" aria-hidden="true" />
+                        <span className="text-sm text-ink">{benefit}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Button
+                    href={plan.ctaUrl || plan.externalUrl || '#'}
+                    variant={plan.featured ? 'accent' : 'primary'}
+                    className="mt-8 w-full"
+                  >
+                    {plan.ctaLabel || 'Join Now'} <ArrowRight size={18} aria-hidden="true" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

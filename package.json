@@ -9,7 +9,8 @@
     "lint": "next lint",
     "seed:admin": "node scripts/createAdmin.mjs",
     "seed:team": "node scripts/seedTeam.mjs",
-    "seed:products": "node scripts/seedProducts.mjs"
+    "seed:products": "node scripts/seedProducts.mjs",
+    "seed:membership": "node scripts/seedMembership.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
