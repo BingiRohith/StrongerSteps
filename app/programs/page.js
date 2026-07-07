@@ -63,7 +63,7 @@ export default function ProgramsPage() {
                 </span>
                 <h3 className="mt-3 font-display text-base font-semibold text-primary-dark">{title}</h3>
                 <p className="mt-2 flex-1 text-sm text-muted">{description}</p>
-                <Button href="/join#workshops" variant="outline" className="mt-5">Register Interest</Button>
+                <Button href="https://wa.me/919999999999" variant="outline" className="mt-5">Register Interest</Button>
               </div>
             ))}
           </div>

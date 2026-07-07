@@ -4,7 +4,7 @@ import { Footprints, Youtube, Instagram, Facebook, MessageCircle } from 'lucide-
 const SOCIAL_LINKS = [
   { label: 'YouTube', href: 'https://youtube.com', icon: Youtube },
   { label: 'Instagram', href: 'https://instagram.com', icon: Instagram },
-  { label: 'WhatsApp Community', href: '/join', icon: MessageCircle },
+  { label: 'Membership', href: '/join', icon: MessageCircle },
   { label: 'Facebook', href: 'https://facebook.com', icon: Facebook },
 ];
 
@@ -29,11 +29,11 @@ const FOOTER_COLUMNS = [
     ],
   },
   {
-    title: 'Join Us',
+    title: 'Membership',
     links: [
-      { label: 'Join the Community', href: '/join#community' },
-      { label: 'Attend Workshops', href: '/join#workshops' },
-      { label: 'Partner With Us', href: '/join#partner' },
+      { label: 'Membership Plans', href: '/join#plans' },
+      { label: 'Why Join', href: '/join#benefits' },
+      { label: 'Recipes', href: '/recipes' },
     ],
   },
 ];

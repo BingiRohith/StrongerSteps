@@ -19,21 +19,21 @@ Integration. This matches the codebase — see
 
 | CRS § | Requirement | Status | Notes |
 |---|---|---|---|
-| §4 | Homepage header: "Join Our Community" → "Take Your First Step" | **Not done** | Verified — [`app/page.js:206`](../app/page.js) still reads "Join Our Community". |
-| §4 | Header button redirects to editable "Membership Packages" | **Not done** | No Membership module exists yet (blocked on §8). |
-| §4 | Add "Recipes" to main navigation | **Not done** | No Recipes route/nav entry exists. |
-| §4 | Join Us page: replace "Join Community" content with "Membership Packages" | **Not done** | [`app/join/page.js`](../app/join/page.js) still has its original Join Community content. |
-| §4 | Homepage membership CTAs redirect to "Membership Details" | **Not done** | Depends on §8. |
-| §5 | "Why It Matters" — hand illustration, 5 fingers = 5 existing points | **Not done** | Section exists at [`app/page.js:220`](../app/page.js) with its current layout; illustration not built. Reuse the 5 existing content blocks — do not rewrite the copy. |
-| §6 | "Our Vision" — rename to "What Stronger Steps Actually Look Like", house illustration (roof + 4 pillars) | **Not done** | Section exists at [`app/page.js:244`](../app/page.js); still uses card layout. Reuse the 4 existing vision statements as pillars. |
-| §7 | "What We Do" — rename to "Four Ways We Support Your Stronger Steps", real photos not illustrations | **Not done** | Section exists at [`app/page.js:269`](../app/page.js). |
-| §8 | Membership Module (full CMS: name, description, price, discount, duration, benefits, image, display order, status, featured, CTA + external URL) | **Not started** | No model, no admin routes, no public pages. Biggest single gap against the CRS. |
+| §4 | Homepage header: "Join Our Community" → "Take Your First Step" | **Done** | [`components/Header.js`](../components/Header.js), [`app/page.js`](../app/page.js) — all CTAs renamed, still `href="/join"`. |
+| §4 | Header button redirects to editable "Membership Packages" | **Partial** | Redirects to `/join`, now a Membership entry page — but it's a static placeholder array, not admin-editable (blocked on §8 CMS). |
+| §4 | Add "Recipes" to main navigation | **Done** | [`components/Header.js`](../components/Header.js) nav + [`app/recipes/page.js`](../app/recipes/page.js) (temporary placeholder page, no CMS yet). |
+| §4 | Join Us page: replace "Join Community" content with "Membership Packages" | **Done** | [`app/join/page.js`](../app/join/page.js) rewritten — free/community/plus/family placeholder plans, benefits section. Old community/workshops/partnerships content removed. |
+| §4 | Homepage membership CTAs redirect to "Membership Details" | **Done** | All homepage CTAs point to `/join`, which is now the Membership page. |
+| §5 | "Why It Matters" — hand illustration, 5 fingers = 5 existing points | **Done** | [`components/WhyItMattersHand.js`](../components/WhyItMattersHand.js), used at [`app/page.js`](../app/page.js). The 5 existing content blocks are reused unchanged. |
+| §6 | "Our Vision" — rename to "What Stronger Steps Actually Look Like", house illustration (roof + 4 pillars) | **Done** | [`components/VisionHouse.js`](../components/VisionHouse.js). The 4 existing vision statements are reused unchanged as pillars. |
+| §7 | "What We Do" — rename to "Four Ways We Support Your Stronger Steps", real photos not illustrations | **Done** | [`app/page.js`](../app/page.js) — heading renamed, content replaced with the CRS-mandated 4 items (External CSR Programs/Personal Care/Social Activities/Following Our Loved Ones), each with a temporary placeholder photo (real photography or a future media library can swap the `image` path in). |
+| §8 | Membership Module (full CMS: name, description, price, discount, duration, benefits, image, display order, status, featured, CTA + external URL) | **Not started** | No model, no admin routes. [`app/join/page.js`](../app/join/page.js) is a static placeholder shaped for this future model — explicitly out of scope for Sprint 10. Biggest single gap against the CRS. |
 | §9 | Products Module | **Done** for CRS's "already implemented" list. Future roadmap items (inventory, checkout, coupons, shipping, orders, payments) — **not started**. `stockStatus` (in-stock/out-of-stock) is a simple flag, not real inventory tracking. |
 | §10 | Programs page replaced with Monthly Event Calendar + Events CMS + booking flow | **Not started** | [`app/programs/page.js`](../app/programs/page.js) is still static placeholder content. No Event model, no calendar UI, no booking form, no payment step. |
 | §11 | Team page: organizational tree (Roots=Founders, Branches=Departments, Leaves=Members) | **Not started** | Team CMS itself (CRUD, images, designation, display order) is done, but `models/Team.js` has **no `department` field** — needed for the tree's branch level — and the About page renders a flat/grid list, not a tree. |
 | §12 | Knowledge Center (Blogs, Infographics, search, categories, downloads, preview) | **Done**. Future: Recipes integration — blocked on §14. |
 | §13 | "Work With Us": remove Partnership section, keep careers content | **Not done** | Verified — the "Partnerships" / "Work with us" section is at [`app/join/page.js:139`](../app/join/page.js). Careers content elsewhere on that page should stay. |
-| §14 | Recipes Module (full CMS + public browse/search/filter) | **Not started** | No model, route, or page. |
+| §14 | Recipes Module (full CMS + public browse/search/filter) | **Not started** | [`app/recipes/page.js`](../app/recipes/page.js) is a temporary "coming soon" placeholder (Sprint 10, nav entry only) — no model, admin routes, or real content yet. |
 | §15 | Admin Dashboard manages Blogs/Infographics/Products/Team/Memberships/Programs/Recipes/Events/Pricing/Categories/Media | **Partial** | Blogs/Infographics/Products/Team done. Memberships, Programs/Events, Recipes not started. Categories is API-only, no management UI (see [07_ADMIN_MODULES.md](07_ADMIN_MODULES.md)). No dedicated Media library — uploads are per-module folders, not a reusable/browsable library. |
 | §16 | Payment Roadmap (UPI, Cards, QR, gateway, invoices, receipts, refunds) | **Not started** | Explicitly a future item in the CRS itself. |
 | §17 | Communication (Email, SMS, WhatsApp confirmations/reminders) | **Not started** | Explicitly future in the CRS. |
@@ -46,14 +46,17 @@ Integration. This matches the codebase — see
 ## Recommended sprint sequencing
 
 The CRS doesn't mandate an order beyond its own Phase 2/3/4 grouping (§22).
+Sprint 10 closed the homepage/navigation/Membership-entry-page item below.
 Given current gaps, the highest-leverage next sprints (pending client/user
 confirmation) are:
 
-1. **Homepage copy + navigation updates** (§4 text swaps, Recipes nav entry) — low risk, no new models, closes several CRS items at once.
-2. **Membership Module** (§8) — unblocks the homepage CTA and Join page changes in the same sprint's family.
+1. ~~**Homepage copy + navigation updates**~~ — done in Sprint 10.
+2. **Membership Module** (§8) — the static placeholder plans on `/join`
+   (Sprint 10) are ready to be swapped for a real model + admin CRUD +
+   public fetch, following the Products/Team pattern.
 3. **Team org-tree layout** (§11) — needs a `department` field added to `models/Team.js` plus a new tree presentation component; existing CMS data is reused as-is.
 4. **Programs → Calendar/Events/Booking** (§10) — the largest single build (calendar UI, Event model, booking flow, payment step) — likely its own multi-sprint effort.
-5. **Recipes Module** (§14) — new CMS, same established content-module pattern (see [08_CODING_STANDARDS.md](08_CODING_STANDARDS.md)).
+5. **Recipes Module** (§14) — new CMS, same established content-module pattern (see [08_CODING_STANDARDS.md](08_CODING_STANDARDS.md)). Sprint 10 added only a temporary placeholder page and nav entry.
 
 Do not start any of the above without first confirming scope/sequencing with
 the user, per the CRS governance rule now in effect.

@@ -1,5 +1,91 @@
 # Changelog
 
+## Sprint 10: Homepage, Navigation & Membership Entry Page — 2026-07-07
+
+Scope (per `docs/03_CLIENT_REQUIREMENTS.md` §4–7, strictly limited to
+homepage/navigation/membership-entry-page — no Membership CMS, Programs
+Calendar, Recipes CMS, Team tree, or payments in this sprint).
+
+### Added
+- **`app/join/page.js` rewritten as the Membership entry page** — replaces
+  the old "Join Community" content (free WhatsApp community, workshop
+  registration form, partnerships) entirely, per CRS §4's explicit
+  instruction to replace Join Us content with Membership Packages. New
+  `MEMBERSHIP_PLANS` placeholder array (Community/Plus/Family, 3 realistic
+  plans) uses field names that deliberately mirror the future Membership
+  model (CRS §8: name, description, price, discount, duration, benefits,
+  displayOrder, status, featured, ctaLabel, externalUrl) so it can be
+  swapped for a real CMS fetch later without touching the page layout — the
+  same static-array-first pattern Products/Team used before their CMS
+  existed. CTA buttons currently point to a placeholder WhatsApp contact
+  link (no real payment/membership platform exists yet). New `#plans` and
+  `#benefits` section anchors.
+- **`app/recipes/page.js`** — temporary "coming soon" placeholder for the
+  new Recipes nav entry, listing preview categories and the future
+  search/filter/tag capabilities (CRS §14). No CMS, model, or API — just a
+  route so the nav link resolves to a real page, matching the existing
+  `ComingSoonCard` placeholder convention already used on Programs/Knowledge
+  Center.
+- **`components/WhyItMattersHand.js`** — hand illustration for the homepage
+  "Why It Matters" section: a shared "palm" band as the foundation with five
+  finger columns rising from it, one per existing content point. Content
+  (the 5 `WHY_IT_MATTERS` items in `app/page.js`) is unchanged — only the
+  layout replacing the old plain 5-card grid.
+- **`components/VisionHouse.js`** — house illustration for "Our Vision": a
+  roof band reading "Stronger Steps" over four pillar columns, one per
+  existing vision point. Content (`OUR_VISION` in `app/page.js`) unchanged.
+
+### Modified
+- **`components/Header.js`** — added a "Recipes" nav link; both desktop and
+  mobile "Join Our Community" buttons renamed to "Take Your First Step"
+  (still `href="/join"`); the "Join Us" dropdown's 3 items (which pointed at
+  `#community`/`#workshops`/`#partner`, all now removed from the page) were
+  replaced with 2 items pointing at the new page's `#plans`/`#benefits`
+  anchors.
+- **`components/Footer.js`** — "Join Us" footer column renamed
+  "Membership" with links updated to match (`#plans`, `#benefits`, plus a
+  new Recipes link); the social-row "WhatsApp Community" entry relabeled
+  "Membership" (still links to `/join`).
+- **`components/ui.js`** — `Badge` now accepts an optional `className` (was
+  silently dropped before, including on the pre-existing
+  `app/programs/page.js:119` usage); needed for the new plan-card badges on
+  the Membership page.
+- **`app/page.js`** — Hero and Final CTA buttons renamed "Join Our
+  Community"/"Join Community" → "Take Your First Step" (both already
+  `href="/join"`, unchanged). "Our Vision" heading renamed "What Stronger
+  Years Actually Look Like" → "What Stronger Steps Actually Look Like" and
+  its card grid replaced with `VisionHouse`. "What We Do" heading renamed
+  "Four Ways We Support Your Stronger Years" → "...Stronger Steps"; per CRS
+  §7 its 4 items were replaced (not just relabeled) with the CRS-mandated
+  External CSR Programs / Personal Care / Social Activities / Following Our
+  Loved Ones, each now showing a temporary placeholder photo (Lorem Picsum,
+  seeded/stable URLs) instead of an icon — real photography (or a future
+  media library) can replace the `image` path with no other changes needed.
+  "Why It Matters" grid replaced with `WhyItMattersHand`; its 5 content
+  items are untouched.
+- **`app/programs/page.js`** — the "Register Interest" button pointed at
+  `/join#workshops`, which no longer exists now that Join Us is the
+  Membership page; repointed to the same placeholder WhatsApp link used
+  elsewhere on the site rather than leaving a dead anchor.
+
+### Notes from verification
+- `npm run build` passes (all existing routes still build; new `/recipes`
+  and rewritten `/join` build static).
+- Verified in-browser with `npm run dev`: homepage renders the new hand/house
+  illustrations and updated CTAs, `/join` renders all 3 membership plans with
+  working anchors, `/recipes` renders the placeholder categories, mobile nav
+  (375px) opens and its Join Us submenu shows the new Membership Plans/Why
+  Join items, no console errors, all placeholder images (Lorem Picsum)
+  returned 200.
+- Grepped the whole `app/`/`components/` tree for any remaining
+  `/join#community`, `/join#workshops`, `/join#partner`, or old CTA copy —
+  none left.
+- Admin login/CRUD modules (Blogs/Infographics/Products/Team) were not
+  touched this sprint and were not re-tested; no code path in this sprint
+  intersects them.
+
+---
+
 ## Sprint: Products Pricing & E-commerce Card — 2026-07-07
 
 Follow-up to the Products Module sprint below. Fixes the image bug found

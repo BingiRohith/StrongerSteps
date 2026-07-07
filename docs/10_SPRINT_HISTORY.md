@@ -20,7 +20,8 @@ distinct git history, only as CHANGELOG section headers.
 | — | Infographics Module | 2026-07-02 | `Infographic` model + full admin CRUD + image/PDF upload, public gallery + view/download modal. |
 | 8 | Team management module and dynamic About page | (commit `e5fd672`) | `Team` model + full admin CRUD + photo upload; About page's team roster became DB-driven. |
 | 9 | Products Module | 2026-07-06 | `Product` model + full admin CRUD, closed 3-category enum, `lib/localUpload.js` extracted, public `/products` page became DB-driven (replacing 9 hardcoded items), `scripts/seedProducts.mjs`. |
-| 9 (follow-up) | Products Pricing & E-commerce Card | 2026-07-07 | Fixed a product-image rendering bug, added `originalPrice`/`sellingPrice`/`discountPercentage`/`stockStatus`/`featured` fields with server-derived discount math (`lib/productPricing.js`), new `ProductCard` public component (checkout still non-functional/"coming soon"). Latest sprint as of this doc. |
+| 9 (follow-up) | Products Pricing & E-commerce Card | 2026-07-07 | Fixed a product-image rendering bug, added `originalPrice`/`sellingPrice`/`discountPercentage`/`stockStatus`/`featured` fields with server-derived discount math (`lib/productPricing.js`), new `ProductCard` public component (checkout still non-functional/"coming soon"). |
+| 10 | Homepage, Navigation & Membership Entry Page | 2026-07-07 | CRS §4–7 only. Header/homepage CTAs renamed to "Take Your First Step", "Recipes" nav entry + temporary placeholder page, `app/join/page.js` rewritten as a static-placeholder Membership entry page (fields shaped for the future Membership CMS but no model/API/admin yet), new `WhyItMattersHand`/`VisionHouse` illustration components (existing 5/4 content points reused unchanged), "What We Do" content replaced per CRS with real (placeholder) photos. Latest sprint as of this doc. |
 
 ## Recurring verification gaps across sprints
 

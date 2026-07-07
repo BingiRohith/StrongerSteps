@@ -29,7 +29,7 @@ export function Button({ href, children, variant = 'primary', className = '', ..
   );
 }
 
-export function Badge({ children, tone = 'accent' }) {
+export function Badge({ children, tone = 'accent', className = '' }) {
   const tones = {
     accent: 'bg-accent-soft text-accent-dark',
     sage: 'bg-sage text-primary-dark',
@@ -38,7 +38,7 @@ export function Badge({ children, tone = 'accent' }) {
   };
   return (
     <span
-      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${tones[tone]}`}
+      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${tones[tone]} ${className}`}
     >
       {children}
     </span>

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Footprints, Menu, X, ChevronDown, BookOpen, BarChart2, Image, Wrench, FolderOpen, Dumbbell, ShoppingBag, Users, HelpCircle, UserPlus, Calendar, Handshake } from 'lucide-react';
+import { Footprints, Menu, X, ChevronDown, BookOpen, BarChart2, Image, Wrench, FolderOpen, Dumbbell, ShoppingBag, Users, HelpCircle, Calendar, Crown, HandHeart } from 'lucide-react';
 import { Button } from '@/components/ui';
 
 const NAV_LINKS = [
@@ -29,6 +29,7 @@ const NAV_LINKS = [
     ],
   },
   { href: '/products', label: 'Products' },
+  { href: '/recipes', label: 'Recipes' },
   {
     label: 'About Us',
     href: '/about',
@@ -42,9 +43,8 @@ const NAV_LINKS = [
     label: 'Join Us',
     href: '/join',
     dropdown: [
-      { href: '/join#community', label: 'Join the Community', icon: UserPlus, desc: 'Free WhatsApp & events' },
-      { href: '/join#workshops', label: 'Attend Workshops', icon: Calendar, desc: 'Live sessions in Hyderabad' },
-      { href: '/join#partner', label: 'Partner With Us', icon: Handshake, desc: 'Collaborate & grow together' },
+      { href: '/join#plans', label: 'Membership Plans', icon: Crown, desc: 'Compare pricing & benefits' },
+      { href: '/join#benefits', label: 'Why Join', icon: HandHeart, desc: 'What membership includes' },
     ],
   },
 ];
@@ -167,7 +167,7 @@ export default function Header() {
 
         <div className="hidden lg:block">
           <Button href="/join" variant="primary">
-            Join Our Community
+            Take Your First Step
           </Button>
         </div>
 
@@ -263,7 +263,7 @@ export default function Header() {
 
             <div className="mt-3 px-1">
               <Button href="/join" variant="primary" className="w-full">
-                Join Our Community
+                Take Your First Step
               </Button>
             </div>
           </div>

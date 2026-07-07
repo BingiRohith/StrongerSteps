@@ -3,7 +3,6 @@ import {
   Users,
   ShieldAlert,
   BatteryLow,
-  Footprints,
   Star,
   ArrowRight,
   Calendar,
@@ -15,11 +14,12 @@ import {
   Zap,
   PersonStanding,
   HeartHandshake,
-  Plane,
 } from 'lucide-react';
 import { Button, Badge, Eyebrow, SectionHeading } from '@/components/ui';
 import StepDivider from '@/components/StepDivider';
 import HeroSteps from '@/components/HeroSteps';
+import WhyItMattersHand from '@/components/WhyItMattersHand';
+import VisionHouse from '@/components/VisionHouse';
 
 const WHY_IT_MATTERS = [
   {
@@ -77,30 +77,33 @@ const OUR_VISION = [
   },
 ];
 
+// Temporary royalty-free placeholder photos (Lorem Picsum). Swap these
+// `image` paths for real photography — or a future admin-managed media
+// library — whenever it's ready; nothing else about this array needs to change.
 const WHAT_WE_DO = [
   {
-    icon: Dumbbell,
-    title: 'Exercise Programs',
+    image: 'https://picsum.photos/seed/stronger-steps-csr/600/450',
+    title: 'External CSR Programs',
     description:
-      'Safe, structured movement for ages 50+ — from gentle mobility routines to progressive strength training designed to rebuild function, not just fitness.',
+      'We partner with corporates and organisations on wellness initiatives for adults 50+ and employees supporting aging parents.',
   },
   {
-    icon: Plane,
-    title: 'Travel',
+    image: 'https://picsum.photos/seed/stronger-steps-personal-care/600/450',
+    title: 'Personal Care',
     description:
-      'We help you prepare physically and mentally for travel — so age doesn\'t stop you from seeing the places and people you love.',
+      'Safe, structured movement and health guidance for ages 50+ — from gentle mobility routines to progressive strength training designed to rebuild function.',
   },
   {
-    icon: Users,
+    image: 'https://picsum.photos/seed/stronger-steps-social/600/450',
     title: 'Social Activities',
     description:
       'Group events, community walks, and peer gatherings that keep you connected, motivated, and surrounded by people who understand the journey.',
   },
   {
-    icon: Footprints,
-    title: 'Going Out Alone',
+    image: 'https://picsum.photos/seed/stronger-steps-loved-ones/600/450',
+    title: 'Following Our Loved Ones',
     description:
-      'Rebuilding the confidence to step outside independently — to the market, the temple, the park — is one of our most meaningful outcomes.',
+      'Supporting families in staying close to aging parents and relatives — with guidance, check-ins, and tools that bring peace of mind to everyone involved.',
   },
 ];
 
@@ -203,7 +206,7 @@ export default function HomePage() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button href="/join" variant="primary">
-                Join Our Community
+                Take Your First Step
                 <ArrowRight size={18} aria-hidden="true" />
               </Button>
               <Button href="/knowledge-center" variant="outline">
@@ -225,17 +228,7 @@ export default function HomePage() {
             title="The years after 50 bring real, but manageable, challenges"
             description="These are the five things we hear most — every one of them is a warning sign you can act on early."
           />
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
-            {WHY_IT_MATTERS.map(({ icon: Icon, title, description }) => (
-              <div key={title} className="rounded-xl2 bg-white/10 p-6">
-                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent text-primary-dark">
-                  <Icon size={22} aria-hidden="true" />
-                </span>
-                <h3 className="mt-4 font-display text-lg font-semibold">{title}</h3>
-                <p className="mt-2 text-sm text-white/75">{description}</p>
-              </div>
-            ))}
-          </div>
+          <WhyItMattersHand items={WHY_IT_MATTERS} />
         </div>
       </section>
 
@@ -246,21 +239,11 @@ export default function HomePage() {
         <div className="mx-auto max-w-content px-6 py-16 md:py-24">
           <SectionHeading
             eyebrow="Our vision"
-            title="What stronger years actually look like"
+            title="What Stronger Steps Actually Look Like"
             description="These are the four outcomes we build every programme, tool, and community event around."
             align="center"
           />
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {OUR_VISION.map(({ icon: Icon, title, description }, i) => (
-              <div key={title} className="rounded-xl2 bg-sage p-6 text-center">
-                <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white">
-                  <Icon size={24} aria-hidden="true" />
-                </span>
-                <h3 className="mt-4 font-display text-xl font-bold text-primary-dark">{title}</h3>
-                <p className="mt-2 text-sm text-muted">{description}</p>
-              </div>
-            ))}
-          </div>
+          <VisionHouse items={OUR_VISION} />
         </div>
       </section>
 
@@ -271,19 +254,22 @@ export default function HomePage() {
         <div className="mx-auto max-w-content px-6 py-16 md:py-24">
           <SectionHeading
             eyebrow="What we do"
-            title="Four ways we support your stronger years"
+            title="Four Ways We Support Your Stronger Steps"
             align="center"
           />
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {WHAT_WE_DO.map(({ icon: Icon, title, description }) => (
-              <div key={title} className="rounded-xl2 bg-white p-6 shadow-sm">
-                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-light/20 text-primary">
-                  <Icon size={22} aria-hidden="true" />
-                </span>
-                <h3 className="mt-4 font-display text-base font-semibold text-primary-dark">
-                  {title}
-                </h3>
-                <p className="mt-2 text-sm text-muted">{description}</p>
+            {WHAT_WE_DO.map(({ image, title, description }) => (
+              <div key={title} className="flex flex-col overflow-hidden rounded-xl2 bg-white shadow-sm">
+                <div className="aspect-[4/3] w-full overflow-hidden bg-sage">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- temporary placeholder photo, not an optimizable local asset */}
+                  <img src={image} alt="" className="h-full w-full object-cover" />
+                </div>
+                <div className="p-6">
+                  <h3 className="font-display text-base font-semibold text-primary-dark">
+                    {title}
+                  </h3>
+                  <p className="mt-2 text-sm text-muted">{description}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -362,7 +348,7 @@ export default function HomePage() {
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button href="/join" variant="accent">
               <Users size={18} aria-hidden="true" />
-              Join Community
+              Take Your First Step
             </Button>
             <Button href="/programs" variant="outlineLight">
               <Calendar size={18} aria-hidden="true" />
