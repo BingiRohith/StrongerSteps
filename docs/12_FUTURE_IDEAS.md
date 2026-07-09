@@ -29,6 +29,22 @@ Treat these as the client's actual long-range plan, not brainstorming — see
   supports list + create; the CRS (§15) expects Categories to be part of
   what the client manages from Admin, so this should be prioritized
   alongside other CRS work rather than treated as pure nice-to-have.
+- **`app/api/bookings/route.js`'s seat-decrement rollback isn't
+  transactional** (Sprint 12). If `Booking.create()` fails after the
+  atomic `availableSeats` decrement, the route issues a separate `$inc`
+  rollback call — safe under normal conditions (matches the pattern used
+  everywhere else in this codebase, which doesn't use MongoDB sessions/
+  transactions), but a process crash between those two calls would leak
+  one seat permanently. Worth revisiting with a MongoDB transaction if
+  concurrent booking volume grows enough to make this a real risk;
+  low-priority today given Atlas replica-set overhead and the rarity of
+  the failure window.
+- **`Event.slug`** (Sprint 12) has no uniqueness constraint and no admin
+  UI yet — it's an inert, reserved field. When a future sprint builds the
+  SEO event detail page this field is meant for, add a **sparse** unique
+  index (not a plain `unique: true`) — every existing event currently
+  defaults to `slug: ''`, and a non-sparse unique index would start
+  rejecting the second event saved once one exists.
 
 ## Not mentioned in the CRS — needs explicit confirmation before any work
 

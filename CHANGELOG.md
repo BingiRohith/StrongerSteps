@@ -1,5 +1,187 @@
 # Changelog
 
+## Sprint 12: Programs Calendar & Event Management — 2026-07-08
+
+Scope (per `docs/03_CLIENT_REQUIREMENTS.md` §10, narrowed by this sprint's
+explicit non-goals). Replaces the static `/programs` page with a monthly
+event calendar backed by a new Events CMS, plus a seat-tracked booking
+flow. Payment (Card/UPI/QR), SMS/email confirmation, and member-pricing
+automation are explicitly out of scope this sprint (see "CRS assumptions"
+below) — the CRS itself lists these as future items. No Team org-tree or
+Recipes CMS work in this sprint.
+
+### Fixed (production-readiness verification pass, 2026-07-08)
+- **`app/api/admin/events/route.js` / `.../[id]/route.js`** — neither route
+  nor the `Event` schema enforced `availableSeats ≤ maxSeats`. An admin
+  could set `availableSeats` higher than `maxSeats` on create, or shrink
+  `maxSeats` below the existing `availableSeats` on update, letting the
+  public booking flow oversell an event beyond its real capacity. Added
+  the same cross-field validation Product already uses for
+  `sellingPrice ≤ originalPrice`; `EventForm.js`'s client-side `validate()`
+  now mirrors the same check for immediate feedback.
+- **`components/programs/ProgramsCalendar.js`** — the calendar's prev/next
+  month buttons had an empty `aria-label` (react-calendar doesn't default
+  one), so screen readers announced nothing meaningful for them. Added
+  `prevAriaLabel="Previous month"` / `nextAriaLabel="Next month"`.
+- **`components/Header.js`** — removed two now-fully-unused icon imports
+  (`Calendar`, `ShoppingBag`) left over from Sprint 10, found and confirmed
+  dead during this pass; both were already unused before this sprint,
+  cleaned up here since this sprint had already touched the same import
+  line (removing `Dumbbell`) — no functional change.
+- Confirmed no other race condition beyond what's already documented in
+  `app/api/bookings/route.js`'s own comments: the atomic `findOneAndUpdate`
+  guard (`availableSeats: {$gt: 0}`) is the actual correctness boundary for
+  concurrent bookings, verified by two back-to-back bookings against a
+  2-seat test event (seats decremented correctly, third attempt rejected
+  409) and by re-testing the registration-window rejections (both return
+  friendly 400 errors and leave `availableSeats` untouched).
+- Documented (no code change) two known limitations for future sprints —
+  see `docs/12_FUTURE_IDEAS.md`: the seat-decrement rollback in
+  `app/api/bookings/route.js` isn't wrapped in a MongoDB transaction (a
+  process crash mid-rollback could leak one seat — accepted as low-risk,
+  consistent with the rest of the codebase not using transactions), and
+  `Event.slug` has no uniqueness index yet (needs to be **sparse** when
+  added, since every event currently defaults to `slug: ''`).
+- Added a `docs/13_DECISIONS.md` entry recording `react-calendar` as an
+  explicit, approved exception to `08_CODING_STANDARDS.md`'s "no new
+  dependency for something hand-rolled code can do" convention.
+
+### Added
+- **`models/Event.js`** — new collection for the `/programs` calendar.
+  Mirrors `models/Product.js`/`models/Team.js` (`draft`/`published`
+  lifecycle with `publishedAt` stamping, single `image` sub-document,
+  `displayOrder`-driven sort, text index). Fields: `title`,
+  `shortDescription`, `fullDescription` (optional), `eventType` (closed
+  enum, informational only), `image`, `eventDate`, `startTime`/`endTime`
+  (`HH:MM` strings), `location`, `mapLink` (optional), `hostName`,
+  `hostImage` (optional), `price`, `memberDiscountPercentage`, `maxSeats`,
+  `availableSeats` (defaults to `maxSeats` on creation, then directly
+  admin-managed and booking-decremented), `status`, `displayOrder`,
+  `featured`, `registrationOpens`/`registrationCloses` (optional booking
+  window), `publishedAt`, `author`, plus two fields reserved for later
+  sprints and unused today: `slug` (future SEO detail page) and the
+  `eventType` categorization (no filtering UI yet).
+- **`models/Booking.js`** — new collection, one row per "Book Your Seat"
+  submission. Fields: `event` (ref), `memberId` (ref, optional/unused —
+  reserved for future membership-account linking), `bookingReference`
+  (unique, `SS-YYYYMMDD-0001` format), `name`, `mobile`, `email`, `notes`
+  (optional/unused — reserved for future attendee requirements), `bookingDate`,
+  `price`/`memberDiscount`/`finalAmount` (snapshots taken at booking time),
+  `bookingStatus`. `bookingStatus` uses a 4-value enum
+  (`pending`/`confirmed`/`cancelled`/`expired`) rather than a simple flag so
+  a future payment integration slots in without a schema change — this
+  sprint creates bookings directly as `confirmed` since there's no payment
+  step yet.
+- **`lib/eventOptions.js`** — closed `EVENT_TYPE_VALUES` set, kept out of
+  the model file (unlike inlining directly in the schema) so the admin
+  form's client component can import it without pulling `mongoose` into
+  the browser bundle — same reasoning as `lib/membershipOptions.js`.
+- **`lib/eventFormat.js`** — `toDateKey()`/`eventDateKey()` (day-grouping
+  helpers — `eventDateKey` specifically reads `eventDate` as a UTC calendar
+  day since it's a date-only value stored as UTC midnight, avoiding an
+  off-by-one-day bug if server/browser timezones differ) and
+  `formatTime12h()`/`formatTimeRange()`.
+- **`lib/eventValidation.js`** — `isValidEmail`/`isValidMobile`, shared by
+  the booking API route and the client booking form.
+- **`lib/publicEvents.js`** — `getPublishedEventsForMonth(year, month)`,
+  hard-scoped to `status: 'published'`, month boundaries built in UTC to
+  match how `eventDate` is stored. Mirrors `lib/publicMembership.js`.
+- **`lib/bookingReference.js`** — `generateBookingReference()`, a per-day
+  sequence formatted as `SS-YYYYMMDD-0001`; the unique index on
+  `bookingReference` is the actual correctness guard, this is just for a
+  human-readable number.
+- **Admin API** — `app/api/admin/events/route.js` (GET list with
+  status/search filters, POST create), `.../[id]/route.js`
+  (GET/PUT/DELETE), `.../[id]/status/route.js` (PATCH publish toggle),
+  `.../upload/route.js` (image upload via `lib/localUpload.js`, reused for
+  both the event image and the host photo).
+- **Public API** — `app/api/events/route.js` (GET `?year&month`,
+  published-only, one month at a time) and `app/api/bookings/route.js`
+  (POST, public, atomically decrements `availableSeats` with a
+  `findOneAndUpdate({availableSeats:{$gt:0}})` guard so two concurrent
+  bookings can't both take the last seat, then creates the `Booking` with
+  a retry-on-duplicate-key loop around the reference generation).
+- **Admin UI** — `/admin/events` (list), `/admin/events/new`,
+  `/admin/events/[id]/edit`. `EventsListClient.js` combines
+  `ProductsListClient.js`'s Draft/Published status tabs with
+  `MembershipListClient.js`'s up/down reorder buttons. `EventForm.js`
+  mirrors `MembershipForm.js`'s two-column layout (basic info/date-time/
+  location/host/pricing-seats/registration-window sections, plus a
+  publish panel and event image upload on the right).
+- **Public UI** — `app/programs/page.js` rewritten as a server component
+  that fetches the current month's events and renders
+  `components/programs/ProgramsCalendar.js`, a `react-calendar`-based
+  monthly calendar (new dependency — chosen over hand-rolling month-grid
+  math; styled via `components/programs/calendar-theme.css` to match the
+  site's Tailwind palette) with `EventCard.js` (image, date/time, location,
+  host, price, seats, Featured badge, and a "Book Your Seat" /
+  "Fully Booked" / registration-window-aware button) and
+  `BookingModal.js` (Name/Mobile/Email form → success confirmation with
+  booking reference and summary).
+- **Admin dashboard** — added a "Programs" module tile and a "Programs
+  overview" stats row (Total Events, Upcoming Events, Active Events,
+  Bookings Count) computed directly with `Event.countDocuments`/
+  `Booking.countDocuments`.
+- **`package.json`** — added `react-calendar` dependency.
+
+### Modified
+- **`components/admin/AdminSidebar.js`** — added a "Programs" nav item
+  (`/admin/events`).
+- **`components/Header.js`** — the "Programs" nav dropdown linked to
+  `#fitness`/`#nutrition`/`#community` anchors on the old static page;
+  since that content is replaced, simplified it to a plain link (same
+  treatment as "Products").
+- **`app/programs/page.js`** — entire static content (hardcoded workshops,
+  locations, online programmes) removed and replaced per "Added" above.
+
+### CRS assumptions
+- CRS §10's booking flow includes a "Member?" step and a payment step
+  (Card/UPI/QR) between the booking form and seat confirmation. This
+  sprint's own field list for "Book Your Seat" only calls out Name/Mobile/
+  Email, and this sprint's non-goals explicitly exclude "Member Pricing
+  Automation" and all payment methods — so both are deferred; the booking
+  form omits the member step and no payment step exists yet. `Booking`
+  still stores `memberDiscount` (a snapshot of the event's configured
+  discount) so a future sprint can apply it without a schema change.
+- No seed script: the old static `/programs` content (workshops with no
+  real date/price/seat data) doesn't map onto the new `Event` schema, so
+  nothing is migrated — the calendar ships with a friendly empty state
+  instead of seeded data.
+- `Event.status` uses `draft`/`published` (not `active`/`inactive` like
+  Membership) since the CRS explicitly lists "Publish"/"Draft" for this
+  module.
+- Added `slug`, `eventType`, `memberId`, and `notes` fields beyond this
+  sprint's literal spec, at explicit request during planning — all
+  optional and unused by any UI this sprint, reserved for future SEO
+  detail pages, event categorization/reporting, membership-account
+  linking, and attendee special requirements respectively.
+
+### Notes from verification
+- `npm run build` passes cleanly; all new routes compile (3 admin pages, 6
+  API routes, 1 public API route).
+- Full CRUD and booking flow verified end-to-end against the live MongoDB
+  Atlas instance: logged into `/admin`, created/edited/reordered/deleted
+  events, toggled publish/draft and featured, uploaded an event image;
+  then on `/programs` navigated months, clicked a date, completed two
+  bookings against a 2-seat event (confirmed the seat count decremented
+  each time and the booking reference incremented sequentially,
+  `SS-20260708-0001`/`SS-20260708-0002`), confirmed the card switched to
+  "Fully Booked" and a third booking attempt was rejected server-side with
+  409. Test events/bookings were removed after verification.
+- Fixed a hydration mismatch during verification: `react-calendar` defaults
+  its date-label formatting to the environment's locale, which differed
+  between server and client; pinned `locale="en-IN"` on the `<Calendar>` to
+  make server and client rendering agree.
+- Verified no regression: `/admin/products`, `/admin/membership`,
+  `/admin/team` and their public pages still load and function correctly;
+  none of those modules' files were touched this sprint.
+- Checked `/programs` at mobile (375px) and desktop (1280px) — the
+  calendar/event-list split collapses to a single column on mobile. No
+  console errors at any point during verification (aside from the
+  hydration warning above, fixed before this note was written).
+
+---
+
 ## Sprint 11: Membership CMS — 2026-07-07
 
 Scope (per `docs/03_CLIENT_REQUIREMENTS.md` §8, plus a client-approved

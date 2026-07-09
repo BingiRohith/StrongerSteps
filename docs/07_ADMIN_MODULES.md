@@ -9,7 +9,10 @@ Admin panel lives at `/admin/*`, gated by [`middleware.js`](../middleware.js)
 ## Dashboard — `/admin/dashboard`
 
 Landing page after login. Greets the signed-in admin by name, links to each
-module. No data fetching beyond the current user.
+module. Also shows a "Programs overview" stats row (Total Events, Upcoming
+Events, Active Events, Bookings Count) computed directly with
+`Event.countDocuments`/`Booking.countDocuments` in the server component —
+the only module with live stats on this page so far.
 
 ## Blogs — `/admin/blogs`
 
@@ -78,6 +81,24 @@ module. No data fetching beyond the current user.
   featured toggle, badge label, plan colour/theme, display order, optional
   image upload, Save as Inactive / Activate actions.
 
+## Programs — `/admin/events`
+
+**Status: full CRUD, production-capable. No payment integration yet.**
+Sidebar/nav label is "Programs" (per CRS wording); routes and the
+underlying model are named "Event" (per the CRS's own field-level
+language). Booking management (viewing/cancelling individual bookings) has
+no admin UI yet — only the dashboard's aggregate "Bookings Count".
+
+- List (`EventsListClient.js`): mirrors `MembershipListClient.js`'s
+  reorder-buttons pattern combined with `ProductsListClient.js`'s
+  Draft/Published status tabs and toggle (Events use `draft`/`published`,
+  not `active`/`inactive`). Shows date/time/location/seats inline.
+- Create/Edit (`EventForm.js`): title, event type, short/full description,
+  event date + start/end time, location + optional Google Maps link, host
+  name + optional host photo, price, member discount %, maximum/available
+  seats, optional registration-opens/closes window, featured toggle,
+  display order, event image upload, Save as Draft / Publish actions.
+
 ## Categories — `/admin/categories`
 
 **Status: placeholder only.** Renders `PagePlaceholder` with a "Coming in a
@@ -93,4 +114,4 @@ edit/delete/reorder categories.
 - `AdminHeader.js` — page title, signed-in user info, logout button.
 - `PagePlaceholder.js` — shared "coming soon" block (used only by Categories today).
 - `StatusBadge.js` (in `components/admin/blogs/`, reused generically by Infographics/Products/Team lists) — Draft/Published pill.
-- `ImageUploadField.js` (in `components/admin/infographics/`, reused by Products) — click-to-upload-with-preview.
+- `ImageUploadField.js` (in `components/admin/infographics/`, reused by Products and Events — Events also reuses it a second time within the same form for the host photo) — click-to-upload-with-preview.

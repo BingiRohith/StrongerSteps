@@ -5,6 +5,21 @@ as of the 2026-07-07 documentation sprint — everything below Sprint 9 is
 reconstructed from code/CHANGELOG evidence, not from a prior decisions log
 (none existed).
 
+## 2026-07-08 — `react-calendar` added as a dependency, overriding the "no new deps" convention
+
+[08_CODING_STANDARDS.md](08_CODING_STANDARDS.md) says not to add a package
+for something hand-rolled code can do (citing the custom rich text editor
+and `lib/slugify.js`). Sprint 12's Programs calendar uses `react-calendar`
+instead of a hand-rolled month-grid utility.
+**Why:** explicit user instruction during Sprint 12 planning, given as a
+direct override of the default "prefer no new deps" convention — calendar
+month-grid/navigation/keyboard-accessibility edge cases were judged not
+worth re-deriving by hand for this feature.
+**How to apply:** treat this as a one-off, explicitly-approved exception,
+not a signal that the "no new deps" convention has generally relaxed —
+still default to no new dependency unless a future sprint gets the same
+kind of explicit instruction.
+
 ## 2026-07-07 — CRS replaced with verified, client-approved version; becomes single source of truth
 
 [03_CLIENT_REQUIREMENTS.md](03_CLIENT_REQUIREMENTS.md) was replaced with a

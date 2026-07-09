@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Footprints, Menu, X, ChevronDown, BookOpen, BarChart2, Image, Wrench, FolderOpen, Dumbbell, ShoppingBag, Users, HelpCircle, Calendar, Crown, HandHeart } from 'lucide-react';
+import { Footprints, Menu, X, ChevronDown, BookOpen, BarChart2, Image, Wrench, FolderOpen, Users, HelpCircle, Crown, HandHeart } from 'lucide-react';
 import { Button } from '@/components/ui';
 
 const NAV_LINKS = [
@@ -19,15 +19,7 @@ const NAV_LINKS = [
       { href: '/knowledge-center#resources', label: 'Resources', icon: FolderOpen, desc: 'Downloadable guides & sheets' },
     ],
   },
-  {
-    label: 'Programs',
-    href: '/programs',
-    dropdown: [
-      { href: '/programs#fitness', label: 'Fitness Programs', icon: Dumbbell, desc: 'Strength, balance & mobility' },
-      { href: '/programs#nutrition', label: 'Nutrition Plans', icon: BarChart2, desc: 'Eat well, live stronger' },
-      { href: '/programs#community', label: 'Community Sessions', icon: Users, desc: 'Group wellness activities' },
-    ],
-  },
+  { href: '/programs', label: 'Programs' },
   { href: '/products', label: 'Products' },
   { href: '/recipes', label: 'Recipes' },
   {

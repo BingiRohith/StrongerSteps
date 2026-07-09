@@ -159,6 +159,59 @@ modules' `draft`/`published` lifecycle, per this module's own spec.
 
 Indexes: `{status, displayOrder}`, text index on `name`/`shortDescription`/`longDescription`.
 
+## Event — [`models/Event.js`](../models/Event.js)
+
+Feeds the public `/programs` monthly calendar (Sprint 12). Mirrors
+Product/Team's `draft`/`published` lifecycle and single `image`
+sub-document, plus event-specific scheduling/seat fields.
+
+| Field | Type | Notes |
+|---|---|---|
+| `title` | String | required, max 150 |
+| `slug` | String | optional, unused this sprint — reserved for a future SEO detail page |
+| `shortDescription` | String | optional, max 300 |
+| `fullDescription` | String | optional, max 3000 |
+| `eventType` | String enum | `Workshop` \| `Webinar` \| `Seminar` \| `Meetup` \| `Health Camp` \| `Exercise Session` \| `Other` (see [`lib/eventOptions.js`](../lib/eventOptions.js)) — informational only, no filtering UI yet |
+| `image` | `{ url, alt }` | featured image |
+| `eventDate` | Date | required, date-only (stored as UTC midnight — see [`lib/eventFormat.js`](../lib/eventFormat.js)'s `eventDateKey`) |
+| `startTime` / `endTime` | String | required, `HH:MM` 24h strings, not Date fields |
+| `location` | String | required, max 200 |
+| `mapLink` | String | optional Google Maps URL |
+| `hostName` | String | required, max 100 |
+| `hostImage` | `{ url, alt }` | optional |
+| `price` | Number | default 0, ≥0 |
+| `memberDiscountPercentage` | Number | 0–100, configured but **not auto-applied** to bookings this sprint |
+| `maxSeats` | Number | required, ≥1 |
+| `availableSeats` | Number | defaults to `maxSeats` on creation, then directly admin-managed/booking-decremented |
+| `status` | String enum | `draft` \| `published` |
+| `displayOrder` | Number | manual sort order |
+| `featured` | Boolean | |
+| `registrationOpens` / `registrationCloses` | Date | optional booking window |
+| `publishedAt` | Date | stamped on publish, same pattern as Product/Team |
+| `author` | ObjectId ref → `User` | |
+
+Indexes: `{status, eventDate, displayOrder}`, text index on `title`/`shortDescription`/`location`.
+
+## Booking — [`models/Booking.js`](../models/Booking.js)
+
+One row per "Book Your Seat" submission (Sprint 12). Deliberately
+payment-ready even though Sprint 12 has no payment step — see `bookingStatus`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `event` | ObjectId ref → `Event` | required |
+| `memberId` | ObjectId ref → `User` | optional, unused this sprint — reserved for future membership-account linking |
+| `bookingReference` | String | unique, format `SS-YYYYMMDD-0001` (see [`lib/bookingReference.js`](../lib/bookingReference.js)) |
+| `name` / `mobile` / `email` | String | required, validated via [`lib/eventValidation.js`](../lib/eventValidation.js) |
+| `notes` | String | optional, unused this sprint — reserved for future attendee requirements |
+| `bookingDate` | Date | defaults to submission time |
+| `price` | Number | snapshot of the event's price at booking time |
+| `memberDiscount` | Number | snapshot of the event's `memberDiscountPercentage`; not yet subtracted into `finalAmount` |
+| `finalAmount` | Number | equals `price` this sprint (no payment/discount automation) |
+| `bookingStatus` | String enum | `pending` \| `confirmed` \| `cancelled` \| `expired` — created directly as `confirmed` this sprint (no payment step); the 4-value enum exists so a future payment integration (pending while payment is in flight, then confirmed/cancelled/expired) needs no schema change |
+
+Indexes: `{event, createdAt}`, unique index on `bookingReference`.
+
 ## Relationships summary
 
 ```
@@ -167,6 +220,8 @@ User 1---* Infographic (author)
 User 1---* Product (author)
 User 1---* Team (author)
 User 1---* Membership (author)
+User 1---* Event (author)
+Event 1---* Booking (event)
 Category 1---* Blog (category)
 ```
 
@@ -179,3 +234,4 @@ text or closed string enum, not a `Category` ref.
 - `npm run seed:team` → [`scripts/seedTeam.mjs`](../scripts/seedTeam.mjs)
 - `npm run seed:products` → [`scripts/seedProducts.mjs`](../scripts/seedProducts.mjs) — idempotent, also backfills pricing fields onto pre-existing docs
 - `npm run seed:membership` → [`scripts/seedMembership.mjs`](../scripts/seedMembership.mjs) — idempotent, migrates the 3 plans that used to be hardcoded on `/join`
+- No seed script for Events/Bookings (Sprint 12) — the old static `/programs` content (workshops with no real date/price/seat data) doesn't map onto the new `Event` schema, so nothing is migrated. The calendar ships with a friendly "no events yet" empty state instead.

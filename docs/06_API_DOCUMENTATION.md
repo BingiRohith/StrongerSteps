@@ -125,6 +125,34 @@ unhandled errors → 500.
 |---|---|---|---|
 | `/api/membership` | GET | Public | No query params, no pagination. Active-only. Returns `{ plans }`. |
 
+## Programs (Events)
+
+### Admin — `app/api/admin/events/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/events` | GET | Any session | Query: `status` (`draft`\|`published`), `search`. No pagination. Returns `{ events }`. |
+| `/api/admin/events` | POST | Admin/editor | Body: `title`, `eventDate`, `startTime`, `endTime`, `location`, `hostName`, `maxSeats` required. `eventType` validated against a closed enum (falls back to `Other`). `availableSeats`, if provided, cannot exceed `maxSeats`. Returns `{ event }`, 201. |
+| `/api/admin/events/[id]` | GET | Any session | Single, populated author. |
+| `/api/admin/events/[id]` | PUT | Admin/editor | Partial update; also used by the admin list's reorder controls to swap `displayOrder` between two adjacent events. Validates the resulting `availableSeats ≤ maxSeats` (checked against whichever value — new or existing — each field ends up with). |
+| `/api/admin/events/[id]` | DELETE | Admin/editor | `{ deleted: true }`. Does not cascade-delete any `Booking` records referencing the event. |
+| `/api/admin/events/[id]/status` | PATCH | Admin/editor | Publish toggle. |
+| `/api/admin/events/upload` | POST | Admin/editor | multipart `file`, via `lib/localUpload.js`. Used for both the event image and the host image. Returns `{ url }`, 201. |
+
+### Public — `app/api/events/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/events` | GET | Public | Query: `year`, `month` (1-12) — defaults to the current month. Published-only, one calendar month at a time. Returns `{ events }`. |
+
+## Bookings — `app/api/bookings/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/bookings` | POST | Public | Body: `{ eventId, name, mobile, email }`. Validates the event is published and within its registration window (if set), then atomically decrements `availableSeats` (rejects with 409 if already fully booked) before creating the `Booking` with a generated `bookingReference`. Created directly with `bookingStatus: 'confirmed'` — no payment step this sprint. Returns `{ booking, event }` (the updated event, so the client can refresh its seat count), 201. |
+
+No admin-facing booking list/management route exists yet — the admin dashboard's "Bookings Count" is read directly via `Booking.countDocuments()` in the dashboard page rather than through an API route.
+
 ## Blog cover image upload — `app/api/admin/upload/`
 
 | Route | Method | Auth | Notes |

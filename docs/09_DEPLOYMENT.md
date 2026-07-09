@@ -55,6 +55,7 @@ for a single always-on server, but breaks on:
 Before a real production launch on such a platform, swap the internals of
 `app/api/admin/upload/route.js`, `app/api/admin/infographics/upload*/route.js`,
 `app/api/admin/team/upload/route.js`, `app/api/admin/products/upload/route.js`,
+`app/api/admin/membership/upload/route.js`, `app/api/admin/events/upload/route.js`,
 and `lib/localUpload.js` for a cloud storage provider (S3, Cloudinary, etc.).
 The `{ url }` response shape is already provider-agnostic, so this is a
 contained change — no caller needs to change.

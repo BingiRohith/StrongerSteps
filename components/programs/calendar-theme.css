@@ -1,0 +1,88 @@
+/* Restyles react-calendar to match the site's Tailwind design tokens
+   (see tailwind.config.js) — the library ships unstyled-ish default CSS
+   that doesn't know about our palette, so this overrides its own class
+   names rather than fighting it with !important-laden Tailwind classes. */
+
+.ss-calendar.react-calendar {
+  width: 100%;
+  border: 1px solid #dcd4c4; /* line */
+  border-radius: 1.25rem; /* xl2 */
+  background: #ffffff; /* surface */
+  padding: 1.25rem;
+  font-family: inherit;
+}
+
+.ss-calendar .react-calendar__navigation {
+  margin-bottom: 1rem;
+}
+
+.ss-calendar .react-calendar__navigation button {
+  font-family: inherit;
+  font-weight: 700;
+  color: #1b3e30; /* primary-dark */
+  border-radius: 0.75rem;
+}
+
+.ss-calendar .react-calendar__navigation button:disabled {
+  color: #5c7269; /* muted */
+  opacity: 0.4;
+}
+
+.ss-calendar .react-calendar__navigation button:enabled:hover,
+.ss-calendar .react-calendar__navigation button:enabled:focus {
+  background-color: #e6eee4; /* sage */
+}
+
+.ss-calendar .react-calendar__month-view__weekdays {
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #5c7269; /* muted */
+}
+
+.ss-calendar .react-calendar__month-view__weekdays abbr {
+  text-decoration: none;
+}
+
+.ss-calendar .react-calendar__tile {
+  position: relative;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.4rem;
+  color: #203a33; /* ink */
+}
+
+.ss-calendar .react-calendar__tile:enabled:hover,
+.ss-calendar .react-calendar__tile:enabled:focus {
+  background-color: #e6eee4; /* sage */
+}
+
+.ss-calendar .react-calendar__tile--now {
+  background-color: #fbe7c6; /* accent-soft */
+  font-weight: 700;
+}
+
+.ss-calendar .react-calendar__tile--active {
+  background-color: #2f6b4f !important; /* primary */
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.ss-calendar .react-calendar__month-view__days__day--neighboringMonth {
+  color: #dcd4c4; /* line */
+}
+
+.ss-calendar .event-dot {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background-color: #e59530; /* accent */
+}
+
+.ss-calendar .react-calendar__tile--active .event-dot {
+  background-color: #ffffff;
+}
