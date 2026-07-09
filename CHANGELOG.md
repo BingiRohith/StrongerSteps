@@ -1,5 +1,92 @@
 # Changelog
 
+## Sprint 13: Recipes CMS — 2026-07-09
+
+Scope: CRS §14. Replaced the Sprint 10 placeholder `/recipes` page with a
+fully CMS-driven Recipes module, following the exact CRUD architecture
+already established for Products/Membership/Programs/Team/Knowledge Center.
+Adds a dedicated Recipe Categories module (Recipe Categories must not be
+hardcoded, per the CRS) plus dynamic Tags, Ingredients, Instructions, and
+Nutrition — none of these are fixed-field schemas.
+
+### Added
+- **`models/RecipeCategory.js`** — new, full-featured taxonomy (name, auto
+  slug, description, optional featured image, `displayOrder`, `isActive`).
+  Deliberately a separate model from the minimal `models/Category.js`
+  (Blog-only) — mirrors the existing "don't force unrelated content types
+  into one taxonomy model" precedent (see `docs/13_DECISIONS.md`).
+- **`models/Recipe.js`** — name, auto-generated + editable SEO slug (same
+  pattern as `Blog.slug`), short/full description, category (ref
+  `RecipeCategory`), dynamic tags, closed-enum difficulty
+  (`lib/recipeOptions.js`), prep/cook time, servings, dynamic unlimited
+  ingredients/instructions (plain reorderable string arrays, same convention
+  as `Membership.benefits`), dynamic nutrition rows (`{ label, value }`,
+  never a fixed field set), featured image, gallery (multiple images),
+  featured flag, `draft`/`published` lifecycle, `displayOrder`, optional SEO
+  title/meta description.
+- **`lib/recipeOptions.js`** — closed Difficulty set (Easy/Medium/Hard).
+- **`lib/publicRecipes.js`** — published-only read helpers: paginated/
+  filtered list (category slug, tag, difficulty, search, sort), featured
+  recipes, active categories (admin-ordered, powers Category Navigation),
+  distinct tags facet, single recipe by slug, related recipes.
+- **Admin APIs** — `app/api/admin/recipe-categories/*` (list/create,
+  get/update/delete, activate/deactivate toggle, image upload) and
+  `app/api/admin/recipes/*` (list/create, get/update/delete, publish
+  toggle, image upload — reused for both featured image and gallery items).
+  Same `requireAuth` + `ok`/`fail`/`withErrorHandling` conventions as every
+  other admin module.
+- **Public API** — `GET /api/recipes` (search/category/tag/difficulty/sort/
+  pagination, all server-side — never fetches the full collection into the
+  browser, per the CRS).
+- **Admin UI** — `/admin/recipe-categories` (list with active/inactive
+  tabs + up/down reorder, mirrors `MembershipListClient.js`; create/edit
+  form with auto-slug) and `/admin/recipes` (list with status + dynamic
+  category tabs + reorder + featured toggle, mirrors `ProductsListClient.js`
+  combined with the Membership reorder pattern; create/edit form with
+  `IngredientsEditor.js`/`InstructionsEditor.js` (add/edit/delete/reorder,
+  mirrors `BenefitsEditor.js`), `NutritionEditor.js` (dynamic label/value
+  rows), `GalleryUpload.js` (multi-image upload/remove/alt-text), reused
+  `TagsInput.js`/`ImageUploadField.js`/`StatusBadge.js` from Blogs/
+  Infographics/Products). `AdminSidebar.js` gained "Recipes" and "Recipe
+  Categories" nav entries.
+- **Public site** — `/recipes` rebuilt (Featured Recipes section, prominent
+  Category Navigation, sidebar tag/difficulty filters, search + sort
+  toolbar, responsive grid, pagination, loading/empty states — all
+  server-side filtered) and a new SEO-friendly `/recipes/[slug]` detail page
+  (hero image, category/tags, description, numbered instructions,
+  ingredients checklist, nutrition table, gallery, related recipes,
+  `generateMetadata` for SEO/OG tags). Both replace/extend the Sprint 10
+  placeholder; no query-string ID URLs.
+
+### Explicitly out of scope this sprint (per CRS non-goals)
+Ratings, reviews, comments, likes, bookmarks, meal planner, shopping list,
+AI recipe generation, PDF downloads, membership-only recipes, team tree,
+homepage CMS, payments.
+
+### Verified
+- `npm run build` passes cleanly (clean `.next`, no ChunkLoadErrors, no
+  hydration warnings) — all new routes appear in the route table.
+- Live end-to-end smoke test against the real MongoDB Atlas database:
+  logged in as admin, created a Recipe Category (slug auto-generated,
+  active toggle correct), created a Recipe referencing it (ingredients/
+  instructions dynamic add worked), published it, confirmed it appeared
+  correctly in the admin list (status/category/featured/reorder controls),
+  the public `/recipes` grid (category nav, card, filters, "1 recipe"
+  count), and the public `/recipes/[slug]` detail page (title, description,
+  instructions, ingredients, correct `<title>` tag) — no console errors.
+  Verified the mobile (375px) layout. Test data deleted afterward via the
+  admin UI so no fixture content was left in the database.
+- Existing Products/Membership/Programs/Knowledge Center CMS, admin auth,
+  and all previously-existing routes unaffected — no shared file outside
+  `AdminSidebar.js`'s nav array was modified.
+
+### Not touched
+No changes to Blog/Infographic/Product/Team/Membership/Event models or
+routes, `lib/auth.js`, `middleware.js`, `lib/localUpload.js`, or any
+existing upload route.
+
+---
+
 ## Post-Sprint-12.5 fix: `/admin` root redirect — 2026-07-09
 
 Added `/admin` root redirect for improved admin navigation. No functional or

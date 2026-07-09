@@ -234,6 +234,58 @@ Indexes: `{email, createdAt}` / `{mobile, createdAt}` (rate-limit lookups —
 max 3 OTP requests per identifier per 15 minutes), TTL index on `createdAt`
 (expires after 24h, dependency-free cleanup).
 
+## RecipeCategory — [`models/RecipeCategory.js`](../models/RecipeCategory.js)
+
+Sprint 13. A dedicated, full-featured taxonomy for Recipes — unlike
+`Infographic.category` (free text) or `Product.category` (closed enum), the
+CRS explicitly requires admin-managed Create/Edit/Delete/Activate-
+Deactivate/Reorder here, so it needed its own model rather than reusing the
+minimal `models/Category.js` (Blog-only, no management UI). See
+[13_DECISIONS.md](13_DECISIONS.md).
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | String | required, unique, max 100 |
+| `slug` | String | unique, auto-generated from `name` (same pattern as `Blog.slug`), collision-safe |
+| `description` | String | optional, max 300 |
+| `featuredImage` | `{ url, alt }` | optional |
+| `displayOrder` | Number | manual sort order — powers the public Category Navigation order |
+| `isActive` | Boolean | default `true` — not `draft`/`published`, per the CRS's "Active Status" field naming |
+
+Indexes: `{isActive, displayOrder}`.
+
+## Recipe — [`models/Recipe.js`](../models/Recipe.js)
+
+Sprint 13. Feeds the public `/recipes` browse/search/filter pages and
+`/recipes/[slug]` detail page. Mirrors Product/Team's `draft`/`published`
+lifecycle and `displayOrder`-driven sort, adds a Blog-style auto-generated +
+editable SEO slug (CRS requires `/recipes/<slug>` URLs, not query-string
+IDs), and several dynamic, unlimited sub-lists instead of hardcoded fields.
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | String | required, max 200 |
+| `slug` | String | unique, auto-generated from `name`, collision-safe (same pattern as `Blog.slug`) |
+| `shortDescription` | String | optional, max 300 — shown on recipe cards |
+| `fullDescription` | String | optional, max 5000 — plain text, not rich HTML (see [13_DECISIONS.md](13_DECISIONS.md)) |
+| `category` | ObjectId ref → `RecipeCategory` | required |
+| `tags` | [String] | dynamic, deduped + lowercased on set — same convention as `Blog.tags` |
+| `difficulty` | String enum | `Easy` \| `Medium` \| `Hard` (see [`lib/recipeOptions.js`](../lib/recipeOptions.js)) — the one closed-enum field, everything else on this model is either dynamic or free text |
+| `prepTime` / `cookTime` | Number | minutes, default 0, ≥0 |
+| `servings` | Number | default 1, ≥1 |
+| `ingredients` | [String] | dynamic, unlimited, trimmed/filtered; array order = display order (same convention as `Membership.benefits`) |
+| `instructions` | [String] | dynamic, unlimited, trimmed/filtered; array order = step order |
+| `nutrition` | `[{ label, value }]` | dynamic rows, never a fixed field set (e.g. Calories/Protein aren't schema fields) — admin adds whatever rows apply |
+| `featuredImage` | `{ url, alt }` | single hero image |
+| `gallery` | `[{ url, alt }]` | dynamic, unlimited extra images |
+| `featured` | Boolean | |
+| `displayOrder` | Number | manual sort order |
+| `status` / `publishedAt` | | same `draft`/`published` lifecycle pattern as Product/Team |
+| `seo` | `{ title (≤70), metaDescription (≤160) }` | optional |
+| `author` | ObjectId ref → `User` | |
+
+Indexes: `{status, displayOrder}`, `{status, category}`, `{status, featured}`, text index on `name`/`shortDescription`/`tags`.
+
 ## Relationships summary
 
 ```
@@ -243,12 +295,16 @@ User 1---* Product (author)
 User 1---* Team (author)
 User 1---* Membership (author)
 User 1---* Event (author)
+User 1---* Recipe (author)
 Event 1---* Booking (event)
 Category 1---* Blog (category)
+RecipeCategory 1---* Recipe (category)
 ```
 
 Infographic/Product/Team `category` fields are **not** relational — free
-text or closed string enum, not a `Category` ref.
+text or closed string enum, not a `Category` ref. Recipe's `category` *is*
+relational, but against the dedicated `RecipeCategory` model, not the
+generic Blog-only `Category` model.
 
 ## Seeding
 

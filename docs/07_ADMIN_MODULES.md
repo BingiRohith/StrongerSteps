@@ -104,13 +104,51 @@ no admin UI yet — only the dashboard's aggregate "Bookings Count".
   seats, optional registration-opens/closes window, featured toggle,
   display order, event image upload, Save as Draft / Publish actions.
 
+## Recipe Categories — `/admin/recipe-categories`
+
+**Status: full CRUD, production-capable.** Sprint 13. A dedicated taxonomy
+module for Recipes — unlike the Blog-only `Categories` placeholder below,
+this one is fully built out per the CRS's explicit requirement that Recipe
+Categories not be hardcoded.
+
+- List (`RecipeCategoriesListClient.js`): mirrors
+  `MembershipListClient.js`'s active/inactive tabs + up/down reorder
+  pattern.
+- Create/Edit (`RecipeCategoryForm.js`): name → auto-slug (editable, with
+  reset escape hatch, same pattern as `BlogForm.js`), description with char
+  counter, optional featured image upload, display order, active toggle.
+
+## Recipes — `/admin/recipes`
+
+**Status: full CRUD, production-capable.** Sprint 13. Replaces the Sprint 10
+placeholder `/recipes` page, following the same CRUD architecture as
+Products/Membership/Programs.
+
+- List (`RecipesListClient.js`): mirrors `ProductsListClient.js`'s
+  Draft/Published status tabs, combined with dynamic category filter tabs
+  (fetched from `/api/admin/recipe-categories`, not hardcoded) and
+  `MembershipListClient.js`'s up/down reorder + featured-toggle pattern.
+- Create/Edit (`RecipeForm.js`): name → auto-slug, category select (options
+  fetched live), tags (`TagsInput.js`, reused directly from Blogs — no
+  recipe-specific logic needed), short/full description, difficulty +
+  prep/cook time + servings, `IngredientsEditor.js` and
+  `InstructionsEditor.js` (both mirror `BenefitsEditor.js`'s
+  add/edit/delete/reorder pattern for plain-string arrays — Instructions
+  additionally numbers each step), `NutritionEditor.js` (dynamic
+  label/value rows — deliberately not a fixed field set), featured image
+  upload (`ImageUploadField.js`, reused from Infographics), `GalleryUpload.js`
+  (new — multi-image upload with per-image alt text and remove, unlike the
+  single-image `ImageUploadField.js`), optional SEO title/meta description,
+  featured toggle, display order, Save as Draft / Publish actions.
+
 ## Categories — `/admin/categories`
 
 **Status: placeholder only.** Renders `PagePlaceholder` with a "Coming in a
 future sprint" message. The only working functionality is the
 list+quick-create API (`/api/admin/categories`) consumed inline by the Blog
 form's category picker — there is no dedicated management page to
-edit/delete/reorder categories.
+edit/delete/reorder categories. (Not to be confused with Recipe Categories
+above, which got its own full management UI in Sprint 13.)
 
 ## Shared admin UI building blocks
 
@@ -118,5 +156,7 @@ edit/delete/reorder categories.
 - `AdminSidebar.js` — nav list (`NAV_ITEMS`), desktop fixed rail + mobile slide-over.
 - `AdminHeader.js` — page title, signed-in user info, logout button.
 - `PagePlaceholder.js` — shared "coming soon" block (used only by Categories today).
-- `StatusBadge.js` (in `components/admin/blogs/`, reused generically by Infographics/Products/Team lists) — Draft/Published pill.
-- `ImageUploadField.js` (in `components/admin/infographics/`, reused by Products and Events — Events also reuses it a second time within the same form for the host photo) — click-to-upload-with-preview.
+- `StatusBadge.js` (in `components/admin/blogs/`, reused generically by Infographics/Products/Team/Recipes lists) — Draft/Published pill.
+- `ImageUploadField.js` (in `components/admin/infographics/`, reused by Products, Events, Recipes, and Recipe Categories — Events also reuses it a second time within the same form for the host photo) — click-to-upload-with-preview.
+- `TagsInput.js` (in `components/admin/blogs/`, reused as-is by Recipes — no blog-specific logic inside) — add/remove tag chips.
+- `components/admin/recipes/GalleryUpload.js` (Sprint 13) — multi-image variant of `ImageUploadField.js`: appends to an array instead of replacing a single image, with per-image alt text and remove.

@@ -5,6 +5,73 @@ as of the 2026-07-07 documentation sprint — everything below Sprint 9 is
 reconstructed from code/CHANGELOG evidence, not from a prior decisions log
 (none existed).
 
+## 2026-07-09 — Sprint 13 Recipes CMS: field-shape assumptions not spelled out in the CRS
+
+The CRS (§14) lists Recipe fields at a high level (Name, Description,
+Category, Ingredients, Instructions, Images, Prep/Cook Time, Tags,
+Featured, Status, Search, Filters) without specifying sub-structure. Four
+implementation choices were made without a separate confirmation round,
+following the project's existing "copy the established shape" convention
+rather than inventing something new:
+
+1. **Ingredients/Instructions are plain reorderable string arrays**, not
+   structured objects (e.g. no separate quantity/unit fields on
+   ingredients). Mirrors `Membership.benefits`'s existing convention
+   (array order = display order, reused `BenefitsEditor.js`'s UI pattern
+   directly for Ingredients/Instructions).
+2. **Nutrition is a dynamic `{ label, value }[]` array**, not a fixed set of
+   fields (Calories/Protein/...), per the CRS's own explicit instruction
+   ("do NOT hardcode nutrition fields... admin should be able to manage
+   nutrition rows dynamically").
+3. **Difficulty is a small closed enum** (Easy/Medium/Hard,
+   `lib/recipeOptions.js`) even though the CRS doesn't enumerate values,
+   because the CRS explicitly lists Difficulty as a filterable field
+   alongside Category/Tags/Name — a closed set is required for that filter
+   UI to make sense, same reasoning as `Product.category`.
+4. **`fullDescription` is a plain textarea, not the rich-text editor** Blog
+   uses (`RichTextEditor.js`). Recipes are structured content
+   (ingredients/instructions carry the substance); a free-form HTML body
+   felt like scope beyond the CRS's stated fields, and matches
+   `Membership.longDescription`/`Team.bio`'s existing plain-text
+   convention rather than Blog's.
+
+**How to apply:** if the client wants structured ingredient
+quantities/units, per-nutrient schema fields, or rich-text recipe intros
+later, these are additive, non-breaking schema changes — confirm with the
+user before making them, per the CRS governance rule.
+
+## 2026-07-09 — RecipeCategory is its own model, not the generic `Category` model
+
+The CRS explicitly requires full Create/Edit/Delete/Activate-Deactivate/
+Reorder admin management for Recipe Categories — the existing
+`models/Category.js` is deliberately minimal (Blog-only, no management UI,
+see the 2026-07-02 entry below) and was never meant to grow into a
+multi-tenant taxonomy.
+**Why:** reusing `Category` would have required either bolting Recipe-only
+fields (`featuredImage`, `displayOrder`, `isActive`) onto a Blog-scoped
+model, or building the first real management UI for it and then
+conditionally hiding Blog-irrelevant fields — both messier than a second,
+purpose-built model.
+**How to apply:** extends the existing "don't force unrelated content types
+into one taxonomy model" precedent (see the Infographic-category entry
+below) to a second concrete case. Any future content type needing managed
+categories (Events, Products) should get its own `<Module>Category` model
+rather than retrofitting `Category` or `RecipeCategory`.
+
+## 2026-07-09 — Recipe Category Navigation shows the admin-curated set, not a derived facet
+
+`lib/publicRecipes.js`'s `getActiveRecipeCategories()` returns every
+`isActive: true` category in `displayOrder`, regardless of whether it has
+any published recipes yet — unlike Products' `getProductFilterFacets()`,
+which only surfaces categories with at least one published product.
+**Why:** the CRS frames Recipe Categories as an independently
+admin-managed navigation structure (its own Create/Edit/Delete/Reorder
+module), not just a derived filter facet — an admin should be able to set
+up "Weight Loss" as a nav entry before publishing any recipes into it.
+**How to apply:** don't "fix" this to match Products' facet-derivation
+behavior without confirming — it's an intentional difference, not an
+oversight.
+
 ## 2026-07-09 — Protected KC files moved out of `public/` entirely, not just gated in the UI
 
 Sprint 12.5 needed to gate Infographic PDF/full-image downloads behind OTP

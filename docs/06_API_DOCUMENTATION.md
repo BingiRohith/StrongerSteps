@@ -159,6 +159,40 @@ Public, reusable, provider-agnostic — not Knowledge-Center-specific. See
 |---|---|---|---|
 | `/api/events` | GET | Public | Query: `year`, `month` (1-12) — defaults to the current month. Published-only, one calendar month at a time. Returns `{ events }`. |
 
+## Recipe Categories
+
+### Admin — `app/api/admin/recipe-categories/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/recipe-categories` | GET | Any session | Query: `isActive` (`true`\|`false`), `search`. No pagination. Returns `{ categories }`. |
+| `/api/admin/recipe-categories` | POST | Admin/editor | Body: `name` required. Returns `{ category }`, 201. |
+| `/api/admin/recipe-categories/[id]` | GET | Any session | Single category. |
+| `/api/admin/recipe-categories/[id]` | PUT | Admin/editor | Partial update; also used by the admin list's reorder controls to swap `displayOrder` between two adjacent categories. |
+| `/api/admin/recipe-categories/[id]` | DELETE | Admin/editor | `{ deleted: true }`. Does not cascade-check/delete Recipes referencing the category. |
+| `/api/admin/recipe-categories/[id]/status` | PATCH | Admin/editor | Body: `{ isActive: boolean }` — activate/deactivate toggle (boolean field, not a draft/published enum). |
+| `/api/admin/recipe-categories/upload` | POST | Admin/editor | multipart `file`, via `lib/localUpload.js`. Returns `{ url }`, 201. |
+
+## Recipes
+
+### Admin — `app/api/admin/recipes/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/recipes` | GET | Any session | Query: `status` (`draft`\|`published`), `category` (id), `tag`, `difficulty`, `search`. No pagination. Returns `{ recipes }`. |
+| `/api/admin/recipes` | POST | Admin/editor | Body: `name`, `category` (must be a valid, existing `RecipeCategory` id) required. `difficulty` validated against a closed enum (falls back to `Easy`). Returns `{ recipe }`, 201. |
+| `/api/admin/recipes/[id]` | GET | Any session | Single, populated author + category. |
+| `/api/admin/recipes/[id]` | PUT | Admin/editor | Partial update; also used by the admin list's reorder controls to swap `displayOrder` between two adjacent recipes. |
+| `/api/admin/recipes/[id]` | DELETE | Admin/editor | `{ deleted: true }`. |
+| `/api/admin/recipes/[id]/status` | PATCH | Admin/editor | Publish toggle. |
+| `/api/admin/recipes/upload` | POST | Admin/editor | multipart `file`, via `lib/localUpload.js`. Used for both the featured image and each gallery image (client appends to the gallery array). Returns `{ url }`, 201. |
+
+### Public — `app/api/recipes/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/recipes` | GET | Public | Query: `category` (slug, not id), `tag`, `difficulty`, `search`, `sort` (`name-asc`\|`newest`\|`featured`), `page` (default 1), `limit` (default 12, max 48). Published-only. Filtering/sorting/pagination are all server-side. Returns `{ recipes, pagination }`. Category/tag facets and active-category navigation are fetched once by `app/recipes/page.js` via `lib/publicRecipes.js` directly, not recomputed on every request. |
+
 ## Bookings — `app/api/bookings/`
 
 | Route | Method | Auth | Notes |
