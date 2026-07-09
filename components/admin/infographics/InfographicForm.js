@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Loader2, Save, Send } from 'lucide-react';
 import ImageUploadField from './ImageUploadField';
+import ProtectedImageUploadField from './ProtectedImageUploadField';
 import PdfUpload from './PdfUpload';
 import CategoryField from './CategoryField';
 import { slugify } from '@/lib/slugify';
@@ -255,10 +256,14 @@ export default function InfographicForm({ infographicId, initialData }) {
 
         <div className="rounded-xl2 border border-line bg-surface p-5 sm:p-6">
           <h3 className="mb-3 font-display text-sm font-bold text-primary-dark">Full image</h3>
-          <p className="mb-3 text-xs text-muted">Shown when a visitor opens/views the infographic.</p>
-          <ImageUploadField
+          <p className="mb-3 text-xs text-muted">
+            Shown when a visitor opens/views the infographic. Protected — downloading the full-resolution
+            image requires email/mobile verification.
+          </p>
+          <ProtectedImageUploadField
             value={form.fullImage}
             onChange={(fullImage) => update('fullImage', fullImage)}
+            infographicId={infographicId}
           />
         </div>
 

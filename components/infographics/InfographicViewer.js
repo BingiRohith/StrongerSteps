@@ -1,10 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Download, Image as ImageIcon } from 'lucide-react';
 import { Badge } from '@/components/ui';
+import VerificationModal from '@/components/verification/VerificationModal';
 
 export default function InfographicViewer({ infographic, onClose }) {
+  const [downloadKind, setDownloadKind] = useState(null); // 'image' | 'pdf' | null
+
   useEffect(() => {
     if (!infographic) return;
     function handleKey(e) {
@@ -18,9 +21,17 @@ export default function InfographicViewer({ infographic, onClose }) {
     };
   }, [infographic, onClose]);
 
+  useEffect(() => {
+    setDownloadKind(null);
+  }, [infographic]);
+
   if (!infographic) return null;
 
-  const imageUrl = infographic.fullImage?.url || infographic.thumbnailImage?.url;
+  const hasPreviewImage = Boolean(infographic.fullImage?.url || infographic.thumbnailImage?.url);
+  // Preview always goes through the ungated preview-image route (viewing
+  // isn't part of the download gate) rather than a direct fullImage URL,
+  // since fullImage now lives in private storage — see models/Infographic.js.
+  const imageUrl = hasPreviewImage ? `/api/infographics/${infographic._id}/preview-image` : '';
 
   return (
     <div
@@ -77,28 +88,37 @@ export default function InfographicViewer({ infographic, onClose }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-3 border-t border-line px-5 py-4 sm:px-6">
-          {imageUrl && (
-            <a
-              href={imageUrl}
-              download
+          {infographic.fullImage?.url && (
+            <button
+              type="button"
+              onClick={() => setDownloadKind('image')}
               className="inline-flex items-center gap-2 rounded-full border-2 border-primary px-5 py-2.5 font-display text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
             >
               <Download size={16} aria-hidden="true" />
               Download image
-            </a>
+            </button>
           )}
           {infographic.pdf?.url && (
-            <a
-              href={infographic.pdf.url}
-              download={infographic.pdf.filename || true}
+            <button
+              type="button"
+              onClick={() => setDownloadKind('pdf')}
               className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 font-display text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
             >
               <Download size={16} aria-hidden="true" />
               Download PDF
-            </a>
+            </button>
           )}
         </div>
       </div>
+
+      {downloadKind && (
+        <VerificationModal
+          resourceType="infographic"
+          resourceId={infographic._id}
+          fileKind={downloadKind}
+          onClose={() => setDownloadKind(null)}
+        />
+      )}
     </div>
   );
 }

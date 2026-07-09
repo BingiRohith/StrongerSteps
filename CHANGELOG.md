@@ -1,5 +1,206 @@
 # Changelog
 
+## Post-Sprint-12.5 fix: `/admin` root redirect — 2026-07-09
+
+Added `/admin` root redirect for improved admin navigation. No functional or
+architectural changes.
+
+Investigated a reported regression: `GET /admin` returned 404. Root cause —
+confirmed via `git diff sprint-12` (zero changes, including against the full
+Sprint 12.5 working tree) — `app/admin/page.js` had never existed; only
+`app/admin/layout.js` (metadata wrapper, no page) sits at that segment, so
+Next.js 404s for the exact `/admin` path independent of auth state. Not a
+Sprint 12.5 regression.
+
+### Added
+- **`app/admin/page.js`** — minimal redirect entry point. Reuses
+  `getCurrentUser()` from `lib/auth.js` (the same session check
+  `app/admin/(protected)/layout.js` already uses — no auth logic
+  duplicated): redirects to `/admin/dashboard` if signed in, `/admin/login`
+  if not. `middleware.js`, the login page, the protected layout, and every
+  dashboard/module page are untouched.
+
+### Notes from verification
+- `npm run build` passes; `/admin` now appears in the route table.
+- Verified live: signed out, `/admin` → middleware's own existing redirect
+  fires first (`/admin/login?from=%2Fadmin`); signed in (via
+  `/api/auth/login`), `/admin` → `/admin/dashboard`.
+- Verified no regressions: `/admin/login`, `/admin/dashboard`,
+  `/admin/products`, `/admin/membership`, `/admin/events`, `/admin/blogs`,
+  `/admin/infographics`, `/admin/team` all still return 200. No console
+  errors.
+
+---
+
+## Sprint 12.5: KC Lead Verification, Header Product Search & Products Redesign — 2026-07-09
+
+Scope: three client-approved change requests layered on the existing
+architecture, without modifying completed Sprint 12 (Programs) functionality.
+(1) Gate Knowledge Center PDF/full-image downloads behind Email/Mobile OTP
+verification via a reusable, provider-agnostic service. (2) Add a responsive
+Products-only search bar to the global header. (3) Redesign `/products` into
+a marketplace layout (sidebar filters, toolbar, grid, pagination) while
+keeping Stronger Steps branding.
+
+### Added
+- **`models/Verification.js`** — new collection backing the reusable OTP
+  service. `resourceType` is free text (not a Mongoose enum) — validated at
+  the application layer against `lib/verification/resourceRegistry.js`, so
+  future resource types (Membership downloads, Certificates, Recipes,
+  Programs, ...) can register without a schema migration. Stores
+  `otpHash` (bcrypt, never plain OTP), `attemptCount`, `verified`,
+  `expiresAt`, `verifiedAt`, `downloadedAt`. TTL index auto-purges rows 24h
+  after creation.
+- **`lib/verification/`** — `otp.js` (generate/hash/compare, bcryptjs),
+  `resourceRegistry.js` (extension point mapping `resourceType` to a model +
+  file resolver; only `infographic` registered this sprint),
+  `verificationService.js` (`createVerificationRequest` — rate-limited to 3
+  requests per identifier per 15 min; `verifyOtp` — 10-minute OTP expiry,
+  locks out after 5 wrong attempts, issues a short-lived (15 min) signed JWT
+  download token on success, reusing `JWT_SECRET` with a distinct `purpose`
+  claim; `verifyDownloadToken`), `providers/mockProvider.js` +
+  `providers/index.js` (provider-abstraction factory reading
+  `OTP_EMAIL_PROVIDER`/`OTP_SMS_PROVIDER` env vars, default `mock` — console-
+  logs the OTP; swapping in Resend/SendGrid/MSG91/Twilio/AWS SNS later means
+  adding one file, no UI/API/DB change).
+- **`lib/privateUpload.js`** — `saveProtectedImage`/`saveProtectedPdf`/
+  `readProtectedFile`, mirroring `lib/localUpload.js`'s pattern but writing
+  to a new `private-uploads/` directory (project root, sibling of `public/`,
+  never statically served) instead of `public/uploads/`.
+- **`lib/fileMime.js`** — `mimeFromFilename()`, shared by the download and
+  preview-image routes.
+- **`app/api/verify/generate-otp`, `.../verify-otp`, `.../download`** —
+  public, reusable, provider-agnostic endpoints (`ok()`/`fail()`/
+  `withErrorHandling()` conventions). `download` is the *only* place bytes
+  are ever served for a protected resource — requires the signed token,
+  never a permanent URL.
+- **`app/api/infographics/[id]/preview-image`** — public, no token required
+  (viewing was never part of the gate, only downloading). Streams
+  `fullImage` inline from private storage, falling back to the still-public
+  `thumbnailImage`.
+- **`app/api/admin/infographics/upload-full-image`** — new route, private
+  storage, images only (8MB limit, same validation as the thumbnail route).
+- **`components/verification/VerificationModal.js`** — reusable Email/
+  Mobile OTP modal (choose method → enter contact → enter OTP → download
+  starts). Not Knowledge-Center-specific.
+- **`components/admin/infographics/ProtectedImageUploadField.js`** — full-
+  image upload field variant (the shared `ImageUploadField.js`, also reused
+  by Products/Events, is untouched); shows a local object-URL preview after
+  a fresh upload and falls back to the `preview-image` route when editing an
+  existing infographic, since the stored value is now a private storage key,
+  not a browsable path.
+- **`scripts/migrateProtectedInfographics.mjs`** (`npm run
+  migrate:protected-infographics`) — one-time, idempotent: moves any
+  already-uploaded `fullImage`/`pdf` files from `public/uploads/` to
+  `private-uploads/`, rewriting the stored `url` to the new private key.
+  **Must be run once after this sprint deploys.**
+- **`Product.brand`** — optional string field (default `''`, non-breaking),
+  added so the Products redesign's "Dynamic Brands" sidebar filter has real,
+  non-hardcoded data to derive from (see "CRS assumptions").
+- **`lib/publicProducts.js`**: `getProductFilterFacets()` (distinct
+  categories/brands + price bounds across the whole published catalog,
+  mirrors `getInfographicCategories()`); `getPublishedProducts()` extended
+  with `brand`/`minPrice`/`maxPrice`/`availability`/`sort`/`page`/`limit`,
+  now returning `{ products, pagination }` (was a bare array) — filtering,
+  sorting, and pagination are now server-side.
+- **`components/products/ProductsPageClient.js`,
+  `ProductsSidebar.js`, `ProductsToolbar.js`, `ProductGrid.js`,
+  `ProductsPagination.js`** — marketplace layout (sidebar filters + search/
+  sort toolbar + grid + pagination), all calling the (extended)
+  `/api/products` route — the client never loads the full catalog.
+- **`components/search/useProductSearch.js`, `ProductSearchDropdown.js`** —
+  debounced (350ms) Products-only search, reused by both the header and (via
+  the same `/api/products` endpoint/convention) the Products page toolbar.
+
+### Modified
+- **`app/api/admin/infographics/upload-pdf/route.js`** — now writes via
+  `lib/privateUpload.js` instead of `public/uploads/infographics-pdfs/`,
+  since PDFs are a protected resource this sprint.
+- **`models/Infographic.js`** — comment documenting that `fullImage.url`/
+  `pdf.url` are now private storage keys, not public paths; `thumbnailImage`
+  is unaffected and stays public.
+- **`components/infographics/InfographicViewer.js`** — download links
+  replaced with buttons that open `VerificationModal`; the inline preview
+  `<img>` now points at `/api/infographics/[id]/preview-image`.
+- **`components/admin/infographics/InfographicForm.js`** — "Full image"
+  field switched to `ProtectedImageUploadField` pointed at the new
+  `upload-full-image` route; "Thumbnail" field untouched.
+- **`lib/publicInfographics.js`** — added `getPublishedInfographicById()`
+  for the preview-image route.
+- **`app/api/products/route.js`** — extended query params (see "Added"),
+  response now includes `pagination`. Same route also serves the header
+  search (Module 2) and the Products page (Module 3) — no duplicate
+  endpoint.
+- **`app/products/page.js`** — rebuilt as a thin server component
+  (`getPublishedProducts()` for page 1 + `getProductFilterFacets()` for
+  sidebar options, both direct helper calls, no HTTP round-trip) wrapping
+  the new `ProductsPageClient`.
+- **`components/admin/products/ProductForm.js`**,
+  **`app/api/admin/products/route.js`**, **`.../[id]/route.js`** — added the
+  `brand` field to the form and both create/update handlers.
+- **`components/Header.js`** — added `ProductSearchDropdown`: inline on the
+  desktop-width row (`lg:block`), and a persistent full-width row below the
+  logo bar on tablet/mobile (`lg:hidden`) — always visible, no toggle state.
+
+### CRS assumptions
+- `docs/03_CLIENT_REQUIREMENTS.md` §9 (Products) and §12 (Knowledge Center)
+  don't explicitly mention OTP-gated downloads, header search, or a
+  marketplace redesign — nothing here contradicts the CRS, but per this
+  project's governance rule (flag gaps, don't silently resolve them) this is
+  recorded rather than assumed: recommend a follow-up documentation-only
+  pass to fold these three approved CRs into the CRS once confirmed with the
+  client, same as the process used for prior sprints.
+- Added `Product.brand` (not in the CRS) — without it, the sidebar's
+  required "Dynamic Brands" filter would have had to be hardcoded or
+  omitted, both worse than a small additive schema field. Confirmed with
+  the user during planning.
+- Confirmed with the user during planning: fully closed the "guessable
+  static URL" gap for protected KC files (moved to `private-uploads/`,
+  requiring the one-time migration script above) rather than the lighter-
+  weight alternative of only gating the UI flow while leaving files
+  physically under `public/`.
+
+### Notes from verification
+- `npm run build` passes cleanly; all new routes compile (3 `/api/verify/*`
+  routes, 1 preview-image route, 1 new upload route, extended `/api/products`).
+- Ran `npm run migrate:protected-infographics` against the dev database's
+  one pre-existing infographic; confirmed the file moved from
+  `public/uploads/infographics/` to `private-uploads/infographics-full/`
+  and the DB doc's `fullImage.url` was rewritten to the new private key; the
+  separate thumbnail file was untouched (stayed public, as intended).
+- Verified the full OTP flow end-to-end in the browser: opened an
+  infographic, confirmed the preview image still renders via the new route,
+  clicked Download, chose Email, read the mock-provider OTP from the server
+  console log, confirmed a wrong code is rejected (400) before the correct
+  one succeeds and the browser download fires via the signed, single-use
+  token. Confirmed the 3-requests-per-15-minutes rate limit (4th request
+  returns 429) and the 5-wrong-attempts lockout (6th returns 429) directly
+  against the API.
+- Verified Products filters/sort/search/pagination against the live
+  catalog (10 seeded products): category filter, ascending/descending price
+  sort, and the header search → `/products?search=...` deep link all
+  narrowed the grid correctly via the server-side API.
+- Found and fixed two bugs during this verification pass (not left for a
+  follow-up sprint): (1) `ProductsPageClient` was refetching page 1
+  immediately on mount because a `useEffect` watching `filters` state fired
+  even with a "skip first render" ref guard — rewritten to call
+  `fetchProducts` directly from each handler instead (matching
+  `components/infographics/InfographicsGrid.js`'s existing convention),
+  which also fixed a second issue where navigating to `/products?search=...`
+  from the header while already on the Products page didn't refresh the
+  grid (React reuses the mounted instance on client-side navigation within
+  the same route) — added a `useSearchParams()`-driven sync effect for
+  exactly that case. (2) `lib/publicProducts.js` treated an empty-string
+  `minPrice`/`maxPrice` as `0` (`Number('')` is finite), which silently
+  filtered every default page load down to only `sellingPrice: 0` products
+  — fixed with explicit presence checks before applying the range filter.
+- Verified no regression: `/api/blogs`, `/api/team`, `/api/membership`,
+  `/api/events` all still return 200; `/admin/login`, `/admin/infographics`,
+  `/admin/products` all still load without error. No console errors during
+  any of the above.
+
+---
+
 ## Sprint 12: Programs Calendar & Event Management — 2026-07-08
 
 Scope (per `docs/03_CLIENT_REQUIREMENTS.md` §10, narrowed by this sprint's

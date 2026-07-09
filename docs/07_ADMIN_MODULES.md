@@ -38,9 +38,13 @@ the only module with live stats on this page so far.
   PDF-attached indicator.
 - Create/Edit (`InfographicForm.js`): title → auto-slug, description with
   char counter, category (`CategoryField.js` — free text with `<datalist>`
-  suggestions, not a closed set), thumbnail + full image upload
-  (`ImageUploadField.js`), optional PDF upload (`PdfUpload.js`), SEO fields,
-  Save as Draft / Publish.
+  suggestions, not a closed set), thumbnail upload (`ImageUploadField.js`,
+  public storage, unchanged), full image upload
+  (`ProtectedImageUploadField.js`, Sprint 12.5 — private storage via
+  `/api/admin/infographics/upload-full-image`, since the full image is now
+  a protected, OTP-gated download), optional PDF upload (`PdfUpload.js`,
+  Sprint 12.5 — now also private storage), SEO fields, Save as Draft /
+  Publish.
 
 ## Products — `/admin/products`
 
@@ -49,8 +53,9 @@ the only module with live stats on this page so far.
 - List (`ProductsListClient.js`): shows price/discount/stock inline, a
   featured-toggle button, mirrors Team's list pattern.
 - Create/Edit (`ProductForm.js`): name, description, category (closed
-  3-value select from `lib/productCategories.js`), image upload, Original
-  Price / Selling Price / Discount % section with **two-way live
+  3-value select from `lib/productCategories.js`), brand (optional free
+  text, Sprint 12.5 — powers the public Products page's Brand filter), image
+  upload, Original Price / Selling Price / Discount % section with **two-way live
   auto-calculation** (editing either price recalculates discount; editing
   discount recalculates selling price — using the same
   `lib/productPricing.js` functions the server uses, so the preview can't

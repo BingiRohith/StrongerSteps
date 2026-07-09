@@ -39,6 +39,17 @@ const ProductSchema = new Schema(
       enum: PRODUCT_CATEGORY_VALUES,
       required: [true, 'Category is required'],
     },
+    // Sprint 12.5: optional, free text — powers the marketplace redesign's
+    // "Dynamic Brands" sidebar filter (lib/publicProducts.js's
+    // getProductFilterFacets() derives the actual distinct list from this
+    // field, never hardcoded). Defaults to '' so existing products keep
+    // loading/saving without a migration, same pattern as the pricing fields.
+    brand: {
+      type: String,
+      trim: true,
+      maxlength: 80,
+      default: '',
+    },
     image: {
       url: { type: String, default: '' },
       alt: { type: String, trim: true, maxlength: 150, default: '' },
@@ -90,6 +101,7 @@ const ProductSchema = new Schema(
 );
 
 ProductSchema.index({ status: 1, category: 1, displayOrder: 1 });
+ProductSchema.index({ status: 1, brand: 1 });
 ProductSchema.index({ name: 'text', description: 'text' });
 
 // Stamp/clear publishedAt when status flips — same pattern as Team.js/Infographic.js.
@@ -121,6 +133,7 @@ ProductSchema.methods.toSafeObject = function toSafeObject() {
     name: this.name,
     description: this.description,
     category: this.category,
+    brand: this.brand,
     image: this.image,
     originalPrice: this.originalPrice,
     sellingPrice: this.sellingPrice,

@@ -5,6 +5,41 @@ as of the 2026-07-07 documentation sprint — everything below Sprint 9 is
 reconstructed from code/CHANGELOG evidence, not from a prior decisions log
 (none existed).
 
+## 2026-07-09 — Protected KC files moved out of `public/` entirely, not just gated in the UI
+
+Sprint 12.5 needed to gate Infographic PDF/full-image downloads behind OTP
+verification. Two options were presented: (a) gate only the UI/API flow
+while leaving the physical files under `public/uploads/` (simpler, but a
+party who already knows/guesses the exact static path could still fetch the
+file directly, bypassing verification), or (b) move the files to a new
+non-public `private-uploads/` directory, served only through
+`app/api/verify/download`/`app/api/infographics/[id]/preview-image`, closing
+that gap fully.
+**Why:** the user explicitly chose (b) when asked during planning, despite
+it requiring changes to the existing Infographic upload routes and a
+one-time migration script (`scripts/migrateProtectedInfographics.mjs`) for
+already-uploaded files — judged worth the extra scope for a real security
+guarantee rather than a UI-only gate.
+**How to apply:** any future "protected download" feature (Membership
+downloads, Certificates) built on `lib/verification/` should follow the same
+pattern — store the protected file outside `public/`, never hand the client
+a direct path to it. This is also flagged as the natural moment to switch to
+cloud storage (S3 presigned URLs, etc.) instead of local disk, since gating
+then comes for free from the URL's own expiry — see
+[09_DEPLOYMENT.md](09_DEPLOYMENT.md).
+
+## 2026-07-09 — `Product.brand` added, though not in the CRS
+
+Sprint 12.5's Products marketplace redesign required a "Dynamic Brands"
+sidebar filter driven by real data, not a hardcoded list — but
+`models/Product.js` had no brand field and the CRS doesn't mention brand.
+**Why:** the user confirmed adding an optional `brand` field (default `''`,
+non-breaking for existing docs) during planning, rather than hardcoding a
+fake brand list or omitting the filter section entirely.
+**How to apply:** treat this as a confirmed, small additive schema change —
+not a signal to add further speculative fields without the same kind of
+explicit confirmation.
+
 ## 2026-07-08 — `react-calendar` added as a dependency, overriding the "no new deps" convention
 
 [08_CODING_STANDARDS.md](08_CODING_STANDARDS.md) says not to add a package

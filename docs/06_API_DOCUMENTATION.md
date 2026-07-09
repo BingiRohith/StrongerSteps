@@ -56,14 +56,28 @@ unhandled errors → 500.
 | `/api/admin/infographics/[id]` | PUT | Admin/editor | Partial update. |
 | `/api/admin/infographics/[id]` | DELETE | Admin/editor | `{ deleted: true }`. |
 | `/api/admin/infographics/[id]/status` | PATCH | Admin/editor | Publish toggle, same pattern as Blogs. |
-| `/api/admin/infographics/upload` | POST | Admin/editor | multipart `file`. JPEG/PNG/WebP/GIF, max 8MB. Used for both thumbnail and full image. Returns `{ url }`, 201. |
-| `/api/admin/infographics/upload-pdf` | POST | Admin/editor | multipart `file`. `application/pdf` only, max 15MB. Returns `{ url, filename }`, 201. |
+| `/api/admin/infographics/upload` | POST | Admin/editor | multipart `file`. JPEG/PNG/WebP/GIF, max 8MB. **Thumbnail only** since Sprint 12.5 (was "both thumbnail and full image"). Writes to public `public/uploads/infographics/`. Returns `{ url }`, 201. |
+| `/api/admin/infographics/upload-full-image` | POST | Admin/editor | **New in Sprint 12.5.** multipart `file`. JPEG/PNG/WebP/GIF, max 8MB. The infographic's full-size image — a protected resource. Writes to private storage via `lib/privateUpload.js` (`private-uploads/infographics-full/`). Returns `{ url }`, 201, where `url` is a private storage key, not a browsable path. |
+| `/api/admin/infographics/upload-pdf` | POST | Admin/editor | multipart `file`. `application/pdf` only, max 15MB. **Sprint 12.5: now writes to private storage** (`private-uploads/infographics-pdfs/`) via `lib/privateUpload.js`, since PDFs are a protected resource — was previously `public/uploads/infographics-pdfs/`. Returns `{ url, filename }`, 201. |
 
 ### Public — `app/api/infographics/`
 
 | Route | Method | Auth | Notes |
 |---|---|---|---|
 | `/api/infographics` | GET | Public | Query: `search`, `category`, `page` (default 1), `limit` (default 18, max 48). Published-only. Returns `{ infographics, pagination, categories }`. |
+| `/api/infographics/[id]/preview-image` | GET | Public | **New in Sprint 12.5.** No token required — viewing an infographic's full-size image was never part of the download gate, only downloading is. Streams `fullImage` inline from private storage (falls back to the still-public `thumbnailImage` if no full image exists). |
+
+## Verification — `app/api/verify/` (Sprint 12.5)
+
+Public, reusable, provider-agnostic — not Knowledge-Center-specific. See
+[`lib/verification/`](../lib/verification/) and
+[05_DATABASE.md](05_DATABASE.md)'s `Verification` model.
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/verify/generate-otp` | POST | Public | Body: `{ resourceType, resourceId, method: 'email'\|'mobile', email?, mobile? }`. `resourceType` is checked against `lib/verification/resourceRegistry.js`, not a DB enum. Rate-limited to 3 requests per identifier per 15 minutes (429 beyond that). Returns `{ verificationId }` — never the OTP itself. |
+| `/api/verify/verify-otp` | POST | Public | Body: `{ verificationId, otp }`. OTP expires after 10 minutes; locks out after 5 wrong attempts (429). On success returns `{ downloadToken }` — a short-lived (15 min) signed JWT, not a permanent URL. |
+| `/api/verify/download` | GET | Public (token-gated) | Query: `token`, `fileKind` (`image`\|`pdf`). Validates the signed token, resolves the file via the resource registry, streams it from private storage with `Content-Disposition: attachment`, and stamps `downloadedAt` on the `Verification` row. The only route that ever serves bytes for a protected resource. |
 
 ## Products
 
@@ -72,7 +86,7 @@ unhandled errors → 500.
 | Route | Method | Auth | Notes |
 |---|---|---|---|
 | `/api/admin/products` | GET | Any session | Query: `status`, `category`, `search`. No pagination. Returns `{ products }`. |
-| `/api/admin/products` | POST | Admin/editor | Body: `name`, `category` (must be a valid enum value) required. `originalPrice`/`sellingPrice` validated non-negative and `selling ≤ original`. `discountPercentage` is never accepted from the client — always server-derived. Returns `{ product }`, 201. |
+| `/api/admin/products` | POST | Admin/editor | Body: `name`, `category` (must be a valid enum value) required; `brand` optional (Sprint 12.5). `originalPrice`/`sellingPrice` validated non-negative and `selling ≤ original`. `discountPercentage` is never accepted from the client — always server-derived. Returns `{ product }`, 201. |
 | `/api/admin/products/[id]` | GET | Any session | Single, populated author. |
 | `/api/admin/products/[id]` | PUT | Admin/editor | Partial update; same price validation as POST. |
 | `/api/admin/products/[id]` | DELETE | Admin/editor | `{ deleted: true }`. |
@@ -83,7 +97,7 @@ unhandled errors → 500.
 
 | Route | Method | Auth | Notes |
 |---|---|---|---|
-| `/api/products` | GET | Public | Query: `category`, `search`. No pagination. Published-only. Returns `{ products }` with pricing defaults backfilled. |
+| `/api/products` | GET | Public | Query: `category`, `brand`, `search`, `minPrice`, `maxPrice`, `availability` (`in-stock`\|`out-of-stock`), `sort` (`price-asc`\|`price-desc`\|`featured`\|`name-asc`\|`newest`), `page` (default 1), `limit` (default 12, max 48). Published-only. Returns `{ products, pagination }` (Sprint 12.5 — filtering/sorting/pagination are server-side; used by both the header product search and the Products page). |
 
 ## Team
 

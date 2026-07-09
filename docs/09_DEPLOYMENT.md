@@ -9,6 +9,10 @@
 | `JWT_EXPIRES_IN` | No | Defaults to `7d` |
 | `AUTH_COOKIE_NAME` | No | Defaults to `ss_token` |
 | `ADMIN_NAME` / `ADMIN_EMAIL` / `ADMIN_PASSWORD` | For seeding | Read once by `scripts/createAdmin.mjs` to create the first admin login |
+| `OTP_EMAIL_PROVIDER` | No | Sprint 12.5 — defaults to `mock` (console-logs the OTP). Set to a real provider name once one is wired into `lib/verification/providers/index.js` (e.g. Resend, SendGrid). |
+| `OTP_SMS_PROVIDER` | No | Sprint 12.5 — defaults to `mock`. Set to a real provider name once one is wired in (e.g. MSG91, Twilio, AWS SNS). |
+| `OTP_EXPIRY_MINUTES` | No | Sprint 12.5 — defaults to `10`. |
+| `DOWNLOAD_TOKEN_EXPIRY_MINUTES` | No | Sprint 12.5 — defaults to `15`. Reuses `JWT_SECRET` (distinct `purpose` claim), not a separate secret. |
 
 **Note:** the root [`README.md`](../README.md) instructs `cp .env.example .env.local`,
 and the Backend Foundation sprint's CHANGELOG entry states `.env.example`
@@ -24,6 +28,7 @@ npm install
 npm run seed:admin      # creates the first admin login from ADMIN_* env vars
 npm run seed:team       # optional — seed sample team data
 npm run seed:products   # optional — seed the 9 sample catalog products with pricing
+npm run migrate:protected-infographics  # required once if you have pre-Sprint-12.5 infographics with a PDF/full image
 npm run dev
 ```
 
@@ -53,12 +58,22 @@ for a single always-on server, but breaks on:
   from instance B)
 
 Before a real production launch on such a platform, swap the internals of
-`app/api/admin/upload/route.js`, `app/api/admin/infographics/upload*/route.js`,
+`app/api/admin/upload/route.js`, `app/api/admin/infographics/upload/route.js`,
 `app/api/admin/team/upload/route.js`, `app/api/admin/products/upload/route.js`,
 `app/api/admin/membership/upload/route.js`, `app/api/admin/events/upload/route.js`,
 and `lib/localUpload.js` for a cloud storage provider (S3, Cloudinary, etc.).
 The `{ url }` response shape is already provider-agnostic, so this is a
 contained change — no caller needs to change.
+
+**Sprint 12.5 added a second, non-public upload location:**
+`private-uploads/` (project root, sibling of `public/`) holds Infographic
+`fullImage`/`pdf` files — protected resources served only through
+`app/api/verify/download` and `app/api/infographics/[id]/preview-image`, via
+`lib/privateUpload.js`. It has the **same local-disk production caveat** as
+`public/uploads/` above (vanishes on serverless redeploy, not shared across
+instances) — when cloud storage replaces local disk, this becomes the
+natural point to switch to signed/presigned URLs instead, since gating then
+comes for free from the URL's own expiry.
 
 ## Build verification checklist (per sprint)
 

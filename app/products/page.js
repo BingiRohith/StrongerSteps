@@ -1,22 +1,36 @@
-import { BookMarked, Shirt, Package, ArrowRight } from 'lucide-react';
-import { Button, Eyebrow, SectionHeading } from '@/components/ui';
-import StepDivider from '@/components/StepDivider';
-import ProductCard from '@/components/products/ProductCard';
-import { getPublishedProducts } from '@/lib/publicProducts';
+import { ArrowRight } from 'lucide-react';
+import { Button, Eyebrow } from '@/components/ui';
+import ProductsPageClient from '@/components/products/ProductsPageClient';
+import { getPublishedProducts, getProductFilterFacets } from '@/lib/publicProducts';
 
 export const dynamic = 'force-dynamic';
 
-const CATEGORY_ICONS = {
-  'mobility-aids': Package,
-  'educational-products': BookMarked,
-  merchandise: Shirt,
-};
+/**
+ * Marketplace-style redesign (Sprint 12.5) — sidebar filters + toolbar
+ * (search/sort) + grid + pagination, all server-driven via the (extended)
+ * public Products API. UX layout takes inspiration from familiar
+ * marketplace conventions per the brief, while keeping Stronger Steps
+ * branding (design tokens from tailwind.config.js, existing ProductCard).
+ * The initial page load is fully server-rendered for whatever filters are
+ * in the URL (e.g. a header-search deep link to /products?search=cane) —
+ * no client refetch flash — client interactivity takes over afterward.
+ */
+export default async function ProductsPage({ searchParams }) {
+  const initialFilters = {
+    search: searchParams?.search || '',
+    category: searchParams?.category || '',
+    brand: searchParams?.brand || '',
+    availability: searchParams?.availability || '',
+    sort: searchParams?.sort || '',
+    minPrice: searchParams?.minPrice || '',
+    maxPrice: searchParams?.maxPrice || '',
+    page: Number(searchParams?.page) || 1,
+  };
 
-export default async function ProductsPage() {
-  const products = await getPublishedProducts();
-  const mobilityAids = products.filter((p) => p.category === 'mobility-aids');
-  const educationalProducts = products.filter((p) => p.category === 'educational-products');
-  const merchandise = products.filter((p) => p.category === 'merchandise');
+  const [{ products, pagination }, facets] = await Promise.all([
+    getPublishedProducts({ ...initialFilters, limit: 12 }),
+    getProductFilterFacets(),
+  ]);
 
   return (
     <>
@@ -32,53 +46,16 @@ export default async function ProductsPage() {
         </div>
       </section>
 
-      <StepDivider from="#FBF7EF" to="#E6EEE4" />
+      <ProductsPageClient
+        initialProducts={products}
+        initialPagination={pagination}
+        initialFilters={initialFilters}
+        facets={facets}
+      />
 
-      {/* Mobility Aids */}
-      {mobilityAids.length > 0 && (
-        <section className="bg-sage">
-          <div className="mx-auto max-w-content px-6 py-16 md:py-20">
-            <SectionHeading eyebrow="Mobility Aids" title="Practical aids for everyday independence" description="Products selected by our doctors to help you stay safe, capable, and mobile at home." />
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {mobilityAids.map((product) => (
-                <ProductCard key={product._id} product={product} icon={CATEGORY_ICONS['mobility-aids']} />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      <StepDivider from="#E6EEE4" to="#FBF7EF" flip />
-
-      {/* Educational Products */}
-      {educationalProducts.length > 0 && (
-        <section className="bg-bg">
-          <div className="mx-auto max-w-content px-6 py-16 md:py-20">
-            <SectionHeading eyebrow="Educational Products" title="Learning tools you can hold in your hands" description="Printed guides and tracking tools developed with our founding doctors." />
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {educationalProducts.map((product) => (
-                <ProductCard key={product._id} product={product} icon={CATEGORY_ICONS['educational-products']} />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      <StepDivider from="#FBF7EF" to="#E6EEE4" />
-
-      {/* Merchandise */}
       <section className="bg-sage">
-        <div className="mx-auto max-w-content px-6 py-16 md:py-20">
-          <SectionHeading eyebrow="Merchandise" title="Wear the movement" description="Comfortable, purposeful branded gear for community members who want to show they're taking stronger steps." />
-          {merchandise.length > 0 && (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {merchandise.map((product) => (
-                <ProductCard key={product._id} product={product} icon={CATEGORY_ICONS.merchandise} />
-              ))}
-            </div>
-          )}
-
-          <div className="mt-12 rounded-xl2 bg-primary-dark p-8 text-white">
+        <div className="mx-auto max-w-content px-6 py-12 md:py-16">
+          <div className="rounded-xl2 bg-primary-dark p-8 text-white">
             <h3 className="font-display text-xl font-bold">Be the first to know when checkout goes live</h3>
             <p className="mt-2 text-white/75">Join our community and we'll notify you as soon as you can buy directly on the site.</p>
             <Button href="/join" variant="accent" className="mt-5">

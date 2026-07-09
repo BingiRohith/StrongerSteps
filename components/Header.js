@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Footprints, Menu, X, ChevronDown, BookOpen, BarChart2, Image, Wrench, FolderOpen, Users, HelpCircle, Crown, HandHeart } from 'lucide-react';
 import { Button } from '@/components/ui';
+import ProductSearchDropdown from '@/components/search/ProductSearchDropdown';
 
 const NAV_LINKS = [
   { href: '/', label: 'Home' },
@@ -157,6 +158,8 @@ export default function Header() {
           ))}
         </nav>
 
+        <ProductSearchDropdown className="hidden w-48 shrink-0 lg:block xl:w-56" />
+
         <div className="hidden lg:block">
           <Button href="/join" variant="primary">
             Take Your First Step
@@ -174,6 +177,11 @@ export default function Header() {
         >
           {mobileOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
+      </div>
+
+      {/* Product search — persistent row on tablet/mobile so it's reachable without opening the nav drawer */}
+      <div className="border-t border-line/70 px-6 py-3 lg:hidden">
+        <ProductSearchDropdown className="mx-auto max-w-content" />
       </div>
 
       {/* Mobile Nav */}

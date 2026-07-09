@@ -71,9 +71,9 @@ by design (see in-model comment).
 | `slug` | String | unique, auto-generated (same pattern as Blog) |
 | `description` | String | max 500 |
 | `category` | String | free text, max 100 |
-| `thumbnailImage` | `{ url, alt }` | |
-| `fullImage` | `{ url, alt }` | |
-| `pdf` | `{ url, filename }` | optional companion download |
+| `thumbnailImage` | `{ url, alt }` | public — shown on the Knowledge Center card and used as a fallback preview |
+| `fullImage` | `{ url, alt }` | Sprint 12.5: **protected** — `url` is now a private storage key (`private-uploads/infographics-full/`), not a public path. Viewable (ungated) via `/api/infographics/[id]/preview-image`; downloadable only via the OTP-gated `/api/verify/download` |
+| `pdf` | `{ url, filename }` | optional companion download; Sprint 12.5: also **protected**, `url` is a private storage key (`private-uploads/infographics-pdfs/`), downloadable only via `/api/verify/download` |
 | `seo` | `{ title, metaDescription }` | |
 | `status` / `publishedAt` | | same lifecycle pattern as Blog |
 | `author` | ObjectId ref → `User` | |
@@ -92,6 +92,7 @@ ever renders those three sections.
 | `name` | String | required, max 150 |
 | `description` | String | max 500 |
 | `category` | String enum | `mobility-aids` \| `educational-products` \| `merchandise`, required |
+| `brand` | String | optional, default `''` — added Sprint 12.5 to power the public Products page's "Dynamic Brands" sidebar filter (not in the original CRS; see `docs/13_DECISIONS.md`) |
 | `image` | `{ url, alt }` | single image, not gallery |
 | `originalPrice` | Number | default 0, ≥0 |
 | `sellingPrice` | Number | default 0, ≥0 |
@@ -212,6 +213,27 @@ payment-ready even though Sprint 12 has no payment step — see `bookingStatus`.
 
 Indexes: `{event, createdAt}`, unique index on `bookingReference`.
 
+## Verification — [`models/Verification.js`](../models/Verification.js)
+
+Backs the reusable OTP verification service (Sprint 12.5,
+[`lib/verification/`](../lib/verification/)) — not Knowledge-Center-specific.
+
+| Field | Type | Notes |
+|---|---|---|
+| `resourceType` | String | **free text, not an enum** — validated against [`lib/verification/resourceRegistry.js`](../lib/verification/resourceRegistry.js) at the application layer instead, so new resource types (Membership downloads, Certificates, Recipes, Programs, ...) can be added with zero schema migration. Only `infographic` is registered today. |
+| `resourceId` | ObjectId | the resource being downloaded |
+| `method` | String enum | `email` \| `mobile` |
+| `email` / `mobile` | String | nullable, whichever method was chosen |
+| `otpHash` | String | bcrypt hash — the plain OTP is never stored |
+| `attemptCount` | Number | default 0, incremented on every verify attempt (even wrong ones); locked out at 5 |
+| `verified` / `verifiedAt` | | stamped on successful OTP match |
+| `expiresAt` | Date | OTP validity window, 10 minutes by default (`OTP_EXPIRY_MINUTES`) |
+| `downloadedAt` | Date | nullable, stamped when the download route is actually hit |
+
+Indexes: `{email, createdAt}` / `{mobile, createdAt}` (rate-limit lookups —
+max 3 OTP requests per identifier per 15 minutes), TTL index on `createdAt`
+(expires after 24h, dependency-free cleanup).
+
 ## Relationships summary
 
 ```
@@ -235,3 +257,4 @@ text or closed string enum, not a `Category` ref.
 - `npm run seed:products` → [`scripts/seedProducts.mjs`](../scripts/seedProducts.mjs) — idempotent, also backfills pricing fields onto pre-existing docs
 - `npm run seed:membership` → [`scripts/seedMembership.mjs`](../scripts/seedMembership.mjs) — idempotent, migrates the 3 plans that used to be hardcoded on `/join`
 - No seed script for Events/Bookings (Sprint 12) — the old static `/programs` content (workshops with no real date/price/seat data) doesn't map onto the new `Event` schema, so nothing is migrated. The calendar ships with a friendly "no events yet" empty state instead.
+- `npm run migrate:protected-infographics` → [`scripts/migrateProtectedInfographics.mjs`](../scripts/migrateProtectedInfographics.mjs) — Sprint 12.5, one-time, idempotent. Moves any already-uploaded Infographic `fullImage`/`pdf` files from `public/uploads/` to the new `private-uploads/` directory and rewrites the affected documents' `url` fields to the new private storage key. **Must be run once after deploying Sprint 12.5** or pre-existing infographics' protected files won't resolve.

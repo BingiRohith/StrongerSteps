@@ -48,6 +48,13 @@ const InfographicSchema = new Schema(
       url: { type: String, default: '' },
       alt: { type: String, trim: true, maxlength: 150, default: '' },
     },
+    // Sprint 12.5: `fullImage`/`pdf` are protected resources gated by OTP
+    // verification (see lib/verification/). Their `url` is repurposed as a
+    // private storage key (a bare filename under private-uploads/, written
+    // by lib/privateUpload.js) rather than a public browsable path — resolved
+    // only by app/api/infographics/[id]/preview-image (viewing fullImage)
+    // and app/api/verify/download (downloading either). `thumbnailImage`
+    // above is unaffected and stays public.
     fullImage: {
       url: { type: String, default: '' },
       alt: { type: String, trim: true, maxlength: 150, default: '' },

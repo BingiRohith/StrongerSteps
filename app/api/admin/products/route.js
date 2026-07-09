@@ -62,6 +62,7 @@ export const POST = withErrorHandling(async (request) => {
     name: body.name,
     description: body.description || '',
     category: body.category,
+    brand: body.brand || '',
     image: {
       url: body.image?.url || '',
       alt: body.image?.alt || '',

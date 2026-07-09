@@ -28,10 +28,10 @@ Integration. This matches the codebase — see
 | §6 | "Our Vision" — rename to "What Stronger Steps Actually Look Like", house illustration (roof + 4 pillars) | **Done** | [`components/VisionHouse.js`](../components/VisionHouse.js). The 4 existing vision statements are reused unchanged as pillars. |
 | §7 | "What We Do" — rename to "Four Ways We Support Your Stronger Steps", real photos not illustrations | **Done** | [`app/page.js`](../app/page.js) — heading renamed, content replaced with the CRS-mandated 4 items (External CSR Programs/Personal Care/Social Activities/Following Our Loved Ones), each with a temporary placeholder photo (real photography or a future media library can swap the `image` path in). |
 | §8 | Membership Module (full CMS: name, description, price, discount, duration, benefits, image, display order, status, featured, CTA + external URL) | **Done** | [`models/Membership.js`](../models/Membership.js) + full admin CRUD ([`components/admin/membership/`](../components/admin/membership/)) + [`app/join/page.js`](../app/join/page.js) fetches live data (Sprint 11). Payment integration remains future (§16). |
-| §9 | Products Module | **Done** for CRS's "already implemented" list. Future roadmap items (inventory, checkout, coupons, shipping, orders, payments) — **not started**. `stockStatus` (in-stock/out-of-stock) is a simple flag, not real inventory tracking. |
+| §9 | Products Module | **Done** for CRS's "already implemented" list. Sprint 12.5 (not itself in the CRS — see the CRS-assumptions note below) redesigned the public page into a marketplace layout (dynamic sidebar filters, server-side search/sort/pagination) and added an optional `brand` field. Future roadmap items (inventory, checkout, coupons, shipping, orders, payments) — **not started**. `stockStatus` (in-stock/out-of-stock) is a simple flag, not real inventory tracking. |
 | §10 | Programs page replaced with Monthly Event Calendar + Events CMS + booking flow | **Done** for the CMS/calendar/booking foundation (Sprint 12) | [`models/Event.js`](../models/Event.js) + full admin CRUD ([`components/admin/events/`](../components/admin/events/), `/admin/events`) + [`app/programs/page.js`](../app/programs/page.js) rewritten as a `react-calendar`-based monthly calendar with a Name/Mobile/Email booking form and atomic seat tracking (`models/Booking.js`). Payment (Card/UPI/QR), SMS/email confirmation, and member-pricing automation remain explicitly future — see CHANGELOG's Sprint 12 entry. |
 | §11 | Team page: organizational tree (Roots=Founders, Branches=Departments, Leaves=Members) | **Not started** | Team CMS itself (CRUD, images, designation, display order) is done, but `models/Team.js` has **no `department` field** — needed for the tree's branch level — and the About page renders a flat/grid list, not a tree. |
-| §12 | Knowledge Center (Blogs, Infographics, search, categories, downloads, preview) | **Done**. Future: Recipes integration — blocked on §14. |
+| §12 | Knowledge Center (Blogs, Infographics, search, categories, downloads, preview) | **Done**, and Sprint 12.5 (not itself in the CRS — see below) added OTP (Email/Mobile) verification gating Infographic PDF/full-image downloads via a reusable `lib/verification/` service. Future: Recipes integration — blocked on §14. |
 | §13 | "Work With Us": remove Partnership section, keep careers content | **Not done** | Verified — the "Partnerships" / "Work with us" section is at [`app/join/page.js:139`](../app/join/page.js). Careers content elsewhere on that page should stay. |
 | §14 | Recipes Module (full CMS + public browse/search/filter) | **Not started** | [`app/recipes/page.js`](../app/recipes/page.js) is a temporary "coming soon" placeholder (Sprint 10, nav entry only) — no model, admin routes, or real content yet. |
 | §15 | Admin Dashboard manages Blogs/Infographics/Products/Team/Memberships/Programs/Recipes/Events/Pricing/Categories/Media | **Partial** | Blogs/Infographics/Products/Team/Memberships/Programs(Events) done (Sprint 11-12). Recipes not started. Categories is API-only, no management UI (see [07_ADMIN_MODULES.md](07_ADMIN_MODULES.md)). No dedicated Media library — uploads are per-module folders, not a reusable/browsable library. |
@@ -42,6 +42,17 @@ Integration. This matches the codebase — see
 | §20 | Design principles: Green + Terracotta palette, senior-friendly, accessible | **Aligned** | Verified — [`tailwind.config.js`](../tailwind.config.js) defines `primary` (#2F6B4F, green) and `accent` (#E59530, terracotta/orange). Accessibility/typography specifics not audited in this pass. |
 | §21 | Client Business Rules (admin-editable content, consistent architecture) | **Aligned** | Matches the project's existing Admin Principle and [08_CODING_STANDARDS.md](08_CODING_STANDARDS.md) conventions already in practice. |
 | §22 | Future Roadmap Phases 2–4 (Membership/Programs/Calendar/Payments/Recipes/Booking/Notifications → Orders/Checkout/Inventory/Coupons/Reports/Analytics/Attendance/Roles → Mobile/Community/Volunteer/Donations/CRM) | **Not started** | Long-range; sequence future sprints against this phase order per the CRS. |
+
+## Sprint 12.5 — a gap between the CRS and actual approved scope
+
+Sprint 12.5 (2026-07-09) shipped three client-approved change requests —
+Knowledge Center download verification (§12), a header product search, and
+the Products marketplace redesign (§9) — none of which are yet written into
+`docs/03_CLIENT_REQUIREMENTS.md`. Nothing here **contradicts** the CRS, so
+this wasn't treated as a blocking conflict per the governance rule, but per
+that same rule the gap is recorded rather than silently resolved:
+recommend a documentation-only follow-up to fold these three items into a
+CRS v1.1 once the client formally reviews/signs off on the CRS text itself.
 
 ## Recommended sprint sequencing
 

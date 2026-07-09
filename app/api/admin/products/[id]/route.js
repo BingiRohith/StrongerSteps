@@ -45,6 +45,7 @@ export const PUT = withErrorHandling(async (request, { params }) => {
     product.name = body.name;
   }
   if (body.description !== undefined) product.description = body.description;
+  if (body.brand !== undefined) product.brand = body.brand;
   if (body.category !== undefined) {
     if (!PRODUCT_CATEGORY_VALUES.includes(body.category)) return fail('A valid category is required', 400);
     product.category = body.category;

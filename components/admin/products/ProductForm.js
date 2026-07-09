@@ -11,6 +11,7 @@ const EMPTY_PRODUCT = {
   name: '',
   description: '',
   category: PRODUCT_CATEGORIES[0].value,
+  brand: '',
   image: { url: '', alt: '' },
   originalPrice: 0,
   sellingPrice: 0,
@@ -164,6 +165,19 @@ export default function ProductForm({ productId, initialData }) {
           {errors.category && (
             <p className="mt-1 text-xs font-semibold text-red-600">{errors.category}</p>
           )}
+
+          <label className="mt-4 block text-sm font-semibold text-ink" htmlFor="brand">
+            Brand <span className="font-normal text-muted">(optional)</span>
+          </label>
+          <input
+            id="brand"
+            type="text"
+            value={form.brand}
+            onChange={(e) => update('brand', e.target.value)}
+            placeholder="e.g. Stronger Steps, Vissco, Karma"
+            className="mt-1.5 w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+          />
+          <p className="mt-1 text-xs text-muted">Powers the Brand filter on the public Products page.</p>
 
           <label className="mt-4 block text-sm font-semibold text-ink" htmlFor="description">
             Description
