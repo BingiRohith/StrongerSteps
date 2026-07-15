@@ -13,13 +13,10 @@
 | `OTP_SMS_PROVIDER` | No | Sprint 12.5 — defaults to `mock`. Set to a real provider name once one is wired in (e.g. MSG91, Twilio, AWS SNS). |
 | `OTP_EXPIRY_MINUTES` | No | Sprint 12.5 — defaults to `10`. |
 | `DOWNLOAD_TOKEN_EXPIRY_MINUTES` | No | Sprint 12.5 — defaults to `15`. Reuses `JWT_SECRET` (distinct `purpose` claim), not a separate secret. |
+| `NEXT_PUBLIC_SITE_URL` | No | Sprint 17 — defaults to `http://localhost:3000`. Public site origin, used for `metadataBase` (canonical/OpenGraph URLs in `app/layout.js`) and the absolute URLs in `app/sitemap.js`/`app/robots.js`. **Set this to the real production domain before going live** — left at the default, canonical/OG/sitemap URLs will all point at `localhost`. |
 
-**Note:** the root [`README.md`](../README.md) instructs `cp .env.example .env.local`,
-and the Backend Foundation sprint's CHANGELOG entry states `.env.example`
-was added — but **no `.env.example` file exists in the repository today**.
-This is a real conflict between documentation and the actual repo state;
-see [13_DECISIONS.md](13_DECISIONS.md). Until it's restored, create
-`.env.local` directly using the table above.
+`.env.example` (restored in Sprint 17 — see [13_DECISIONS.md](13_DECISIONS.md))
+mirrors this table; `cp .env.example .env.local` and fill in real values.
 
 ## First-time setup
 
@@ -74,6 +71,18 @@ contained change — no caller needs to change.
 instances) — when cloud storage replaces local disk, this becomes the
 natural point to switch to signed/presigned URLs instead, since gating then
 comes for free from the URL's own expiry.
+
+## Login rate limiting — same single-instance caveat
+
+Sprint 17 added rate limiting to `POST /api/auth/login` (`lib/rateLimit.js`,
+8 attempts / 15 min per email+IP) to close a brute-force gap. It's an
+in-memory `Map`, scoped to one Node process — same "single always-on
+server" assumption as the upload storage caveat above. Fine for the
+documented single-instance deployment; if this app ever moves to a
+multi-instance/serverless deployment, this should move to a shared store
+(Redis, or the `Verification` collection's DB-backed pattern in
+`lib/verification/verificationService.js`) at the same time the upload
+storage does.
 
 ## Build verification checklist (per sprint)
 

@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Search, Users, Loader2 } from 'lucide-react';
 import TeamTreeIllustration from './TeamTreeIllustration';
+import MobileOrgTree from './MobileOrgTree';
 
 /**
  * Public Organization Tree (Sprint 14 rev. 2) — a real illustrated tree,
@@ -93,7 +94,14 @@ export default function OrgTree({ initialMembers, initialMatchedIds }) {
         </p>
       )}
 
-      <div className="mt-8 overflow-x-auto pb-4">
+      {/* Mobile fallback (<md): the illustrated tree can't fit usably below
+          tablet width, so member cards use an expandable hierarchy list
+          instead — see components/team/MobileOrgTree.js. */}
+      <div className="mt-8 md:hidden">
+        <MobileOrgTree members={members} matchedSet={matchedSet} />
+      </div>
+
+      <div className="mt-8 hidden overflow-x-auto pb-4 md:block">
         <div className="relative mx-auto aspect-[4/5] w-full min-w-[640px] max-w-2xl">
           <TeamTreeIllustration className="absolute inset-0 h-full w-full" />
 

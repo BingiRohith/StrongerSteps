@@ -302,6 +302,51 @@ resolved:
 No application code was changed in this sprint, per the documentation-sprint
 rule in the project's master context.
 
+## 2026-07-15 — Sprint 17 hardening decisions
+
+1. **`.env.example` restored**, resolving item 2 above. Recreated verbatim
+   from [09_DEPLOYMENT.md](09_DEPLOYMENT.md)'s env var table, plus the new
+   `NEXT_PUBLIC_SITE_URL`. No real secrets in it.
+2. **`accent-dark` (`#B9711A`) on `bg` (`#FBF7EF`) fails WCAG AA contrast**
+   (3.61:1, needs 4.5:1) for the `Eyebrow` component's 14px bold uppercase
+   label — used site-wide (every section eyebrow, category/department
+   tags). Deliberately **not changed** this sprint.
+   **Why:** it's a brand/design-system color used across dozens of
+   components, not a one-off style bug — the brief's mandate was "fix
+   accessibility issues without redesigning components," and changing a
+   token that touches the whole site's visual identity is a design
+   decision, not a polish fix — don't reinterpret an approved visual
+   without the client seeing it first.
+   **How to apply:** if the client approves, the minimal fix is darkening
+   `accent-dark` in `tailwind.config.js` to roughly `#A66315` (get back to
+   ≥4.5:1 against `#FBF7EF`) — a single token change, no component
+   rewrites needed. Until then, this is a known, logged gap, not an
+   oversight.
+3. **Plain `<img>` (not `next/image`) for all uploaded/CMS content stayed
+   as-is.** It's the existing, deliberate pattern across every admin list
+   thumbnail and public card component (`ProductCard.js`, `BlogCard.js`,
+   `RecipeCard.js`, `OrgTree.js`, etc.), each already carrying an
+   `eslint-disable-next-line @next/next/no-img-element` — not something
+   Sprint 17 introduced or found broken.
+   **Why:** converting dozens of call sites to `next/image` is a
+   refactor of working code, not a bug fix, and the brief says "do not
+   refactor working modules unnecessarily."
+   **How to apply:** if page-weight from uploaded images becomes a real
+   problem, that's its own dedicated sprint (would also need
+   `next.config.mjs` image domain/loader config for local uploads).
+4. **Login rate limiting (`lib/rateLimit.js`) is in-memory, not
+   DB-backed**, unlike the OTP flow's DB-backed rate limiting in
+   `lib/verification/verificationService.js`.
+   **Why:** adding a new Mongoose model/collection just to count login
+   attempts is disproportionate to closing a brute-force gap on a
+   single-admin-account app, and the project already documents (in
+   [09_DEPLOYMENT.md](09_DEPLOYMENT.md)) that it assumes one always-on
+   Node server for local upload storage — the same assumption covers an
+   in-memory rate-limit `Map`.
+   **How to apply:** if the app ever moves to multi-instance/serverless
+   hosting, revisit this at the same time upload storage moves to a cloud
+   provider (see 09_DEPLOYMENT.md's login rate limiting section).
+
 ## 2026-07-06/07 — Product pricing is always server-derived
 
 `discountPercentage` on `Product` is computed server-side from

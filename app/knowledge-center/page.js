@@ -29,6 +29,14 @@ import { getPublishedInfographics, getInfographicCategories } from '@/lib/public
 // reasoning as `app/api/blogs/route.js` and the blog detail page.
 export const dynamic = 'force-dynamic';
 
+export const metadata = {
+  title: 'Knowledge Center',
+  description:
+    'Explore blogs, infographics, and guides on healthy aging, mobility, nutrition, and independent living from Stronger Steps.',
+  alternates: { canonical: '/knowledge-center' },
+  openGraph: { title: 'Knowledge Center | Stronger Steps', url: '/knowledge-center' },
+};
+
 const SUB_NAV = [
   { href: '#blogs', label: 'Blogs', icon: BookOpen },
   { href: '#courses', label: 'Courses', icon: GraduationCap },

@@ -1,5 +1,129 @@
 # Changelog
 
+## Sprint 17: Production Hardening & Version 1.0 — 2026-07-15
+
+Scope: no new features/CMS modules/architecture changes, per the brief.
+Full regression pass across every existing module (public + admin), SEO/
+accessibility/security/performance hardening, and the Team Organization
+Tree's mobile responsiveness gap (explicitly called out in the brief as
+blocking for v1.0).
+
+### Added
+- **`components/team/MobileOrgTree.js`** — collapsible parent→children
+  hierarchy list, the illustrated tree's (`TeamTreeIllustration.js`)
+  mobile (`<md`) fallback. The illustration's fixed 640px-min-width canvas
+  is usable on tablet (768px) via horizontal scroll, but not on phones —
+  reshapes the same `members`/`matchedIds` data `OrgTree.js` already fetches
+  into a `parentMember`-driven tree with expand/collapse per branch
+  (orphaned members whose parent is missing/unpublished surface as roots
+  instead of silently vanishing), preserving photos/names/positions/
+  departments and search highlighting. Desktop/tablet markup in
+  `OrgTree.js` is untouched (`hidden md:block` / `md:hidden` split) — no
+  DB schema change, no change to `TreePositionEditor.js`'s drag-and-drop.
+- **`app/robots.js`** / **`app/sitemap.js`** — dynamic `robots.txt`/
+  `sitemap.xml` (Next.js metadata route convention). Sitemap covers all
+  static public routes plus every published Blog/Recipe slug, queried
+  directly against the models (not through `lib/publicBlogs.js`'s/
+  `lib/publicRecipes.js`'s paginated helpers, which cap `limit` for UI
+  pagination) so it stays exhaustive as content grows.
+- **`app/icon.svg`** — the site had no favicon at all. Small on-brand SVG
+  (green circle + two-oval mark) matching `Header.js`'s existing logo
+  treatment, picked up automatically via Next's `app/icon.svg` convention.
+- **`.env.example`** — recreated from `docs/09_DEPLOYMENT.md`'s env var
+  table. This was a known, previously-documented gap (see
+  `docs/13_DECISIONS.md`'s Sprint 16-era entry): the root README
+  instructed `cp .env.example .env.local` and an old CHANGELOG entry
+  claimed the file was added, but it didn't exist in the repo. Also adds
+  `NEXT_PUBLIC_SITE_URL`, newly used by `app/layout.js`'s `metadataBase`
+  and the sitemap/robots routes above.
+- **`lib/rateLimit.js`** — small in-memory sliding-window limiter
+  (`isRateLimited(key, { max, windowMs })`). Applied to
+  `app/api/auth/login/route.js` (8 attempts / 15 min per email+IP) to
+  close a brute-force gap found during the security review — login had no
+  rate limiting at all. Per-process Map, same "single always-on Node
+  server" assumption `docs/09_DEPLOYMENT.md` already documents for local
+  upload storage, so no new DB collection was needed for this.
+
+### Modified
+- **`app/layout.js`** — added `metadataBase` (from the new
+  `NEXT_PUBLIC_SITE_URL`, was unset, so every page's canonical/OG URLs
+  silently resolved against `localhost` in production), a `title.template`
+  (`%s | Stronger Steps`) with a `default`, and site-wide `openGraph`/
+  `twitter` fallbacks.
+- **`app/about/page.js`**, **`app/join/page.js`**,
+  **`app/knowledge-center/page.js`**, **`app/products/page.js`**,
+  **`app/programs/page.js`**, **`app/recipes/page.js`** — none of these
+  six public pages had a `metadata` export before this sprint (only the
+  two `[slug]` detail pages and `/booking-history` did); each gained a
+  title/description/canonical/OpenGraph block.
+- **`app/admin/layout.js`**, **`app/recipes/[slug]/page.js`**,
+  **`app/knowledge-center/blogs/[slug]/page.js`**,
+  **`app/booking-history/page.js`** — these four already manually
+  appended `" | Stronger Steps"` to their titles; with the new root
+  template that would have rendered as `"X | Stronger Steps | Stronger
+  Steps"` (caught during manual verification, not the build — Next
+  doesn't warn on this). Stripped the manual suffix so the template
+  supplies it once.
+- **`components/admin/homepage/HomepageEditorClient.js`** — the four
+  tab-specific form components (`HeroSectionForm`/`IconSectionForm`/
+  `WhatWeDoSectionForm`/`MembershipCtaSectionForm`) were statically
+  imported even though only one is ever mounted at a time (`activeTab`
+  state). Switched to `next/dynamic`. `/admin/homepage`'s page size went
+  from 160 kB / 247 kB first-load JS to 3.06 kB / 90.5 kB — by far the
+  largest single-page bundle in the app before this change, now in line
+  with every other admin list page.
+- **`components/programs/BookingModal.js`** and nine admin delete/cancel
+  confirmation dialogs (`BlogsListClient.js`, `BookingsListClient.js`,
+  `EventsListClient.js`, `InfographicsListClient.js`,
+  `MembershipListClient.js`, `ProductsListClient.js`,
+  `RecipeCategoriesListClient.js`, `RecipesListClient.js`,
+  `TeamListClient.js`) — added `role="dialog"`/`aria-modal="true"`/
+  `aria-label`. `VerificationModal.js` and `InfographicViewer.js` already
+  had this; these ten didn't.
+- **`app/api/auth/login/route.js`** — wired in the new rate limiter (see
+  Added above).
+
+### Verified
+- Deleted `.next`, ran `npm run build` clean before and after every group
+  of changes — no TypeScript/build errors, no new warnings. Confirmed
+  `/robots.txt`, `/sitemap.xml`, `/icon.svg` all compile as static routes.
+- Full public-site regression sweep via `preview_*` tools: `/`, `/about`,
+  `/join`, `/products`, `/programs`, `/recipes`, `/knowledge-center`,
+  `/booking-history`, a non-existent `/recipes/[slug]` (confirmed
+  `notFound()` still renders the app 404). No console errors, no failed
+  network requests on any page.
+- Logged into `/admin` against the live seeded database; spot-checked
+  `/admin/products`, `/admin/team/tree` (drag-and-drop position editor,
+  confirmed unaffected by the `OrgTree.js` mobile-fallback change),
+  `/admin/bookings`, and did a full click-through of `/admin/homepage`'s
+  five tabs post-code-split (each dynamically-imported form mounts and
+  its data loads correctly on tab switch).
+- Team Tree responsiveness tested at 1920/1440/1024/768/430/390/375/360px
+  via `preview_resize`: illustrated tree renders without overlap at
+  1024px+ and at 768px (no horizontal scroll needed at 768, contrary to
+  the brief's "allow if needed" — the existing `max-w-2xl`/`min-w-[640px]`
+  canvas already fits); `MobileOrgTree` renders below 768px with working
+  expand/collapse and search-match highlighting, verified at 360/375/430px
+  with no text overflow or overlapping cards.
+- Computed WCAG contrast ratios for the core brand palette
+  (`tailwind.config.js`) against `bg`: `ink` 11.46:1, `muted` 4.83:1,
+  `primary` 6.29:1 — all pass AA. `accent-dark` on `bg` is 3.61:1, which
+  fails AA for the `Eyebrow` component's 14px bold uppercase label text
+  (needs 4.5:1; 14px bold doesn't qualify for the 3:1 "large text"
+  exemption). Not changed this sprint — `accent-dark` is a load-bearing
+  brand/design-system color used across dozens of components, and
+  altering it is a visual decision for the client to sign off on, not a
+  "fix accessibility issues without redesigning" polish task. Logged as
+  the one open accessibility finding.
+
+### Not touched
+No CMS/model/API behavior changed for Blogs, Infographics, Products,
+Membership, Programs/Events, Recipes, Categories, or the Team CRUD/
+hierarchy/drag-and-drop position editor themselves — only the public
+Team Tree's rendering (mobile fallback) and the pages/dialogs/routes
+listed above. No new features, no payment/SMS/email integrations, per the
+brief's explicit non-goals.
+
 ## Sprint 16: Booking Workflow Completion — 2026-07-15
 
 Scope: completes the booking workflow described in the Sprint 16 brief

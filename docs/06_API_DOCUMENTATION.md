@@ -13,7 +13,7 @@ unhandled errors → 500.
 
 | Route | Method | Auth | Body / Params | Response |
 |---|---|---|---|---|
-| `/api/auth/login` | POST | Public | `{ email, password }` | `{ user }`, sets session cookie |
+| `/api/auth/login` | POST | Public | `{ email, password }` | `{ user }`, sets session cookie. Sprint 17: rate-limited to 8 attempts / 15 min per email+IP (`lib/rateLimit.js`) — 429 `Too many login attempts...` past that. |
 | `/api/auth/logout` | POST | Public | — | `{ message }`, clears cookie |
 | `/api/auth/me` | GET | Any session | — | `{ user }` or 401 |
 | `/api/auth/register` | POST | **Admin only** | `{ name, email, password, role? }` | `{ user }`, 201. Not public signup — only for admins creating other admin/editor accounts. First admin comes from `npm run seed:admin`. |
@@ -231,6 +231,15 @@ Singleton — no `[id]` routes, since there's exactly one document.
 | Route | Method | Auth | Notes |
 |---|---|---|---|
 | `/api/admin/upload` | POST | Admin/editor | multipart `file`. JPEG/PNG/WebP/GIF, max 5MB. Blog cover images only — despite the generic name, this is the original/blog-specific route; other modules have their own `upload` routes (see above). Returns `{ url }`, 201. |
+
+## SEO metadata routes — `app/robots.js`, `app/sitemap.js` (Sprint 17)
+
+Not JSON APIs — Next.js metadata-route convention, statically generated.
+
+| Route | Notes |
+|---|---|
+| `/robots.txt` | Allows `/`, disallows `/admin/` and `/api/`. Points at `/sitemap.xml`. |
+| `/sitemap.xml` | Static public routes + every published Blog/Recipe slug, queried directly against the models (not the paginated `lib/publicBlogs.js`/`lib/publicRecipes.js` helpers). Absolute URLs built from `NEXT_PUBLIC_SITE_URL` (see `docs/09_DEPLOYMENT.md`). |
 
 ## General notes
 

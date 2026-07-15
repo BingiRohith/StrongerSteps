@@ -4,6 +4,14 @@ import { getPublishedEventsForMonth } from '@/lib/publicEvents';
 
 export const dynamic = 'force-dynamic';
 
+export const metadata = {
+  title: 'Programs',
+  description:
+    'Browse the Stronger Steps monthly event calendar and book your seat for classes, workshops, and community programs.',
+  alternates: { canonical: '/programs' },
+  openGraph: { title: 'Programs | Stronger Steps', url: '/programs' },
+};
+
 export default async function ProgramsPage() {
   const now = new Date();
   const year = now.getFullYear();

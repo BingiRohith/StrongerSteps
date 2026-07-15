@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Admin | Stronger Steps',
+  title: 'Admin',
   description: 'Stronger Steps admin panel.',
   robots: { index: false, follow: false },
 };

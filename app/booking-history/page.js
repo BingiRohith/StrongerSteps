@@ -2,8 +2,10 @@ import { Eyebrow } from '@/components/ui';
 import BookingHistoryClient from '@/components/bookings/BookingHistoryClient';
 
 export const metadata = {
-  title: 'Booking History | Stronger Steps',
+  title: 'Booking History',
   description: 'Look up your Stronger Steps event bookings by mobile number.',
+  alternates: { canonical: '/booking-history' },
+  openGraph: { title: 'Booking History | Stronger Steps', url: '/booking-history' },
 };
 
 export default function BookingHistoryPage() {

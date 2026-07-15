@@ -5,6 +5,14 @@ import { getPublishedProducts, getProductFilterFacets } from '@/lib/publicProduc
 
 export const dynamic = 'force-dynamic';
 
+export const metadata = {
+  title: 'Products',
+  description:
+    'Browse mobility aids, wellness products, and healthy-aging essentials curated by Stronger Steps for adults 50+.',
+  alternates: { canonical: '/products' },
+  openGraph: { title: 'Products | Stronger Steps', url: '/products' },
+};
+
 /**
  * Marketplace-style redesign (Sprint 12.5) — sidebar filters + toolbar
  * (search/sort) + grid + pagination, all server-driven via the (extended)

@@ -6,6 +6,14 @@ import { currencySymbol, billingPeriodLabel } from '@/lib/membershipOptions';
 
 export const dynamic = 'force-dynamic';
 
+export const metadata = {
+  title: 'Membership Packages',
+  description:
+    'Compare Stronger Steps membership plans, benefits, and pricing — join the community built for healthy, independent aging.',
+  alternates: { canonical: '/join' },
+  openGraph: { title: 'Membership Packages | Stronger Steps', url: '/join' },
+};
+
 const THEME_BORDER = {
   sage: 'border-line',
   accent: 'border-accent',

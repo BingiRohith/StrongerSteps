@@ -15,7 +15,7 @@ export async function generateMetadata({ params }) {
   const recipe = await getRecipeBySlug(params.slug);
 
   if (!recipe) {
-    return { title: 'Recipe not found | Stronger Steps' };
+    return { title: 'Recipe not found' };
   }
 
   const title = recipe.seo?.title || recipe.name;
@@ -25,7 +25,7 @@ export async function generateMetadata({ params }) {
     : undefined;
 
   return {
-    title: `${title} | Stronger Steps`,
+    title,
     description,
     alternates: {
       canonical: `/recipes/${recipe.slug}`,

@@ -17,7 +17,7 @@ export async function generateMetadata({ params }) {
   const blog = await getBlogBySlug(params.slug);
 
   if (!blog) {
-    return { title: 'Article not found | Stronger Steps' };
+    return { title: 'Article not found' };
   }
 
   const title = blog.seo?.title || blog.title;
@@ -25,7 +25,7 @@ export async function generateMetadata({ params }) {
   const ogImages = blog.coverImage?.url ? [{ url: blog.coverImage.url, alt: blog.coverImage.alt || blog.title }] : undefined;
 
   return {
-    title: `${title} | Stronger Steps`,
+    title,
     description,
     alternates: {
       canonical: `/knowledge-center/blogs/${blog.slug}`,

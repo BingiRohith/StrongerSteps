@@ -2,14 +2,23 @@ import connectDB from '@/lib/db';
 import User from '@/models/User';
 import { signToken, setAuthCookie } from '@/lib/auth';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
+import { isRateLimited } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
+
+const LOGIN_RATE_LIMIT = { max: 8, windowMs: 15 * 60 * 1000 };
 
 async function handler(request) {
   const { email, password } = await request.json();
 
   if (!email || !password) {
     return fail('Email and password are required', 400);
+  }
+
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rateLimitKey = `${email.toLowerCase().trim()}:${ip}`;
+  if (isRateLimited(rateLimitKey, LOGIN_RATE_LIMIT)) {
+    return fail('Too many login attempts. Please try again in a few minutes.', 429);
   }
 
   await connectDB();

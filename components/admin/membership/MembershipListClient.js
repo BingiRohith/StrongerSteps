@@ -346,7 +346,12 @@ export default function MembershipListClient() {
       </div>
 
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 px-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 px-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Delete this plan?"
+        >
           <div className="w-full max-w-sm rounded-xl2 bg-surface p-6 shadow-xl">
             <h3 className="font-display text-lg font-bold text-primary-dark">Delete this plan?</h3>
             <p className="mt-2 text-sm text-muted">

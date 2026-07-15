@@ -4,6 +4,14 @@ import StepDivider from '@/components/StepDivider';
 import OrgTree from '@/components/team/OrgTree';
 import { getTeamTreeData } from '@/lib/publicTeam';
 
+export const metadata = {
+  title: 'About Us',
+  description:
+    'Meet the doctors and team behind Stronger Steps — a community platform helping adults 50+ stay strong, independent, and confident.',
+  alternates: { canonical: '/about' },
+  openGraph: { title: 'About Us | Stronger Steps', url: '/about' },
+};
+
 const CREDENTIALS = [
   'Diploma in Geriatric Medicine',
   'Diploma in Palliative Rehabilitation',

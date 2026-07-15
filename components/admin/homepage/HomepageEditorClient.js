@@ -1,11 +1,26 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Home, Loader2 } from 'lucide-react';
-import HeroSectionForm from './HeroSectionForm';
-import IconSectionForm from './IconSectionForm';
-import WhatWeDoSectionForm from './WhatWeDoSectionForm';
-import MembershipCtaSectionForm from './MembershipCtaSectionForm';
+
+// Code-split per tab (Sprint 17 perf pass) — only one of these five section
+// forms is ever mounted at a time (see `activeTab` below), but they were
+// statically imported, so every tab's JS shipped on first load regardless of
+// which one the admin opened. Dynamic import keeps that same one-tab-at-a-
+// time behavior while only fetching the active tab's chunk.
+function TabLoading() {
+  return (
+    <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted">
+      <Loader2 size={18} className="animate-spin" />
+      Loading…
+    </div>
+  );
+}
+const HeroSectionForm = dynamic(() => import('./HeroSectionForm'), { loading: TabLoading });
+const IconSectionForm = dynamic(() => import('./IconSectionForm'), { loading: TabLoading });
+const WhatWeDoSectionForm = dynamic(() => import('./WhatWeDoSectionForm'), { loading: TabLoading });
+const MembershipCtaSectionForm = dynamic(() => import('./MembershipCtaSectionForm'), { loading: TabLoading });
 
 const TABS = [
   { key: 'hero', label: 'Hero' },

@@ -61,7 +61,12 @@ export default function BookingModal({ event, onClose, onSuccess }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 px-4 py-8">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 px-4 py-8"
+      role="dialog"
+      aria-modal="true"
+      aria-label={booking ? 'Booking confirmed' : 'Book your seat'}
+    >
       <div className="w-full max-w-md overflow-y-auto rounded-xl2 bg-white p-6 shadow-xl max-h-[90vh]">
         <div className="flex items-start justify-between gap-3">
           <div>

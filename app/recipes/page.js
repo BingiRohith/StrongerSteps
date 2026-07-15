@@ -10,6 +10,14 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+export const metadata = {
+  title: 'Recipes',
+  description:
+    'Discover healthy, easy-to-prepare recipes designed for adults 50+ — browse by category, search, and filter on Stronger Steps.',
+  alternates: { canonical: '/recipes' },
+  openGraph: { title: 'Recipes | Stronger Steps', url: '/recipes' },
+};
+
 /**
  * Full CMS-driven Recipes module (Sprint 13) — replaces the Sprint 10
  * placeholder. Hero + Featured Recipes + Category Navigation + search/
