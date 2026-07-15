@@ -105,11 +105,11 @@ Public, reusable, provider-agnostic — not Knowledge-Center-specific. See
 
 | Route | Method | Auth | Notes |
 |---|---|---|---|
-| `/api/admin/team` | GET | Any session | Query: `status`, `search`. No pagination. Returns `{ teamMembers }`. |
-| `/api/admin/team` | POST | Admin/editor | Body: `name`, `designation` required. Returns `{ teamMember }`, 201. |
-| `/api/admin/team/[id]` | GET | Any session | Single, populated author. |
-| `/api/admin/team/[id]` | PUT | Admin/editor | Partial update. |
-| `/api/admin/team/[id]` | DELETE | Admin/editor | `{ deleted: true }`. |
+| `/api/admin/team` | GET | Any session | Query: `status`, `search`. No pagination. Returns `{ teamMembers }`, each populated with `author` and (Sprint 14) `parentMember` (`name designation`). |
+| `/api/admin/team` | POST | Admin/editor | Body: `name`, `designation` required; `department`, `parentMember` optional (Sprint 14). `parentMember` is validated — must be a real, existing Team id, and is checked against a circular-reference walk (`lib/teamHierarchy.js`) before save. Returns `{ teamMember }`, 201. |
+| `/api/admin/team/[id]` | GET | Any session | Single, populated `author` + `parentMember`. |
+| `/api/admin/team/[id]` | PUT | Admin/editor | Partial update, now including `department`/`parentMember` (same cycle validation as POST — a member can't become its own ancestor). Also used by the admin list's Move Up/Down controls to swap `displayOrder` between two **sibling** members (same `parentMember`). |
+| `/api/admin/team/[id]` | DELETE | Admin/editor | `{ deleted: true }`. Does not cascade to children — an orphaned child's `parentMember` no longer resolves and the org tree treats it as a root. |
 | `/api/admin/team/[id]/status` | PATCH | Admin/editor | Publish toggle. |
 | `/api/admin/team/upload` | POST | Admin/editor | multipart `file`. JPEG/PNG/WebP/GIF, max 5MB. Returns `{ url }`, 201. |
 
@@ -117,7 +117,7 @@ Public, reusable, provider-agnostic — not Knowledge-Center-specific. See
 
 | Route | Method | Auth | Notes |
 |---|---|---|---|
-| `/api/team` | GET | Public | Query: `search`. No pagination. Published-only. Returns `{ teamMembers }`. |
+| `/api/team` | GET | Public | Query: `search` (matches Name/Department/Position). No pagination. Published-only. Returns `{ teamMembers, tree, matchedIds }` — `teamMembers` is the original flat list (unchanged, kept for backward compatibility); `tree`/`matchedIds` (Sprint 14) are the nested Organization Tree and the ids of any search matches, consumed by `components/team/OrgTree.js`. The tree is always returned in full — `search` never removes nodes, only flags matches. |
 
 ## Membership
 

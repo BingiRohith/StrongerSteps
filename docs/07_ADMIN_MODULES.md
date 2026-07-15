@@ -64,12 +64,23 @@ the only module with live stats on this page so far.
 
 ## Team — `/admin/team`
 
-**Status: full CRUD, production-capable.**
+**Status: full CRUD, production-capable.** Sprint 14 added org-hierarchy
+management on top of the existing CRUD — no second Team module, same
+`/admin/team` routes/components extended in place.
 
-- List (`TeamListClient.js`): standard list pattern.
+- List (`TeamListClient.js`): standard list pattern, plus (Sprint 14) each
+  row shows its Department and "Reports to X" / "Root of tree" line, and
+  Move Up/Move Down buttons that reorder within **siblings only** (members
+  sharing the same parent, or other roots) — not the whole mixed-hierarchy
+  list — via the existing PUT endpoint's `displayOrder` swap, same pattern
+  `MembershipListClient.js`/`EventsListClient.js` already use.
 - Create/Edit (`TeamForm.js`): name, designation, qualifications, experience,
   bio, photo upload, LinkedIn/Twitter links, display order, featured toggle,
-  Save as Draft / Publish.
+  Save as Draft / Publish, plus (Sprint 14) a Department text input and a
+  Parent Member `<select>` — populated from a client-side fetch of the full
+  admin team list, with the member itself and its own descendants excluded
+  from the option list so a circular assignment can't even be selected (the
+  API validates independently regardless, via `lib/teamHierarchy.js`).
 
 ## Membership — `/admin/membership`
 

@@ -5,6 +5,48 @@ as of the 2026-07-07 documentation sprint — everything below Sprint 9 is
 reconstructed from code/CHANGELOG evidence, not from a prior decisions log
 (none existed).
 
+## 2026-07-15 — Sprint 14 Team Organization Tree: field-shape and scope assumptions
+
+The CRS (§11) and the sprint brief describe the tree conceptually (Founders
+→ Departments → Team Members, unlimited nesting, admin-managed parent/
+department/order) without spelling out every implementation detail. Choices
+made without a separate confirmation round, following the CRS governance
+rule:
+
+1. **"Position" reuses the existing `designation` field** rather than adding
+   a new one. The sprint brief's own "Team Model" section says not to
+   duplicate existing fields, and `docs/02_ROADMAP.md`'s gap analysis had
+   already identified only `department` (not a position/title field) as
+   missing from `models/Team.js`.
+2. **Tree level is derived at read time, never stored** — computed by
+   walking the `parentMember` chain in `lib/teamHierarchy.js`'s
+   `buildTeamTree()`. Storing a `level` field would require a migration
+   every time a subtree is re-parented; deriving it keeps nesting genuinely
+   unlimited and matches the brief's explicit "do NOT hardcode tree levels."
+3. **Tree nodes are not clickable/linked to a detail page.** The brief says
+   "clicking a member should open the existing Team detail/profile *if one
+   already exists*" — `docs/05_DATABASE.md` already documented Team as
+   having no slug/detail page, and building one wasn't in scope (a new
+   feature, not "if one already exists"). Revisit if the client wants
+   per-member detail pages in a future sprint.
+4. **Search never filters the tree away** — `/api/team`'s `matchedIds`
+   flags matching nodes for the client to highlight/auto-expand-ancestors,
+   but the tree itself is always returned in full. A tree that partially
+   disappears mid-search would look broken/inconsistent with the "tree
+   updates automatically" requirement; highlighting-in-place is the more
+   common org-chart search UX anyway.
+5. **Delete does not cascade to children.** Deleting a member with children
+   leaves their `parentMember` pointing at a nonexistent doc;
+   `buildTeamTree()` treats such orphans as roots rather than dropping them.
+   Same no-cascade precedent as `Event`→`Booking` and
+   `RecipeCategory`→`Recipe` deletes (see below) — consistent with the
+   project's existing pattern rather than a new one invented for Team.
+
+**How to apply:** if the client wants dedicated member detail pages, a
+persisted org-chart "title" distinct from `designation`, or cascade-delete
+behavior for children, these are additive/behavioral changes — confirm with
+the user before implementing, per the CRS governance rule.
+
 ## 2026-07-09 — Sprint 13 Recipes CMS: field-shape assumptions not spelled out in the CRS
 
 The CRS (§14) lists Recipe fields at a high level (Name, Description,

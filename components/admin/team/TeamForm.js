@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Loader2, Save, Send, Star } from 'lucide-react';
 import ImageUploadField from '@/components/admin/infographics/ImageUploadField';
@@ -8,6 +8,8 @@ import ImageUploadField from '@/components/admin/infographics/ImageUploadField';
 const EMPTY_TEAM_MEMBER = {
   name: '',
   designation: '',
+  department: '',
+  parentMember: '',
   qualifications: [],
   experience: '',
   bio: '',
@@ -18,6 +20,37 @@ const EMPTY_TEAM_MEMBER = {
   status: 'draft',
 };
 
+/**
+ * Every id `rootId` reports to transitively, computed from the flat admin
+ * list's `parentMember` refs — used to keep the Parent Member <select> from
+ * offering the member itself or any of its own descendants (which would
+ * create a circular reporting loop; the API validates this too, but hiding
+ * the option in the UI is a better experience than a submit-time error).
+ */
+function getDescendantIds(members, rootId) {
+  const childrenByParent = new Map();
+  members.forEach((m) => {
+    const parentId = m.parentMember?._id || m.parentMember || null;
+    if (!parentId) return;
+    const key = String(parentId);
+    if (!childrenByParent.has(key)) childrenByParent.set(key, []);
+    childrenByParent.get(key).push(String(m._id));
+  });
+
+  const descendants = new Set();
+  const stack = [String(rootId)];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    (childrenByParent.get(current) || []).forEach((childId) => {
+      if (!descendants.has(childId)) {
+        descendants.add(childId);
+        stack.push(childId);
+      }
+    });
+  }
+  return descendants;
+}
+
 export default function TeamForm({ teamMemberId, initialData }) {
   const router = useRouter();
   const isEdit = Boolean(teamMemberId);
@@ -25,6 +58,7 @@ export default function TeamForm({ teamMemberId, initialData }) {
   const [form, setForm] = useState(() => ({
     ...EMPTY_TEAM_MEMBER,
     ...initialData,
+    parentMember: initialData?.parentMember?._id || initialData?.parentMember || '',
     photo: { ...EMPTY_TEAM_MEMBER.photo, ...initialData?.photo },
     social: { ...EMPTY_TEAM_MEMBER.social, ...initialData?.social },
   }));
@@ -34,6 +68,27 @@ export default function TeamForm({ teamMemberId, initialData }) {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(null); // 'draft' | 'published' | null
   const [submitError, setSubmitError] = useState('');
+  const [allMembers, setAllMembers] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/admin/team')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && data.success) setAllMembers(data.teamMembers);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const parentOptions = useMemo(() => {
+    const excluded = teamMemberId
+      ? new Set([String(teamMemberId), ...getDescendantIds(allMembers, teamMemberId)])
+      : new Set();
+    return allMembers.filter((m) => !excluded.has(String(m._id)));
+  }, [allMembers, teamMemberId]);
 
   function update(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -125,6 +180,37 @@ export default function TeamForm({ teamMemberId, initialData }) {
           {errors.designation && (
             <p className="mt-1 text-xs font-semibold text-red-600">{errors.designation}</p>
           )}
+
+          <label className="mt-4 block text-sm font-semibold text-ink" htmlFor="department">
+            Department
+          </label>
+          <input
+            id="department"
+            type="text"
+            value={form.department}
+            onChange={(e) => update('department', e.target.value)}
+            placeholder="Clinical Care"
+            className="mt-1.5 w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+          />
+          <p className="mt-1 text-xs text-muted">Powers the org tree&apos;s branch grouping</p>
+
+          <label className="mt-4 block text-sm font-semibold text-ink" htmlFor="parentMember">
+            Parent member (reports to)
+          </label>
+          <select
+            id="parentMember"
+            value={form.parentMember || ''}
+            onChange={(e) => update('parentMember', e.target.value)}
+            className="mt-1.5 w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+          >
+            <option value="">— None (root of the org tree) —</option>
+            {parentOptions.map((m) => (
+              <option key={m._id} value={m._id}>
+                {m.name}{m.designation ? ` — ${m.designation}` : ''}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-muted">Sets this member&apos;s position in the Organization Tree</p>
 
           <label className="mt-4 block text-sm font-semibold text-ink" htmlFor="qualifications">
             Qualifications

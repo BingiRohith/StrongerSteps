@@ -112,23 +112,32 @@ Indexes: `{status, category, displayOrder}`, text index on `name`/`description`.
 
 ## Team — [`models/Team.js`](../models/Team.js)
 
-Feeds the About page's team roster. No slug/detail page.
+Feeds the About page's Organization Tree (Sprint 14; a flat roster grid
+before that). No slug/detail page.
 
 | Field | Type | Notes |
 |---|---|---|
 | `name` | String | required, max 100 |
-| `designation` | String | required, max 150 |
+| `designation` | String | required, max 150 — also doubles as the org tree node's "Position" label (Sprint 14 reuses it rather than adding a duplicate field) |
+| `department` | String | max 150, default `''` — Sprint 14, powers the tree's branch grouping and the Name/Department/Position search |
+| `parentMember` | ObjectId ref → `Team` (self-ref) | default `null` — Sprint 14. `null` = root of the tree (e.g. a Founder). Validated server-side against cycles (`lib/teamHierarchy.js`'s `assertNoCycle()`) on every create/update — a member can never become its own ancestor |
 | `qualifications` | [String] | trimmed, filtered |
 | `experience` | String | max 100 |
 | `bio` | String | max 1000 |
 | `photo` | `{ url, alt }` | |
 | `social` | `{ linkedin, twitter }` | |
-| `displayOrder` | Number | |
+| `displayOrder` | Number | manual sort order — **scoped to siblings** (same `parentMember`) for the org tree's reorder controls, same as it always was for the flat list |
 | `featured` | Boolean | |
 | `status` / `publishedAt` | | same lifecycle pattern |
 | `author` | ObjectId ref → `User` | |
 
-Indexes: `{status, displayOrder}`, text index on `name`/`designation`/`qualifications`/`bio`.
+Tree level (root = 0, etc.) is **derived at read time** from the
+`parentMember` chain (`lib/teamHierarchy.js`'s `buildTeamTree()`) — never a
+stored field, so nesting is unlimited and not hardcoded to a fixed depth.
+
+Indexes: `{status, displayOrder}`, `{status, parentMember, displayOrder}`
+(Sprint 14), text index on `name`/`designation`/`department`/
+`qualifications`/`bio`.
 
 ## Membership — [`models/Membership.js`](../models/Membership.js)
 
@@ -299,6 +308,7 @@ User 1---* Recipe (author)
 Event 1---* Booking (event)
 Category 1---* Blog (category)
 RecipeCategory 1---* Recipe (category)
+Team 1---* Team (parentMember, self-ref — Sprint 14 org tree)
 ```
 
 Infographic/Product/Team `category` fields are **not** relational — free

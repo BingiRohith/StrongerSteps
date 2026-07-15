@@ -3,6 +3,7 @@ import connectDB from '@/lib/db';
 import Team from '@/models/Team';
 import { requireAuth } from '@/lib/auth';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
+import { resolveParentMember } from '@/lib/teamHierarchy';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +18,9 @@ export const GET = withErrorHandling(async (request, { params }) => {
   if (!isValidId(params.id)) return fail('Invalid team member id', 400);
 
   await connectDB();
-  const teamMember = await Team.findById(params.id).populate('author', 'name');
+  const teamMember = await Team.findById(params.id)
+    .populate('author', 'name')
+    .populate('parentMember', 'name designation');
   if (!teamMember) return fail('Team member not found', 404);
 
   return ok({ teamMember });
@@ -46,6 +49,16 @@ export const PUT = withErrorHandling(async (request, { params }) => {
   if (body.designation !== undefined) {
     if (!body.designation.trim()) return fail('Designation is required', 400);
     teamMember.designation = body.designation;
+  }
+  if (body.department !== undefined) teamMember.department = body.department || '';
+  if (body.parentMember !== undefined) {
+    try {
+      teamMember.parentMember = await resolveParentMember(Team, body.parentMember, {
+        memberId: params.id,
+      });
+    } catch (err) {
+      return fail(err.message, err.status || 400);
+    }
   }
   if (body.qualifications !== undefined) {
     teamMember.qualifications = Array.isArray(body.qualifications) ? body.qualifications : [];

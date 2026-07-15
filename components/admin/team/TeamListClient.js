@@ -12,6 +12,8 @@ import {
   EyeOff,
   Loader2,
   Star,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import StatusBadge from '@/components/admin/blogs/StatusBadge';
 
@@ -20,6 +22,15 @@ const STATUS_TABS = [
   { value: 'published', label: 'Published' },
   { value: 'draft', label: 'Drafts' },
 ];
+
+/** Siblings = members sharing the same parent (or all root members), ordered by displayOrder — "Reorder Children" swaps displayOrder within this subset only. */
+function getSiblingIds(teamMembers, teamMember) {
+  const parentId = teamMember.parentMember?._id || teamMember.parentMember || null;
+  return teamMembers
+    .filter((m) => (m.parentMember?._id || m.parentMember || null) === parentId)
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+    .map((m) => m._id);
+}
 
 export default function TeamListClient() {
   const [teamMembers, setTeamMembers] = useState([]);
@@ -87,6 +98,48 @@ export default function TeamListClient() {
       const data = await res.json();
       if (res.ok && data.success) {
         setTeamMembers((prev) => prev.map((t) => (t._id === teamMember._id ? data.teamMember : t)));
+      }
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function updateTeamMember(id, body) {
+    const res = await fetch(`/api/admin/team/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (res.ok && data.success) return data.teamMember;
+    return null;
+  }
+
+  // Reorder Children (CRS §11 / Sprint 14): swap displayOrder with the
+  // adjacent sibling only — i.e. another member reporting to the same
+  // parent (or another root member) — not the whole, mixed-hierarchy list.
+  async function moveSibling(teamMember, direction) {
+    const siblingIds = getSiblingIds(teamMembers, teamMember);
+    const index = siblingIds.indexOf(teamMember._id);
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= siblingIds.length) return;
+    const neighbor = teamMembers.find((m) => m._id === siblingIds[targetIndex]);
+    if (!neighbor) return;
+
+    setBusyId(teamMember._id);
+    try {
+      const [updated, updatedNeighbor] = await Promise.all([
+        updateTeamMember(teamMember._id, { displayOrder: neighbor.displayOrder }),
+        updateTeamMember(neighbor._id, { displayOrder: teamMember.displayOrder }),
+      ]);
+      if (updated && updatedNeighbor) {
+        setTeamMembers((prev) =>
+          prev.map((t) => {
+            if (t._id === updated._id) return updated;
+            if (t._id === updatedNeighbor._id) return updatedNeighbor;
+            return t;
+          })
+        );
       }
     } finally {
       setBusyId(null);
@@ -215,12 +268,36 @@ export default function TeamListClient() {
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
                       <StatusBadge status={teamMember.status} />
                       {teamMember.designation && <span>{teamMember.designation}</span>}
+                      {teamMember.department && <span>{teamMember.department}</span>}
+                      <span>
+                        {teamMember.parentMember?.name
+                          ? `Reports to ${teamMember.parentMember.name}`
+                          : 'Root of tree'}
+                      </span>
                       <span>Order {teamMember.displayOrder}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => moveSibling(teamMember, -1)}
+                    disabled={busyId === teamMember._id}
+                    title="Move up (within siblings)"
+                    className="rounded-lg p-2 text-primary-dark hover:bg-sage disabled:opacity-50"
+                  >
+                    <ArrowUp size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveSibling(teamMember, 1)}
+                    disabled={busyId === teamMember._id}
+                    title="Move down (within siblings)"
+                    className="rounded-lg p-2 text-primary-dark hover:bg-sage disabled:opacity-50"
+                  >
+                    <ArrowDown size={16} />
+                  </button>
                   <button
                     type="button"
                     onClick={() => toggleFeatured(teamMember)}

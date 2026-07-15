@@ -3,12 +3,19 @@ import mongoose from 'mongoose';
 const { Schema, models, model } = mongoose;
 
 /**
- * Team collection — About page's "Meet the founders" / "Our Team" sections.
+ * Team collection — feeds the About page's Organization Tree (Sprint 14;
+ * originally a flat "Meet the founders" / "Our Team" grid, Sprint 9).
  * Mirrors the shape/conventions of `models/Blog.js` and `models/Infographic.js`
  * (draft/published lifecycle, photo sub-document like coverImage, `featured`
  * flag like Blog) so the admin CRUD and upload flow feel consistent with the
  * rest of the admin panel. No slug/detail page — team members don't have an
- * individual public page in this sprint.
+ * individual public page.
+ *
+ * `parentMember` (self-ref) + `department` drive the hierarchy: tree level is
+ * derived at read time from the parent chain (see `lib/teamHierarchy.js`),
+ * never stored, so nesting is unlimited and not hardcoded to a fixed depth.
+ * `designation` doubles as the tree node's "Position" label — Sprint 14
+ * intentionally reuses it rather than adding a duplicate field.
  */
 const TeamSchema = new Schema(
   {
@@ -29,6 +36,17 @@ const TeamSchema = new Schema(
       default: [],
       set: (quals) =>
         Array.isArray(quals) ? quals.map((q) => q.trim()).filter(Boolean) : [],
+    },
+    department: {
+      type: String,
+      trim: true,
+      maxlength: 150,
+      default: '',
+    },
+    parentMember: {
+      type: Schema.Types.ObjectId,
+      ref: 'Team',
+      default: null,
     },
     experience: {
       type: String,
@@ -76,7 +94,8 @@ const TeamSchema = new Schema(
 );
 
 TeamSchema.index({ status: 1, displayOrder: 1 });
-TeamSchema.index({ name: 'text', designation: 'text', qualifications: 'text', bio: 'text' });
+TeamSchema.index({ status: 1, parentMember: 1, displayOrder: 1 });
+TeamSchema.index({ name: 'text', designation: 'text', department: 'text', qualifications: 'text', bio: 'text' });
 
 // Stamp/clear publishedAt when status flips — same pattern as Blog.js/Infographic.js.
 TeamSchema.pre('validate', function prepareTeamMember(next) {
@@ -96,6 +115,8 @@ TeamSchema.methods.toSafeObject = function toSafeObject() {
     id: this._id.toString(),
     name: this.name,
     designation: this.designation,
+    department: this.department,
+    parentMember: this.parentMember,
     qualifications: this.qualifications,
     experience: this.experience,
     bio: this.bio,

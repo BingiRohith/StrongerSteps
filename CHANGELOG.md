@@ -1,5 +1,125 @@
 # Changelog
 
+## Sprint 14: Team Organization Tree — 2026-07-15
+
+Scope: CRS §11. Replaced the About page's flat "Meet the founders"/"Our Team"
+grid with a CMS-driven Organization Tree (Roots = Founders, Branches =
+Departments, Leaves = Team Members, unlimited nesting). Extends the existing
+Team CMS in place — no new Team module, no new collection. Existing Team
+documents/data reused as-is (all start as tree roots until an admin assigns
+parents).
+
+### Added
+- **`lib/teamHierarchy.js`** — new, shared, framework-agnostic hierarchy
+  helpers used by both the admin API and the public tree: `buildTeamTree()`
+  (flat list → nested forest, level derived at read time, never stored),
+  `resolveParentMember()` + `assertNoCycle()` (validates a `parentMember`
+  assignment isn't the member itself or one of its own descendants before
+  saving).
+- **`components/team/OrgTree.js`** — public Organization Tree component.
+  Renders two responsive layouts from the same tree data: a horizontal
+  connector-line chart for desktop/tablet (`md:block`), and an indented,
+  per-node collapsible vertical list for mobile (`md:hidden`) — not one
+  layout reflowed with CSS, since the CRS explicitly calls out avoiding
+  overlapping nodes at narrow widths. Includes a debounced Name/Department/
+  Position search box that highlights matches and auto-expands their
+  ancestor chain, reusing the same fetch-and-debounce pattern as
+  `BlogGrid.js`.
+- **`GET /api/team` — `tree` and `matchedIds` fields** — the existing route
+  now also returns the full published roster shaped as a tree
+  (`lib/publicTeam.js`'s new `getTeamTree()`) plus the ids of any members
+  matching an optional `search` query. The original `teamMembers` flat-list
+  field is unchanged for backward compatibility.
+
+### Modified
+- **`models/Team.js`** — added `department` (String) and `parentMember`
+  (self-ref `ObjectId`, `default: null`) fields. No existing field renamed or
+  removed; `designation` is reused as the tree node's "Position" label per
+  the sprint's "don't duplicate existing fields" instruction. New compound
+  index `{status, parentMember, displayOrder}`; text index extended to
+  include `department`.
+- **`app/api/admin/team/route.js`, `app/api/admin/team/[id]/route.js`** —
+  POST/PUT now accept `department` and `parentMember`, validated via
+  `lib/teamHierarchy.js` before save (invalid id → 400, nonexistent parent →
+  400, cycle → 400 with a specific message). GET routes now populate
+  `parentMember` (`name designation`) alongside the existing `author`
+  populate.
+- **`components/admin/team/TeamForm.js`** — added a Department text input
+  and a Parent Member `<select>` (fetches the admin team list client-side;
+  excludes the member itself and its own descendants from the option list
+  so an invalid assignment can't even be selected, though the API validates
+  independently regardless).
+- **`components/admin/team/TeamListClient.js`** — each row now shows its
+  Department and "Reports to X" / "Root of tree" line; added Move Up/Move
+  Down buttons that swap `displayOrder` with the adjacent **sibling**
+  (same `parentMember`) via the existing PUT endpoint — same
+  swap-via-PUT pattern as Membership/Events/Recipe reorder, just scoped to
+  siblings instead of the whole list.
+- **`lib/publicTeam.js`** — added `getTeamTree({ search })`. Always returns
+  the full tree (search never removes nodes, only flags `matchedIds`) so
+  the org structure never looks broken mid-search.
+- **`app/about/page.js`** — the founders/team-members grid section replaced
+  with `<OrgTree>`. All other sections (hero, Credentials, Timeline,
+  Vision) are untouched.
+
+### Verified
+- `npm run build` passes cleanly (deleted `.next`, fresh `npm run build`,
+  clean `.next`, no ChunkLoadErrors, no hydration warnings) — all 32 routes
+  generated, `/about` builds successfully.
+- Live end-to-end smoke test against the real MongoDB Atlas database:
+  logged in as admin, assigned Dr. Rajesh's parent to Dr. Nikhil and set his
+  department to "Clinical Care" via `TeamForm` — saved correctly, admin list
+  showed "Reports to Dr. Nikhil"/"Clinical Care", and the public `/about`
+  tree rendered Dr. Rajesh nested one level under Dr. Nikhil with a visible
+  connector line (desktop) and as an expandable child (mobile, 375px).
+  Verified sibling reorder (swapped Dr. Nikhil/Dr. Akhila's `displayOrder`
+  and reverted). Verified search for "Clinical" highlighted Dr. Rajesh and
+  auto-expanded Dr. Nikhil's branch, both on the initial server-rendered
+  tree and via the live `/api/team?search=` round trip.
+- Cycle prevention verified directly against the API: assigning Dr. Nikhil's
+  parent to his own child (Dr. Rajesh) → 400 "circular reporting loop";
+  assigning a member as their own parent → 400 "cannot be their own parent";
+  confirmed the rejected member's `parentMember` was left unchanged in both
+  cases.
+- Existing Products/Membership/Programs/Recipes/Knowledge Center public
+  pages and APIs, and admin authentication, all still return 200 with no
+  console errors after this sprint's changes (spot-checked, not just
+  code-reviewed).
+
+### Not touched
+- No changes to Blog/Infographic/Product/Membership/Event/Recipe/
+  RecipeCategory models or routes, `lib/auth.js`, `middleware.js`,
+  `lib/localUpload.js`, `app/api/admin/team/upload/route.js`, or any
+  existing upload route. Team CRUD (create/edit/delete/publish/featured/
+  photo upload) unchanged — only extended.
+- No cascade handling added for deleting a team member with children — an
+  orphaned child's `parentMember` no longer resolves, so `buildTeamTree()`
+  falls back to treating it as a root, same "no cascade, no dangling error"
+  precedent as `Event`→`Booking` and `RecipeCategory`→`Recipe` deletes.
+
+### Explicitly out of scope this sprint (per sprint non-goals)
+Chat, messaging, org analytics, permissions, team invitations, drag-and-drop
+tree editor, employee login, homepage CMS, booking completion.
+
+### CRS assumptions (confirm with client if incorrect)
+- "Position" (admin action: "Change Position") is the existing `designation`
+  field, not a new one — the CRS/roadmap only flagged `department` as
+  missing from the model, and the sprint brief explicitly says not to
+  duplicate existing fields.
+- "Tree Level" is derived at read time from the `parentMember` chain
+  (`lib/teamHierarchy.js`'s `buildTeamTree()`), never persisted — matches
+  "Do NOT hardcode tree levels... generate dynamically."
+- "Clicking a member should open the existing Team detail/profile if one
+  already exists" — none exists (`docs/05_DATABASE.md` already notes Team
+  has "No slug/detail page"), so tree nodes are not clickable/linked this
+  sprint. Building a new detail page was judged out of scope (would be a
+  new feature, not "if one already exists").
+- `scripts/seedTeam.mjs` was left untouched — it seeds flat, parent-less
+  data (as before), matching the roadmap's "existing CMS data is reused
+  as-is." Admins assign hierarchy through the new admin UI after seeding.
+
+---
+
 ## Sprint 13: Recipes CMS — 2026-07-09
 
 Scope: CRS §14. Replaced the Sprint 10 placeholder `/recipes` page with a

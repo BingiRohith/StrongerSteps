@@ -1,7 +1,8 @@
-import { Stethoscope, Award, Milestone, Telescope, ArrowRight, Users, Linkedin, Twitter } from 'lucide-react';
+import { Award, Milestone, Telescope, ArrowRight } from 'lucide-react';
 import { Button, Eyebrow, SectionHeading } from '@/components/ui';
 import StepDivider from '@/components/StepDivider';
-import { getPublishedTeamMembers } from '@/lib/publicTeam';
+import OrgTree from '@/components/team/OrgTree';
+import { getTeamTree } from '@/lib/publicTeam';
 
 const CREDENTIALS = [
   'Diploma in Geriatric Medicine',
@@ -16,44 +17,8 @@ const TIMELINE = [
   { year: '2026', event: 'StrongerSteps.in launches. Tools, courses, and community features rolling out.' },
 ];
 
-function initial(name = '') {
-  return name.trim().charAt(0).toUpperCase() || '?';
-}
-
-function SocialLinks({ social, className = '' }) {
-  if (!social?.linkedin && !social?.twitter) return null;
-  return (
-    <div className={`flex items-center gap-2 ${className}`}>
-      {social.linkedin && (
-        <a
-          href={social.linkedin}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="LinkedIn profile"
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-sage text-primary-dark hover:bg-primary hover:text-white"
-        >
-          <Linkedin size={14} />
-        </a>
-      )}
-      {social.twitter && (
-        <a
-          href={social.twitter}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Twitter profile"
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-sage text-primary-dark hover:bg-primary hover:text-white"
-        >
-          <Twitter size={14} />
-        </a>
-      )}
-    </div>
-  );
-}
-
 export default async function AboutPage() {
-  const teamMembers = await getPublishedTeamMembers();
-  const founders = teamMembers.filter((member) => member.featured);
-  const restOfTeam = teamMembers.filter((member) => !member.featured);
+  const { tree, matchedIds } = await getTeamTree();
 
   return (
     <>
@@ -71,82 +36,12 @@ export default async function AboutPage() {
 
       <StepDivider from="#FBF7EF" to="#E6EEE4" />
 
-      {/* Founders */}
-      {(founders.length > 0 || restOfTeam.length > 0) && (
+      {/* Organization Tree (CRS §11 / Sprint 14) */}
+      {tree.length > 0 && (
         <section className="bg-sage">
           <div className="mx-auto max-w-content px-6 py-16 md:py-20">
-            {founders.length > 0 && (
-              <>
-                <SectionHeading eyebrow="Who we are" title="Meet the founders" />
-                <div className="grid gap-8 md:grid-cols-2">
-                  {founders.map((member) => (
-                    <div key={member._id} className="rounded-xl2 bg-white p-8 shadow-sm">
-                      <div className="flex items-center gap-4">
-                        {member.photo?.url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={member.photo.url}
-                            alt={member.photo.alt || member.name}
-                            className="h-16 w-16 shrink-0 rounded-full object-cover"
-                          />
-                        ) : (
-                          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary font-display text-2xl font-bold text-white">
-                            {initial(member.name)}
-                          </span>
-                        )}
-                        <div>
-                          <h3 className="font-display text-lg font-bold text-primary-dark">{member.name}</h3>
-                          <p className="text-sm text-accent-dark font-semibold">{member.designation}</p>
-                        </div>
-                      </div>
-                      {member.experience && (
-                        <span className="mt-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
-                          <Stethoscope size={14} aria-hidden="true" /> {member.experience} experience
-                        </span>
-                      )}
-                      {member.bio && <p className="mt-3 text-sm text-muted">{member.bio}</p>}
-                      <SocialLinks social={member.social} className="mt-4" />
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {/* Team Members */}
-            {restOfTeam.length > 0 && (
-              <div className={founders.length > 0 ? 'mt-12' : ''}>
-                <h3 className="font-display text-sm font-semibold uppercase tracking-wide text-primary mb-4">
-                  Our Team
-                </h3>
-                <div className="grid gap-6 md:grid-cols-2">
-                  {restOfTeam.map((member) => (
-                    <div key={member._id} className="flex items-center gap-4 rounded-xl2 bg-white p-6 shadow-sm">
-                      {member.photo?.url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={member.photo.url}
-                          alt={member.photo.alt || member.name}
-                          className="h-12 w-12 shrink-0 rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-sage font-display text-xl font-bold text-primary-dark">
-                          {initial(member.name)}
-                        </span>
-                      )}
-                      <div>
-                        <h3 className="font-display text-base font-bold text-primary-dark">{member.name}</h3>
-                        <p className="text-sm text-muted">{member.designation}</p>
-                      </div>
-                      {member.social?.linkedin || member.social?.twitter ? (
-                        <SocialLinks social={member.social} className="ml-auto" />
-                      ) : (
-                        <Users size={16} className="ml-auto text-primary/40" aria-hidden="true" />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <SectionHeading eyebrow="Who we are" title="Meet the team" />
+            <OrgTree initialTree={tree} initialMatchedIds={matchedIds} />
           </div>
         </section>
       )}
