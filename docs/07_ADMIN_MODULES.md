@@ -14,6 +14,36 @@ Events, Active Events, Bookings Count) computed directly with
 `Event.countDocuments`/`Booking.countDocuments` in the server component —
 the only module with live stats on this page so far.
 
+## Homepage — `/admin/homepage` (Sprint 15)
+
+**Status: full singleton edit, production-capable.**
+
+`HomepageEditorClient.js` — five tabs (Hero / Why It Matters / Our Vision /
+What We Do / Membership CTA), each saving independently via
+`PUT /api/admin/homepage`. Unlike every other admin module, there's no
+list/create/delete — one document, always exists (`getOrCreateHomepage()`
+creates it from seed defaults on first load).
+
+- **Hero** (`HeroSectionForm.js`): heading/sub-heading/description, two
+  buttons (text+URL each), optional illustration image upload (replaces the
+  default `HeroSteps` SVG when set) and optional background image.
+- **Why It Matters** / **Our Vision** (`IconSectionForm.js` — one component
+  drives both tabs, since they're identical in shape): section
+  eyebrow/title/description + a dynamic card list (`CardListEditor.js`,
+  `variant="icon"`) — icon picker (from `lib/homepageIcons.js`'s curated
+  set), title, description, per-card active toggle, up/down reorder,
+  add/remove. Count is not capped at 5/4 — admin can add or remove freely;
+  the hand/house illustrations just wrap/repeat to fit whatever's active.
+- **What We Do** (`WhatWeDoSectionForm.js`): same list-editor pattern,
+  `variant="image"` — image upload per card (not icon, per CRS §7) plus
+  optional CTA label/URL.
+- **Membership CTA** (`MembershipCtaSectionForm.js`): heading/description/
+  button text+URL, optional background image, active/inactive toggle (can
+  hide the section entirely from the public homepage).
+
+Image uploads across all tabs go through `ImageUploadField.js` (reused
+as-is) → `/api/admin/homepage/upload`.
+
 ## Blogs — `/admin/blogs`
 
 **Status: full CRUD, production-capable.**

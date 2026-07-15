@@ -11,8 +11,13 @@ const BUTTON_STYLES = {
     'bg-transparent text-white border-2 border-white/70 hover:bg-white hover:text-primary-dark',
 };
 
-export function Button({ href, children, variant = 'primary', className = '', ...props }) {
-  const styles = `inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 font-display font-semibold text-sm md:text-base transition-colors duration-200 ${BUTTON_STYLES[variant]} ${className}`;
+const BUTTON_SIZES = {
+  md: 'px-6 py-3 text-sm md:text-base',
+  sm: 'px-5 py-2 text-sm',
+};
+
+export function Button({ href, children, variant = 'primary', size = 'md', className = '', ...props }) {
+  const styles = `inline-flex items-center justify-center gap-2 rounded-full font-display font-semibold transition-colors duration-200 ${BUTTON_SIZES[size]} ${BUTTON_STYLES[variant]} ${className}`;
 
   if (href) {
     return (

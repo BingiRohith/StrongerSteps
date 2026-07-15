@@ -90,7 +90,7 @@ function NavItem({ link, pathname }) {
     return (
       <Link
         href={link.href}
-        className={`font-display text-sm font-semibold transition-colors hover:text-primary ${
+        className={`whitespace-nowrap font-display text-sm font-semibold transition-colors hover:text-primary ${
           active ? 'text-primary-dark' : 'text-ink/70'
         }`}
         aria-current={active ? 'page' : undefined}
@@ -108,7 +108,7 @@ function NavItem({ link, pathname }) {
     >
       <button
         type="button"
-        className={`flex items-center gap-1 font-display text-sm font-semibold transition-colors hover:text-primary focus-visible:outline-none ${
+        className={`flex items-center gap-1 whitespace-nowrap font-display text-sm font-semibold transition-colors hover:text-primary focus-visible:outline-none ${
           active ? 'text-primary-dark' : 'text-ink/70'
         }`}
         aria-expanded={open}
@@ -140,9 +140,9 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-line/70 bg-bg/95 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-content items-center justify-between px-6 py-4">
+      <div className="mx-auto flex max-w-content items-center justify-between gap-4 px-6 py-4 lg:grid lg:grid-cols-[auto_1fr_auto] lg:justify-normal">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex shrink-0 items-center gap-2">
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white">
             <Footprints size={20} aria-hidden="true" />
           </span>
@@ -151,17 +151,16 @@ export default function Header() {
           </span>
         </Link>
 
-        {/* Desktop Nav */}
-        <nav className="hidden items-center gap-7 lg:flex" aria-label="Primary">
+        {/* Desktop Nav — centered independently of the logo/search+CTA cluster */}
+        <nav className="hidden items-center justify-center gap-9 lg:flex" aria-label="Primary">
           {NAV_LINKS.map((link) => (
             <NavItem key={link.href || link.label} link={link} pathname={pathname} />
           ))}
         </nav>
 
-        <ProductSearchDropdown className="hidden w-48 shrink-0 lg:block xl:w-56" />
-
-        <div className="hidden lg:block">
-          <Button href="/join" variant="primary">
+        <div className="hidden shrink-0 items-center gap-4 lg:flex">
+          <ProductSearchDropdown className="w-44 xl:w-52" />
+          <Button href="/join" variant="primary" size="sm">
             Take Your First Step
           </Button>
         </div>

@@ -2,11 +2,12 @@ import { getCurrentUser } from '@/lib/auth';
 import connectDB from '@/lib/db';
 import Event from '@/models/Event';
 import Booking from '@/models/Booking';
-import { Newspaper, Image as ImageIcon, Users, Package, CreditCard, Calendar, FolderTree } from 'lucide-react';
+import { Newspaper, Image as ImageIcon, Users, Package, CreditCard, Calendar, FolderTree, Home } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 const CARDS = [
+  { label: 'Homepage', icon: Home, href: '/admin/homepage' },
   { label: 'Blogs', icon: Newspaper, href: '/admin/blogs' },
   { label: 'Infographics', icon: ImageIcon, href: '/admin/infographics' },
   { label: 'Team', icon: Users, href: '/admin/team' },
@@ -79,7 +80,11 @@ export default async function AdminDashboardPage() {
             </span>
             <p className="mt-4 font-display text-sm font-semibold text-ink">{label}</p>
             <p className="mt-1 text-xs text-muted">
-              {label === 'Programs' ? 'Manage events & bookings' : 'Not yet available'}
+              {label === 'Programs'
+                ? 'Manage events & bookings'
+                : label === 'Homepage'
+                ? 'Edit hero, cards & sections'
+                : 'Not yet available'}
             </p>
           </a>
         ))}

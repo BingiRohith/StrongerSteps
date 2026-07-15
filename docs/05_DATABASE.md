@@ -293,6 +293,40 @@ IDs), and several dynamic, unlimited sub-lists instead of hardcoded fields.
 
 Indexes: `{status, displayOrder}`, `{status, category}`, `{status, featured}`, text index on `name`/`shortDescription`/`tags`.
 
+## Homepage — [`models/Homepage.js`](../models/Homepage.js)
+
+Sprint 15. A **singleton** — exactly one document, fetched/created via
+`getOrCreateHomepage()` rather than queried by filter like every other
+model here. Holds every CRS §4-8 homepage section. Card-style sub-lists
+(`whyItMatters.points`, `vision.pillars`, `whatWeDo.cards`) are fully
+dynamic — no fixed length is enforced by the schema, unlike Recipe's
+`nutrition` rows which share the "dynamic, admin adds whatever applies"
+convention but for a different reason (no natural fixed shape at all, vs.
+Homepage's cards which *could* have been capped at 5/4 to match their
+illustrations but were explicitly kept uncapped per client instruction —
+see [13_DECISIONS.md](13_DECISIONS.md)).
+
+| Field | Type | Notes |
+|---|---|---|
+| `hero.heading` / `subHeading` / `description` | String | copy |
+| `hero.primaryButtonText/Url`, `secondaryButtonText/Url` | String | CTA buttons |
+| `hero.illustrationImage` / `backgroundImage` | `{ url, alt }` | optional — public page falls back to the static `HeroSteps` SVG / `bg-bg` class when empty |
+| `whyItMatters.eyebrow/title/description` | String | section heading |
+| `whyItMatters.points` | `[{ icon, title, description, displayOrder, active }]` | dynamic list — `icon` is a lucide-react name string, resolved via `lib/homepageIcons.js` |
+| `vision.eyebrow/title/description` | String | section heading |
+| `vision.pillars` | `[{ icon, title, description, displayOrder, active }]` | dynamic list, same shape as `whyItMatters.points` |
+| `whatWeDo.eyebrow/title/description` | String | section heading |
+| `whatWeDo.cards` | `[{ image: {url,alt}, title, description, ctaLabel, ctaUrl, displayOrder, active }]` | dynamic list — image not icon, per CRS §7 ("real photographs... no illustrations") |
+| `membershipCta.heading/description/buttonText/buttonUrl` | String | homepage's closing CTA, links to `/join` |
+| `membershipCta.backgroundImage` | `{ url, alt }` | optional |
+| `membershipCta.active` | Boolean | section can be hidden entirely |
+
+`displayOrder` on every card is always re-derived server-side from the
+submitted array's position (see `app/api/admin/homepage/route.js`'s
+`sanitizeCard`/`sanitizeWhatWeDoCard`) — never trusted from the client,
+since the admin list editor's reorder buttons move array position without
+separately rewriting a `displayOrder` field.
+
 ## Relationships summary
 
 ```

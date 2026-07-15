@@ -1,5 +1,125 @@
 # Changelog
 
+## Sprint 15: Homepage CMS + Header/Homepage Cleanup — 2026-07-15
+
+Scope: converts every remaining hardcoded homepage section into a
+CMS-driven one, per the Sprint 15 brief and the CRS core principle ("if the
+client should be able to change it, it belongs in the Admin Panel"). Only
+the sections the CRS actually defines (§4-8: Hero, Why It Matters, Our
+Vision, What We Do, Membership CTA) were built — the brief also listed a
+"Statistics" module, but that section doesn't exist anywhere in the CRS and
+isn't an approved client revision, so it was explicitly skipped per client
+decision. See `docs/13_DECISIONS.md`. Also ships two approved client UI
+revisions layered on top: a cleaner, less crowded header, and removal of
+the homepage's final CTA banner (replaced by the new CMS-driven Membership
+CTA section).
+
+### Added
+- **`models/Homepage.js`** — a singleton document (one record, created on
+  first read via `getOrCreateHomepage()`) holding every editable homepage
+  section: `hero`, `whyItMatters`, `vision`, `whatWeDo`, `membershipCta`.
+  Card-style sub-sections (`whyItMatters.points`, `vision.pillars`,
+  `whatWeDo.cards`) are **fully dynamic lists** — no fixed count is
+  enforced in the schema or API; the admin can add/remove/reorder freely
+  and the public page renders however many `active` items exist, in list
+  order. Seeded with the exact content previously hardcoded in `app/page.js`
+  so the first deploy is a visual no-op. Mirrors the `toSafeObject()`
+  convention of `models/Membership.js`.
+- **`lib/homepageIcons.js`** — curated `ICON_OPTIONS` list + `getIcon(name)`
+  lookup (`import * as Icons from 'lucide-react'`) so icons can be stored
+  as plain name strings on the Homepage doc and resolved back to components
+  on both the admin picker and the public page's server render.
+- **`lib/publicHomepage.js`** — `getPublicHomepage()`, the public read
+  helper (active-only, `displayOrder`-sorted card lists), same shape of
+  helper as `lib/publicMembership.js`/`lib/publicTeam.js`.
+- **`GET /api/homepage`** (public) and **`GET`/`PUT /api/admin/homepage`**
+  (admin) + **`POST /api/admin/homepage/upload`** — singleton read/update +
+  image upload, following the existing `lib/apiResponse.js`/`lib/auth.js`
+  conventions. `PUT` body is `{ section, data }`; each admin tab saves its
+  own section independently. `displayOrder` on every card is always
+  **derived from the submitted array's position** server-side, never
+  trusted from the client — the admin list editor's up/down buttons reorder
+  the array but don't separately rewrite a `displayOrder` field, so trusting
+  a client-sent value would go stale on reorder.
+- **`/admin/homepage`** (`HomepageEditorClient.js`) — new admin module, one
+  tab per section (Hero / Why It Matters / Our Vision / What We Do /
+  Membership CTA). `CardListEditor.js` is a shared add/edit/delete/reorder/
+  active-toggle list editor (same shape of concerns as
+  `components/admin/membership/BenefitsEditor.js`, generalized to full card
+  objects) reused by Why It Matters, Vision, and What We Do — icon-picker
+  variant for the first two, image-upload + optional CTA variant for the
+  third. `IconSectionForm.js` is likewise one component driving both Why It
+  Matters and Vision (identical shape, different list key), avoiding
+  duplicating an entire form twice. Added a "Homepage" entry to
+  `AdminSidebar.js` and the dashboard's module grid.
+
+### Modified
+- **`app/page.js`** — now an async server component fetching
+  `getPublicHomepage()` instead of rendering hardcoded `WHY_IT_MATTERS`/
+  `OUR_VISION`/`WHAT_WE_DO` arrays. `WhyItMattersHand.js`/`VisionHouse.js`
+  are unchanged (they already just map over an `items` prop). Hero now
+  optionally renders an admin-uploaded illustration/background image in
+  place of the default `HeroSteps` SVG/`bg-bg` class. Each dynamic section
+  has a "Content coming soon" fallback if zero active items exist, rather
+  than an empty grid. Removed the final "Ready to take stronger steps?" CTA
+  section per the approved client revision — the new `membershipCta` CMS
+  section (toggleable active/inactive) takes its place, defaulting to the
+  same heading/copy so the removal is a no-op on first deploy. Also removed
+  an orphaned duplicate `<StepDivider>` left over from an earlier section
+  removal, and the unused `WORKSHOPS` array (declared, never rendered).
+  No literal "Join the Community" banner existed on the homepage to remove
+  — confirmed by search; the phrase only appears on `/products` and
+  `/knowledge-center`, out of this sprint's scope.
+- **`components/Header.js`** — desktop row switched from a single
+  `justify-between` flex to a `grid-cols-[auto_1fr_auto]` layout so the nav
+  is genuinely centered between the logo and the search+CTA cluster
+  (`justify-between` alone only pushes the outer two apart, it doesn't
+  center the middle independently of their differing widths). Nav item gap
+  increased (`gap-7` → `gap-9`), `whitespace-nowrap` added to nav labels,
+  search moved immediately beside the nav cluster, CTA at the far right and
+  shrunk via a new `size="sm"` `Button` variant. Mobile menu, dropdowns,
+  search dropdown, and all hrefs unchanged.
+- **`components/ui.js`** — `Button` gained a `size` prop (`'md'` default,
+  `'sm'` new) so the header's CTA can shrink without touching every other
+  `<Button>` call site in the app.
+- **`app/admin/(protected)/dashboard/page.js`** — added a "Homepage" card
+  to the module grid with correct copy (the pre-existing `label ===
+  'Programs'` ternary for this grid's subtitle was extended, not rewritten,
+  for the other modules' stale "Not yet available" labels — out of scope).
+
+### Verified
+- Deleted `.next`, ran `npm run build` clean (no errors) — twice, once
+  before and once after fixing the `displayOrder` staleness bug found
+  during manual testing.
+- Logged into `/admin`, exercised `/admin/homepage`: loaded all 5 tabs with
+  the seeded default content matching what was previously hardcoded; added
+  a 6th Why It Matters point, reordered it and an existing point via the
+  up/down buttons, saved, and confirmed via `GET /api/homepage` that both
+  the count (6, not capped at 5) and the new order persisted correctly —
+  caught and fixed the `displayOrder`-staleness bug in this pass (see
+  Added, above). Reverted the test data back to the original 5 points
+  afterward.
+- Confirmed the public homepage renders the CMS content with no console
+  errors at mobile (375px), tablet (768px), and desktop (1280px) widths;
+  confirmed the header's centered/spaced/no-wrap nav at desktop width via
+  `preview_inspect` (bounding boxes), and that `/join`, `/products`,
+  `/recipes`, `/about`, `/programs`, `/knowledge-center` and their
+  `/api/team`, `/api/membership`, `/api/products`, `/api/recipes` routes
+  all still return 200 — unaffected by this sprint's changes.
+
+### Not touched
+Products/Membership/Programs/Recipes/Team/Knowledge Center CMS and public
+pages, authentication, testimonials/FAQ sections on the homepage (not in
+the CRS homepage list, left as-is), the Sprint 14 illustrated team tree.
+
+### CRS / feedback note
+The Sprint 15 brief's "Statistics" homepage module was skipped — it isn't
+defined anywhere in the CRS (§4) and the brief itself says "Do NOT invent
+new homepage sections," a direct internal contradiction resolved by
+following the CRS. See `docs/13_DECISIONS.md`.
+
+---
+
 ## Sprint 14 (revision): Illustrated Tree Redesign — 2026-07-15
 
 The client rejected the first Sprint 14 pass below: an auto-generated

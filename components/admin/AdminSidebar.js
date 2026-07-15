@@ -14,11 +14,13 @@ import {
   FolderTree,
   Soup,
   Tags,
+  Home,
   X,
 } from 'lucide-react';
 
 export const NAV_ITEMS = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/homepage', label: 'Homepage', icon: Home },
   { href: '/admin/blogs', label: 'Blogs', icon: Newspaper },
   { href: '/admin/infographics', label: 'Infographics', icon: ImageIcon },
   { href: '/admin/team', label: 'Team', icon: Users },

@@ -5,6 +5,63 @@ as of the 2026-07-07 documentation sprint — everything below Sprint 9 is
 reconstructed from code/CHANGELOG evidence, not from a prior decisions log
 (none existed).
 
+## 2026-07-15 — Sprint 15: "Statistics" homepage module skipped as an internal contradiction in the sprint brief
+
+The Sprint 15 brief's Admin CMS section lists "Statistics" (label/value/
+order) as something the Homepage Management module must support, alongside
+Hero/Why It Matters/What We Do/Our Vision/Membership CTA. But the CRS
+(`docs/03_CLIENT_REQUIREMENTS.md` §4) defines the homepage's required
+sections explicitly and does not include a Statistics/stat-bar section
+anywhere, and the same brief separately states "Do NOT invent new homepage
+sections" — a direct internal contradiction, not a judgment call.
+**Why:** per the CRS governance rule ([[project_crs_governance]] in this
+project's session memory — the CRS is the verified, client-approved single
+source of truth), an item appearing in a sprint brief but absent from the
+CRS, especially one the brief's own text says not to add, should be raised
+rather than built. Presented to the user as an explicit choice before any
+code was written; the user chose to skip it entirely ("Follow the CRS
+exactly... Do not create a Statistics model, API, or CMS... Do not invent
+additional homepage sections").
+**What changed:** `models/Homepage.js` has no `statistics` field. Only the
+five CRS §4-8 sections were built: Hero, Why It Matters, Our Vision, What
+We Do, Membership CTA.
+**How to apply:** when a sprint brief's stated requirements conflict with
+the CRS (or with themselves), stop and ask before building either
+interpretation — don't silently pick the more literal or more
+CRS-compliant reading.
+
+## 2026-07-15 — Sprint 15: Why It Matters / Vision card counts kept fully dynamic, not hard-capped at 5/4
+
+The CRS (§5-6) describes "exactly five" Why It Matters points (one per
+finger of a hand illustration) and four Vision pillars (one per pillar of a
+house illustration) — the initial Sprint 15 plan proposed enforcing those
+exact counts server-side (reject a save that added a 6th point or removed
+down to 3), since the illustrations were designed around those specific
+counts. The user explicitly overrode this during plan review: "Do NOT
+enforce fixed counts of 5 Why It Matters items or 4 Vision pillars in the
+database. Make both sections fully dynamic collections with displayOrder
+and active status. The frontend should simply render however many active
+items exist."
+**Why:** the CRS's "exactly five/four" describes the illustration's design
+at the time the CRS was written, not a permanent content constraint the
+admin must be locked into — a client who later wants a 6th reason or a 3rd
+pillar shouldn't need a developer to lift a database-level cap. This is
+consistent with the CRS's own core principle ("if the client should be able
+to change it, it belongs in the Admin Panel") taken to its logical
+conclusion: count is content too.
+**What changed:** `whyItMatters.points` and `vision.pillars` are plain
+dynamic arrays (`displayOrder` + `active` per item, same shape as
+`whatWeDo.cards`), no length validation in `models/Homepage.js` or
+`app/api/admin/homepage/route.js`. `components/WhyItMattersHand.js`/
+`VisionHouse.js` were already count-agnostic (just `.map()` over an
+`items` prop) so no component changes were needed — their CSS grids
+(`lg:grid-cols-5`/`lg:grid-cols-4`) simply wrap to a second row if the
+active count exceeds the illustration's original design count.
+**How to apply:** don't assume a CRS-stated count is a hard constraint to
+enforce in code — when in doubt (as here, where enforcing it was the
+default plan), surface it as an explicit choice rather than silently
+building the more restrictive interpretation.
+
 ## 2026-07-15 — Sprint 14 revision: client rejected the auto-laid-out org chart, required an illustrated tree with manual placement
 
 The first Sprint 14 pass (below) built an auto-generated connector-line org

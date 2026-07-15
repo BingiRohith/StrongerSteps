@@ -1,111 +1,18 @@
 import {
-  Dumbbell,
-  Users,
-  ShieldAlert,
-  BatteryLow,
-  Star,
   ArrowRight,
-  Calendar,
+  Star,
   ChevronDown,
-  Share2,
   Quote,
-  MoveUp,
-  MapPin,
-  Zap,
-  PersonStanding,
-  HeartHandshake,
 } from 'lucide-react';
-import { Button, Badge, Eyebrow, SectionHeading } from '@/components/ui';
+import { Button, Eyebrow, SectionHeading } from '@/components/ui';
 import StepDivider from '@/components/StepDivider';
 import HeroSteps from '@/components/HeroSteps';
 import WhyItMattersHand from '@/components/WhyItMattersHand';
 import VisionHouse from '@/components/VisionHouse';
+import { getPublicHomepage } from '@/lib/publicHomepage';
+import { getIcon } from '@/lib/homepageIcons';
 
-const WHY_IT_MATTERS = [
-  {
-    icon: MoveUp,
-    title: 'Climbing Stairs',
-    description:
-      'Struggling with stairs is one of the earliest signs of declining leg strength and mobility — and it\'s often the first thing that limits your independence at home.',
-  },
-  {
-    icon: MapPin,
-    title: 'Walking Long Distances',
-    description:
-      'When walking to the market or a family function becomes an effort, it quietly shrinks your world. We help you rebuild the endurance to go wherever life takes you.',
-  },
-  {
-    icon: PersonStanding,
-    title: 'Joint Pains',
-    description:
-      'Joint discomfort is common after 50, but it doesn\'t have to be permanent. The right movement — done the right way — can reduce pain and improve daily function.',
-  },
-  {
-    icon: BatteryLow,
-    title: 'Low Energy',
-    description:
-      'Fatigue after 50 is often a signal of muscle loss, poor nutrition, or inactivity — all of which can be addressed. More energy means more life.',
-  },
-  {
-    icon: ShieldAlert,
-    title: 'Balance',
-    description:
-      'Falls are the leading cause of injury in older adults. Balance training is one of the most powerful things you can do to stay safe, confident, and independent.',
-  },
-];
-
-const OUR_VISION = [
-  {
-    icon: Dumbbell,
-    title: 'Strength',
-    description: 'Build real, functional strength that lets you lift, carry, climb, and live without limitations.',
-  },
-  {
-    icon: Star,
-    title: 'Confidence',
-    description: 'Move through the world with the quiet assurance that your body won\'t let you down.',
-  },
-  {
-    icon: Users,
-    title: 'Social Life',
-    description: 'Stay active in family gatherings, community events, and the moments that matter most.',
-  },
-  {
-    icon: HeartHandshake,
-    title: 'Independence',
-    description: 'Live life on your own terms — at home, in your neighbourhood, and beyond.',
-  },
-];
-
-// Temporary royalty-free placeholder photos (Lorem Picsum). Swap these
-// `image` paths for real photography — or a future admin-managed media
-// library — whenever it's ready; nothing else about this array needs to change.
-const WHAT_WE_DO = [
-  {
-    image: 'https://picsum.photos/seed/stronger-steps-csr/600/450',
-    title: 'External CSR Programs',
-    description:
-      'We partner with corporates and organisations on wellness initiatives for adults 50+ and employees supporting aging parents.',
-  },
-  {
-    image: 'https://picsum.photos/seed/stronger-steps-personal-care/600/450',
-    title: 'Personal Care',
-    description:
-      'Safe, structured movement and health guidance for ages 50+ — from gentle mobility routines to progressive strength training designed to rebuild function.',
-  },
-  {
-    image: 'https://picsum.photos/seed/stronger-steps-social/600/450',
-    title: 'Social Activities',
-    description:
-      'Group events, community walks, and peer gatherings that keep you connected, motivated, and surrounded by people who understand the journey.',
-  },
-  {
-    image: 'https://picsum.photos/seed/stronger-steps-loved-ones/600/450',
-    title: 'Following Our Loved Ones',
-    description:
-      'Supporting families in staying close to aging parents and relatives — with guidance, check-ins, and tools that bring peace of mind to everyone involved.',
-  },
-];
+export const dynamic = 'force-dynamic';
 
 const TESTIMONIALS = [
   {
@@ -125,24 +32,6 @@ const TESTIMONIALS = [
       'I joined just to listen in, but the community kept me coming back every single week.',
     name: 'Padma',
     detail: 'Age 71, Secunderabad',
-  },
-];
-
-const WORKSHOPS = [
-  {
-    title: 'Fall Prevention & Balance Workshop',
-    date: 'Date to be announced',
-    description: 'Simple daily exercises to improve balance and reduce fall risk at home.',
-  },
-  {
-    title: 'Nutrition After 50: Eating for Strength',
-    date: 'Date to be announced',
-    description: 'Build a plate that supports muscle, bones, and energy — the Indian way.',
-  },
-  {
-    title: '10-Day Stair Challenge Kickoff',
-    date: 'Date to be announced',
-    description: 'A friendly community challenge to rebuild stair confidence, one flight at a time.',
   },
 ];
 
@@ -185,36 +74,61 @@ const FAQS = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const homepage = await getPublicHomepage();
+  const { hero, whyItMatters, vision, whatWeDo, membershipCta } = homepage;
+
+  const whyItMattersItems = whyItMatters.points.map((p) => ({ ...p, icon: getIcon(p.icon) }));
+  const visionItems = vision.pillars.map((p) => ({ ...p, icon: getIcon(p.icon) }));
+
   return (
     <>
       {/* Hero */}
-      <section className="bg-bg">
+      <section
+        className={hero.backgroundImage?.url ? 'bg-cover bg-center' : 'bg-bg'}
+        style={hero.backgroundImage?.url ? { backgroundImage: `url(${hero.backgroundImage.url})` } : undefined}
+      >
         <div className="mx-auto grid max-w-content items-center gap-12 px-6 py-16 md:grid-cols-2 md:py-24">
           <div>
             <Eyebrow>strongersteps.in</Eyebrow>
-            <h1 className="mt-3 font-display text-4xl font-bold leading-tight text-primary-dark md:text-5xl">
-              Helping Adults 50+ Stay Strong, Independent, and Confident.
+            <h1 className="mt-3 whitespace-pre-line font-display text-4xl font-bold leading-tight text-primary-dark md:text-5xl">
+              {hero.heading}
             </h1>
-            <p className="mt-5 text-lg text-muted md:text-xl">
-              Exercise. Education. Community.
-              <br />
-              <span className="font-semibold text-primary-dark">Small Steps. Stronger Years.</span>
-            </p>
-            <p className="mt-3 text-sm text-muted italic">
-              Doctor-founded · Built for India · Built for You
-            </p>
+            {hero.subHeading && (
+              <p className="mt-5 text-lg text-muted md:text-xl">
+                {hero.subHeading}
+                {hero.description && (
+                  <>
+                    <br />
+                    <span className="font-semibold text-primary-dark">{hero.description}</span>
+                  </>
+                )}
+              </p>
+            )}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button href="/join" variant="primary">
-                Take Your First Step
-                <ArrowRight size={18} aria-hidden="true" />
-              </Button>
-              <Button href="/knowledge-center" variant="outline">
-                Explore Knowledge Center
-              </Button>
+              {hero.primaryButtonText && (
+                <Button href={hero.primaryButtonUrl || '/'} variant="primary">
+                  {hero.primaryButtonText}
+                  <ArrowRight size={18} aria-hidden="true" />
+                </Button>
+              )}
+              {hero.secondaryButtonText && (
+                <Button href={hero.secondaryButtonUrl || '/'} variant="outline">
+                  {hero.secondaryButtonText}
+                </Button>
+              )}
             </div>
           </div>
-          <HeroSteps />
+          {hero.illustrationImage?.url ? (
+            // eslint-disable-next-line @next/next/no-img-element -- admin-uploaded illustration, not an optimizable local asset
+            <img
+              src={hero.illustrationImage.url}
+              alt={hero.illustrationImage.alt || ''}
+              className="mx-auto w-full max-w-md rounded-xl2"
+            />
+          ) : (
+            <HeroSteps />
+          )}
         </div>
       </section>
 
@@ -224,11 +138,15 @@ export default function HomePage() {
       <section className="bg-primary-dark text-white">
         <div className="mx-auto max-w-content px-6 py-16 md:py-24">
           <SectionHeading
-            eyebrow="Why it matters"
-            title="The years after 50 bring real, but manageable, challenges"
-            description="These are the five things we hear most — every one of them is a warning sign you can act on early."
+            eyebrow={whyItMatters.eyebrow}
+            title={whyItMatters.title}
+            description={whyItMatters.description}
           />
-          <WhyItMattersHand items={WHY_IT_MATTERS} />
+          {whyItMattersItems.length > 0 ? (
+            <WhyItMattersHand items={whyItMattersItems} />
+          ) : (
+            <p className="text-white/75">Content coming soon.</p>
+          )}
         </div>
       </section>
 
@@ -238,12 +156,16 @@ export default function HomePage() {
       <section className="bg-bg">
         <div className="mx-auto max-w-content px-6 py-16 md:py-24">
           <SectionHeading
-            eyebrow="Our vision"
-            title="What Stronger Steps Actually Look Like"
-            description="These are the four outcomes we build every programme, tool, and community event around."
+            eyebrow={vision.eyebrow}
+            title={vision.title}
+            description={vision.description}
             align="center"
           />
-          <VisionHouse items={OUR_VISION} />
+          {visionItems.length > 0 ? (
+            <VisionHouse items={visionItems} />
+          ) : (
+            <p className="text-center text-muted">Content coming soon.</p>
+          )}
         </div>
       </section>
 
@@ -252,27 +174,31 @@ export default function HomePage() {
       {/* What We Do */}
       <section className="bg-sage">
         <div className="mx-auto max-w-content px-6 py-16 md:py-24">
-          <SectionHeading
-            eyebrow="What we do"
-            title="Four Ways We Support Your Stronger Steps"
-            align="center"
-          />
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {WHAT_WE_DO.map(({ image, title, description }) => (
-              <div key={title} className="flex flex-col overflow-hidden rounded-xl2 bg-white shadow-sm">
-                <div className="aspect-[4/3] w-full overflow-hidden bg-sage">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- temporary placeholder photo, not an optimizable local asset */}
-                  <img src={image} alt="" className="h-full w-full object-cover" />
+          <SectionHeading eyebrow={whatWeDo.eyebrow} title={whatWeDo.title} description={whatWeDo.description} align="center" />
+          {whatWeDo.cards.length > 0 ? (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {whatWeDo.cards.map((card, i) => (
+                <div key={i} className="flex flex-col overflow-hidden rounded-xl2 bg-white shadow-sm">
+                  <div className="aspect-[4/3] w-full overflow-hidden bg-sage">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- admin-uploaded/placeholder photo, not an optimizable local asset */}
+                    <img src={card.image?.url} alt={card.image?.alt || ''} className="h-full w-full object-cover" />
+                  </div>
+                  <div className="flex flex-1 flex-col p-6">
+                    <h3 className="font-display text-base font-semibold text-primary-dark">{card.title}</h3>
+                    <p className="mt-2 text-sm text-muted">{card.description}</p>
+                    {card.ctaLabel && (
+                      <a href={card.ctaUrl || '#'} className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
+                        {card.ctaLabel}
+                        <ArrowRight size={14} aria-hidden="true" />
+                      </a>
+                    )}
+                  </div>
                 </div>
-                <div className="p-6">
-                  <h3 className="font-display text-base font-semibold text-primary-dark">
-                    {title}
-                  </h3>
-                  <p className="mt-2 text-sm text-muted">{description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted">Content coming soon.</p>
+          )}
         </div>
       </section>
 
@@ -308,11 +234,37 @@ export default function HomePage() {
         </div>
       </section>
 
-      <StepDivider from="#FBF7EF" to="#E6EEE4" />
+      {membershipCta.active && (
+        <>
+          <StepDivider from="#FBF7EF" to="#1B3E30" />
+          <section
+            className={`text-white ${membershipCta.backgroundImage?.url ? 'bg-cover bg-center' : 'bg-primary-dark'}`}
+            style={
+              membershipCta.backgroundImage?.url
+                ? { backgroundImage: `url(${membershipCta.backgroundImage.url})` }
+                : undefined
+            }
+          >
+            <div className="mx-auto max-w-content px-6 py-16 text-center md:py-24">
+              <Star size={32} className="mx-auto text-accent" aria-hidden="true" />
+              <h2 className="mt-4 font-display text-3xl font-bold md:text-4xl">{membershipCta.heading}</h2>
+              {membershipCta.description && (
+                <p className="mx-auto mt-3 max-w-xl text-white/75">{membershipCta.description}</p>
+              )}
+              {membershipCta.buttonText && (
+                <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                  <Button href={membershipCta.buttonUrl || '/join'} variant="accent">
+                    {membershipCta.buttonText}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </section>
+          <StepDivider from="#1B3E30" to="#E6EEE4" flip />
+        </>
+      )}
 
-
-
-      <StepDivider from="#FBF7EF" to="#E6EEE4" />
+      {!membershipCta.active && <StepDivider from="#FBF7EF" to="#E6EEE4" />}
 
       {/* FAQ */}
       <section id="faq" className="bg-sage">
@@ -328,32 +280,6 @@ export default function HomePage() {
                 <p className="mt-3 text-sm text-muted">{a}</p>
               </details>
             ))}
-          </div>
-        </div>
-      </section>
-
-      <StepDivider from="#E6EEE4" to="#1B3E30" />
-
-      {/* Final CTA */}
-      <section className="bg-primary-dark text-white">
-        <div className="mx-auto max-w-content px-6 py-16 text-center md:py-24">
-          <Star size={32} className="mx-auto text-accent" aria-hidden="true" />
-          <h2 className="mt-4 font-display text-3xl font-bold md:text-4xl">
-            Ready to take stronger steps?
-          </h2>
-          <p className="mx-auto mt-3 max-w-xl text-white/75">
-            Join our free community for weekly tips and updates, or reserve your seat at the
-            next workshop.
-          </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Button href="/join" variant="accent">
-              <Users size={18} aria-hidden="true" />
-              Take Your First Step
-            </Button>
-            <Button href="/programs" variant="outlineLight">
-              <Calendar size={18} aria-hidden="true" />
-              Book a Workshop
-            </Button>
           </div>
         </div>
       </section>

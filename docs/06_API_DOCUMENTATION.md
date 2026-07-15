@@ -119,6 +119,24 @@ Public, reusable, provider-agnostic — not Knowledge-Center-specific. See
 |---|---|---|---|
 | `/api/team` | GET | Public | Query: `search` (matches Name/Department/Position). No pagination. Published-only. Returns `{ teamMembers, treeMembers, matchedIds }` — `teamMembers` is the original flat list (unchanged, kept for backward compatibility, `search` filters it); `treeMembers`/`matchedIds` (Sprint 14 rev. 2) are the *full* published roster (with `xPosition`/`yPosition`/`parentMember`) and the ids of any search matches, consumed by `components/team/OrgTree.js`'s illustrated tree. `treeMembers` is always returned in full — `search` never removes a member from the illustration, only flags matches for highlighting. |
 
+## Homepage (Sprint 15)
+
+Singleton — no `[id]` routes, since there's exactly one document.
+
+### Admin — `app/api/admin/homepage/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/homepage` | GET | Any session | Returns `{ homepage }`, the full singleton doc (created from seed defaults on first call). |
+| `/api/admin/homepage` | PUT | Admin/editor | Body: `{ section, data }` where `section` is one of `hero`\|`whyItMatters`\|`vision`\|`whatWeDo`\|`membershipCta`. Replaces just that section. Card-list `displayOrder` fields are always re-derived from the submitted array's index, never trusted from the client. Returns `{ homepage }`. |
+| `/api/admin/homepage/upload` | POST | Admin/editor | multipart `file`, via `lib/localUpload.js`. Returns `{ url }`, 201. |
+
+### Public — `app/api/homepage/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/homepage` | GET | Public | Returns `{ homepage }`, the full singleton doc. `app/page.js` calls `lib/publicHomepage.js`'s `getPublicHomepage()` directly (server component, no network round-trip) rather than this route; this route exists for parity with every other module's public API and any future client-side consumers. |
+
 ## Membership
 
 ### Admin — `app/api/admin/membership/`
