@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { AlertCircle, CheckCircle2, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { isValidEmail, isValidMobile } from '@/lib/eventValidation';
@@ -121,6 +122,12 @@ export default function BookingModal({ event, onClose, onSuccess }) {
             <Button type="button" onClick={onClose} variant="primary" className="mt-6 w-full">
               Done
             </Button>
+            <Link
+              href="/booking-history"
+              className="mt-3 block text-center text-sm font-semibold text-primary hover:underline"
+            >
+              View my bookings
+            </Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">

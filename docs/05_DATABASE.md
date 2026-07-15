@@ -216,7 +216,7 @@ payment-ready even though Sprint 12 has no payment step — see `bookingStatus`.
 | `price` | Number | snapshot of the event's price at booking time |
 | `memberDiscount` | Number | snapshot of the event's `memberDiscountPercentage`; not yet subtracted into `finalAmount` |
 | `finalAmount` | Number | equals `price` this sprint (no payment/discount automation) |
-| `bookingStatus` | String enum | `pending` \| `confirmed` \| `cancelled` \| `expired` — created directly as `confirmed` this sprint (no payment step); the 4-value enum exists so a future payment integration (pending while payment is in flight, then confirmed/cancelled/expired) needs no schema change |
+| `bookingStatus` | String enum | `pending` \| `confirmed` \| `cancelled` \| `completed` — created directly as `confirmed` (no payment step yet). Every status except `cancelled` "holds" a seat against `Event.availableSeats`; `PATCH /api/admin/bookings/[id]/status` (Sprint 16) is what enforces the seat-consume/restore rule on every transition, not the model itself |
 
 Indexes: `{event, createdAt}`, unique index on `bookingReference`.
 

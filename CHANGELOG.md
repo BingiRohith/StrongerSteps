@@ -1,5 +1,113 @@
 # Changelog
 
+## Sprint 16: Booking Workflow Completion — 2026-07-15
+
+Scope: completes the booking workflow described in the Sprint 16 brief
+**without** any external payment provider (Razorpay/Stripe/UPI/SMS/Email/
+Invoice/QR all stay deferred, per the brief's explicit non-goals). Builds
+admin booking management (list/detail/status/manual cancellation/seat
+restoration), hardens seat locking around every status transition (not
+just creation), and gives the public a no-login way to see booking
+details/status/reference and a booking history.
+
+### Added
+- **`app/api/admin/bookings/route.js`** (GET, admin/editor) — booking list
+  with `status`/`search` (name/mobile/email/bookingReference, regex,
+  case-insensitive)/`sort` (`newest`/`oldest`/`eventDate`/`status`) query
+  params, `event` populated. No pagination, same as
+  `app/api/admin/events/route.js`/`app/api/admin/products/route.js`.
+- **`app/api/admin/bookings/[id]/route.js`** (GET) — single booking detail
+  with the full `event` document populated.
+- **`app/api/admin/bookings/[id]/status/route.js`** (PATCH) — the core new
+  logic this sprint. Body `{ status }` accepts any of the model's 4
+  statuses. Every status except `cancelled` is treated as "holding a seat"
+  against `Event.availableSeats`; a transition into `cancelled` restores a
+  seat (via an aggregation-pipeline `$min` update so the restore is capped
+  at `maxSeats` atomically, not a separate read-then-write), and a
+  transition **out of** `cancelled` re-consumes a seat with the same
+  atomic `findOneAndUpdate({ availableSeats: { $gt: 0 } })` guard
+  `app/api/bookings/route.js` already used for creation — failing with 409
+  if the event is full. This single endpoint covers both "Manual
+  Cancellation" and "Seat Restoration when cancelled" from the brief, plus
+  general Pending/Confirmed/Cancelled/Completed status changes.
+- **`app/api/bookings/lookup/route.js`** (GET, public) — mobile-number
+  lookup (matched on last-10-digits via `lib/eventValidation.js`'s new
+  `last10Digits()`, so a stored `+91...` number still matches a plain
+  10-digit search input or vice versa). Optional `reference` narrows to
+  one booking. Mobile is required in all cases so a sequential/guessed
+  `bookingReference` alone can't leak someone else's name/contact details.
+  Powers both the public booking-details/status/reference view and the
+  Booking History page from a single endpoint/component — no separate
+  `/booking/[reference]` route needed.
+- **`/admin/bookings`** (`BookingsListClient.js`) — new admin module:
+  status tabs (Pending/Confirmed/Cancelled/Completed/All), debounced
+  search, sort dropdown, per-row quick "Cancel booking" action with a
+  confirm dialog (mirrors `EventsListClient.js`'s delete-confirm pattern),
+  link to detail. Added a "Bookings" entry to `AdminSidebar.js` (new
+  `Ticket` icon) and the dashboard's module grid.
+- **`/admin/bookings/[id]`** (`BookingDetailClient.js`) — full booking
+  detail (contact info, event snapshot with live seat count, payment
+  snapshot) plus a status-change panel (4 buttons + a dedicated "Cancel
+  booking" action) that calls the new status route and reflects the
+  updated seat count immediately.
+- **`/booking-history`** (`BookingHistoryClient.js`) — public page: a
+  mobile (+ optional reference) lookup form, results as an
+  expand-on-click accordion list showing Reference/Event/Date/Status/1
+  seat per CRS, expanding to show location/time/name/amount. Linked from
+  the Footer's "Explore" column and from `BookingModal.js`'s post-booking
+  success screen ("View my bookings").
+- **`lib/eventValidation.js`** gained `last10Digits()`, shared by the
+  lookup route (see above).
+
+### Modified
+- **`models/Booking.js`** — `bookingStatus` enum's 4th value renamed
+  `expired` → `completed` (CRS Sprint 16 explicitly lists Pending/
+  Confirmed/Cancelled/Completed; `expired` was reserved for a future
+  payment-timeout case that was never wired to anything — grepped the
+  whole codebase to confirm zero other references before renaming).
+  Updated the file's doc comment to describe the new status-transition/
+  seat-locking rules instead of the old payment-pending framing.
+- **`app/admin/(protected)/dashboard/page.js`** — "Programs overview" stat
+  row gained `pendingBookings`/`confirmedBookings`/`cancelledBookings`
+  counts alongside the existing `bookingsCount`; module grid gained a
+  "Bookings" card (`View, filter & cancel bookings`), and the pre-existing
+  "Programs" card copy was narrowed to `Manage events` now that booking
+  management has its own card.
+- **`components/Footer.js`** — "Explore" column gained a "Booking History"
+  link.
+- **`components/programs/BookingModal.js`** — success screen gained a
+  "View my bookings" link to `/booking-history`, under the existing "Done"
+  button.
+
+### Verified
+- Deleted `.next`, ran `npm run build` clean — no errors or warnings,
+  confirmed all new routes (`/admin/bookings`, `/admin/bookings/[id]`,
+  `/api/admin/bookings*`, `/api/bookings/lookup`, `/booking-history`)
+  compiled.
+- Logged into `/admin` against the live seeded database and exercised the
+  full loop by hand: opened an existing confirmed booking
+  (`SS-20260709-0001`, event at 19/20 seats), clicked Cancel → status
+  flipped to `cancelled` and seats went to 20/20; clicked the "Confirmed"
+  status button → seat re-consumed back to 19/20. Confirmed search/status
+  tabs/sort on `/admin/bookings` filter correctly (including a booking
+  whose `event` had been deleted in an earlier sprint — list/detail both
+  render an "Event no longer exists" fallback instead of crashing).
+  Created a fresh booking through the public `/programs` calendar,
+  followed "View my bookings" to `/booking-history`, looked it up by
+  mobile number, expanded the accordion row to confirm all fields
+  (location/time/name/amount) render, then cancelled it from
+  `/admin/bookings` and confirmed the event's seat count returned to its
+  pre-test value (19/20) — no leftover test data. Checked mobile (375px)
+  and desktop widths via `preview_resize`/`preview_screenshot` for both
+  `/booking-history` and `/admin/bookings`. No console errors at any
+  point (`preview_console_logs`).
+
+### Not touched
+Membership/Products/Team/Recipes/Homepage/Knowledge Center CMS and public
+pages, event CRUD itself (`/admin/events`), authentication. Payment,
+SMS/Email/WhatsApp confirmations, invoices/receipts, and QR check-in
+remain explicitly deferred non-goals per the brief.
+
 ## Sprint 15: Homepage CMS + Header/Homepage Cleanup — 2026-07-15
 
 Scope: converts every remaining hardcoded homepage section into a

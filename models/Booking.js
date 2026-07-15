@@ -4,13 +4,15 @@ const { Schema, models, model } = mongoose;
 
 /**
  * Bookings collection — one row per "Book Your Seat" submission on the
- * public /programs calendar. `bookingStatus` uses a 4-value enum
- * (pending/confirmed/cancelled/expired) rather than a simple boolean so a
+ * public /programs calendar. `bookingStatus` is a 4-value enum (pending/
+ * confirmed/cancelled/completed, per CRS Sprint 16 §"Booking Status") so a
  * future payment integration slots in without a schema change: a booking
  * would be created `pending` while payment is in flight, then flipped to
- * `confirmed` (payment success), `cancelled` (user/admin action), or
- * `expired` (payment session timed out). Sprint 12 has no payment step, so
- * app/api/bookings/route.js creates bookings directly as `confirmed`.
+ * `confirmed` (payment success). `cancelled` and `completed` are both
+ * admin/lifecycle-driven — see app/api/admin/bookings/[id]/status/route.js
+ * for the seat-locking rules around each transition. Sprint 12 has no
+ * payment step, so app/api/bookings/route.js still creates bookings
+ * directly as `confirmed`.
  *
  * `memberId` and `notes` are unused this sprint (reserved for future
  * membership-account linking and attendee requirements like accessibility/
@@ -84,7 +86,7 @@ const BookingSchema = new Schema(
     },
     bookingStatus: {
       type: String,
-      enum: ['pending', 'confirmed', 'cancelled', 'expired'],
+      enum: ['pending', 'confirmed', 'cancelled', 'completed'],
       default: 'pending',
     },
   },

@@ -10,9 +10,10 @@ Admin panel lives at `/admin/*`, gated by [`middleware.js`](../middleware.js)
 
 Landing page after login. Greets the signed-in admin by name, links to each
 module. Also shows a "Programs overview" stats row (Total Events, Upcoming
-Events, Active Events, Bookings Count) computed directly with
-`Event.countDocuments`/`Booking.countDocuments` in the server component —
-the only module with live stats on this page so far.
+Events, Active Events, Bookings Count, Pending/Confirmed/Cancelled
+Bookings) computed directly with `Event.countDocuments`/
+`Booking.countDocuments` in the server component — the only module with
+live stats on this page so far.
 
 ## Homepage — `/admin/homepage` (Sprint 15)
 
@@ -143,8 +144,7 @@ placement.
 **Status: full CRUD, production-capable. No payment integration yet.**
 Sidebar/nav label is "Programs" (per CRS wording); routes and the
 underlying model are named "Event" (per the CRS's own field-level
-language). Booking management (viewing/cancelling individual bookings) has
-no admin UI yet — only the dashboard's aggregate "Bookings Count".
+language).
 
 - List (`EventsListClient.js`): mirrors `MembershipListClient.js`'s
   reorder-buttons pattern combined with `ProductsListClient.js`'s
@@ -155,6 +155,29 @@ no admin UI yet — only the dashboard's aggregate "Bookings Count".
   name + optional host photo, price, member discount %, maximum/available
   seats, optional registration-opens/closes window, featured toggle,
   display order, event image upload, Save as Draft / Publish actions.
+
+## Bookings — `/admin/bookings` (Sprint 16)
+
+**Status: full list/detail/status management, production-capable. No
+payment integration yet.**
+
+- List (`BookingsListClient.js`): status tabs
+  (Pending/Confirmed/Cancelled/Completed/All), debounced search (name/
+  mobile/email/reference), sort dropdown (Newest/Oldest/Event date/
+  Status). Each row shows reference, contact, event (or an "Event no
+  longer exists" fallback if it was deleted), 1 seat, amount, status
+  badge, a quick "Cancel booking" action (confirm dialog, mirrors
+  `EventsListClient.js`'s delete-confirm pattern), and a link to detail.
+- Detail (`BookingDetailClient.js`): contact info, event snapshot with the
+  event's *live* seat count (not a cached value), payment snapshot
+  (price/discount/final amount), and a status-change panel — 4 buttons for
+  Pending/Confirmed/Cancelled/Completed plus a dedicated "Cancel booking"
+  action, both hitting `PATCH /api/admin/bookings/[id]/status`.
+- **Seat locking is enforced on every status transition**, not just
+  booking creation: cancelling an active booking restores 1 seat to the
+  event (capped at `maxSeats`); reactivating a cancelled booking
+  re-consumes 1 seat only if one is still available (409 otherwise) — see
+  `app/api/admin/bookings/[id]/status/route.js`.
 
 ## Recipe Categories — `/admin/recipe-categories`
 

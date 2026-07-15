@@ -216,8 +216,15 @@ Singleton — no `[id]` routes, since there's exactly one document.
 | Route | Method | Auth | Notes |
 |---|---|---|---|
 | `/api/bookings` | POST | Public | Body: `{ eventId, name, mobile, email }`. Validates the event is published and within its registration window (if set), then atomically decrements `availableSeats` (rejects with 409 if already fully booked) before creating the `Booking` with a generated `bookingReference`. Created directly with `bookingStatus: 'confirmed'` — no payment step this sprint. Returns `{ booking, event }` (the updated event, so the client can refresh its seat count), 201. |
+| `/api/bookings/lookup` | GET | Public | Query: `mobile` (required, matched on last-10-digits so a stored `+91...` number still matches a plain 10-digit search), `reference` (optional, narrows to one booking). No pagination-worthy volume expected per lookup; capped at 50 results. Powers the public `/booking-history` page — both the "view one booking's details/status/reference" case and the full booking-history list use this same route. Returns `{ bookings }` (array, `event` populated). |
 
-No admin-facing booking list/management route exists yet — the admin dashboard's "Bookings Count" is read directly via `Booking.countDocuments()` in the dashboard page rather than through an API route.
+## Admin Bookings — `app/api/admin/bookings/` (Sprint 16)
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/bookings` | GET | Admin/editor | Query: `status` (`pending`\|`confirmed`\|`cancelled`\|`completed`), `search` (regex over name/mobile/email/bookingReference), `sort` (`newest`\|`oldest`\|`eventDate`\|`status`). No pagination, same as `/api/admin/events`. `event` populated (summary fields only). |
+| `/api/admin/bookings/[id]` | GET | Admin/editor | Full booking detail, `event` populated in full. |
+| `/api/admin/bookings/[id]/status` | PATCH | Admin/editor | Body: `{ status }`. The seat-locking rule: every status except `cancelled` "holds" a seat. Moving **into** `cancelled` restores 1 seat (aggregation-pipeline `$min` update, atomically capped at `maxSeats`). Moving **out of** `cancelled` re-consumes 1 seat via the same atomic `findOneAndUpdate({ availableSeats: { $gt: 0 } })` guard used at booking creation — returns 409 if the event is now full. Covers both "Manual Cancellation" and "Seat Restoration when cancelled". |
 
 ## Blog cover image upload — `app/api/admin/upload/`
 

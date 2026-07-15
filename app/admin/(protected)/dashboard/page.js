@@ -2,7 +2,7 @@ import { getCurrentUser } from '@/lib/auth';
 import connectDB from '@/lib/db';
 import Event from '@/models/Event';
 import Booking from '@/models/Booking';
-import { Newspaper, Image as ImageIcon, Users, Package, CreditCard, Calendar, FolderTree, Home } from 'lucide-react';
+import { Newspaper, Image as ImageIcon, Users, Package, CreditCard, Calendar, Ticket, FolderTree, Home } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +14,7 @@ const CARDS = [
   { label: 'Products', icon: Package, href: '/admin/products' },
   { label: 'Membership', icon: CreditCard, href: '/admin/membership' },
   { label: 'Programs', icon: Calendar, href: '/admin/events' },
+  { label: 'Bookings', icon: Ticket, href: '/admin/bookings' },
   { label: 'Categories', icon: FolderTree, href: '/admin/categories' },
 ];
 
@@ -22,20 +23,42 @@ const STAT_LABELS = {
   upcomingEvents: 'Upcoming Events',
   activeEvents: 'Active Events',
   bookingsCount: 'Bookings Count',
+  pendingBookings: 'Pending Bookings',
+  confirmedBookings: 'Confirmed Bookings',
+  cancelledBookings: 'Cancelled Bookings',
 };
 
 async function getProgramsStats() {
   await connectDB();
   const now = new Date();
 
-  const [totalEvents, upcomingEvents, activeEvents, bookingsCount] = await Promise.all([
+  const [
+    totalEvents,
+    upcomingEvents,
+    activeEvents,
+    bookingsCount,
+    pendingBookings,
+    confirmedBookings,
+    cancelledBookings,
+  ] = await Promise.all([
     Event.countDocuments({}),
     Event.countDocuments({ status: 'published', eventDate: { $gte: now } }),
     Event.countDocuments({ status: 'published' }),
     Booking.countDocuments({}),
+    Booking.countDocuments({ bookingStatus: 'pending' }),
+    Booking.countDocuments({ bookingStatus: 'confirmed' }),
+    Booking.countDocuments({ bookingStatus: 'cancelled' }),
   ]);
 
-  return { totalEvents, upcomingEvents, activeEvents, bookingsCount };
+  return {
+    totalEvents,
+    upcomingEvents,
+    activeEvents,
+    bookingsCount,
+    pendingBookings,
+    confirmedBookings,
+    cancelledBookings,
+  };
 }
 
 export default async function AdminDashboardPage() {
@@ -81,7 +104,9 @@ export default async function AdminDashboardPage() {
             <p className="mt-4 font-display text-sm font-semibold text-ink">{label}</p>
             <p className="mt-1 text-xs text-muted">
               {label === 'Programs'
-                ? 'Manage events & bookings'
+                ? 'Manage events'
+                : label === 'Bookings'
+                ? 'View, filter & cancel bookings'
                 : label === 'Homepage'
                 ? 'Edit hero, cards & sections'
                 : 'Not yet available'}

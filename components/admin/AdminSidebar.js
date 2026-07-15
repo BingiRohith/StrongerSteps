@@ -15,6 +15,7 @@ import {
   Soup,
   Tags,
   Home,
+  Ticket,
   X,
 } from 'lucide-react';
 
@@ -27,6 +28,7 @@ export const NAV_ITEMS = [
   { href: '/admin/products', label: 'Products', icon: Package },
   { href: '/admin/membership', label: 'Membership', icon: CreditCard },
   { href: '/admin/events', label: 'Programs', icon: Calendar },
+  { href: '/admin/bookings', label: 'Bookings', icon: Ticket },
   { href: '/admin/recipes', label: 'Recipes', icon: Soup },
   { href: '/admin/recipe-categories', label: 'Recipe Categories', icon: Tags },
   { href: '/admin/categories', label: 'Categories', icon: FolderTree },

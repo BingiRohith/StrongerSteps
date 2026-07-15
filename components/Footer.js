@@ -23,6 +23,7 @@ const FOOTER_COLUMNS = [
     title: 'Explore',
     links: [
       { label: 'Programs', href: '/programs' },
+      { label: 'Booking History', href: '/booking-history' },
       { label: 'Products', href: '/products' },
       { label: 'About Us', href: '/about' },
       { label: 'FAQ', href: '/#faq' },
