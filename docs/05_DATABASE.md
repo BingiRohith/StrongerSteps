@@ -112,28 +112,26 @@ Indexes: `{status, category, displayOrder}`, text index on `name`/`description`.
 
 ## Team — [`models/Team.js`](../models/Team.js)
 
-Feeds the About page's Organization Tree (Sprint 14; a flat roster grid
-before that). No slug/detail page.
+Feeds the About page's illustrated Organization Tree (Sprint 14 rev. 2; a
+plain connector-line org chart in the first Sprint 14 pass, a flat roster
+grid before that — see `docs/13_DECISIONS.md`). No slug/detail page.
 
 | Field | Type | Notes |
 |---|---|---|
 | `name` | String | required, max 100 |
 | `designation` | String | required, max 150 — also doubles as the org tree node's "Position" label (Sprint 14 reuses it rather than adding a duplicate field) |
-| `department` | String | max 150, default `''` — Sprint 14, powers the tree's branch grouping and the Name/Department/Position search |
-| `parentMember` | ObjectId ref → `Team` (self-ref) | default `null` — Sprint 14. `null` = root of the tree (e.g. a Founder). Validated server-side against cycles (`lib/teamHierarchy.js`'s `assertNoCycle()`) on every create/update — a member can never become its own ancestor |
+| `department` | String | max 150, default `''` — Sprint 14, shown on each tree node's card and searchable via Name/Department/Position search |
+| `parentMember` | ObjectId ref → `Team` (self-ref) | default `null`. Validated server-side against cycles (`lib/teamHierarchy.js`'s `assertNoCycle()`) on every create/update — a member can never become its own ancestor. Sprint 14 rev. 2: no longer drives visual layout (see `xPosition`/`yPosition`) — only draws the connector *line* between a node and its parent on the tree illustration |
+| `xPosition` / `yPosition` | Number | 0-100, default `50` (canvas center) — Sprint 14 rev. 2. Percentage position on `components/team/TeamTreeIllustration.js`'s canvas, set by an admin dragging the member's marker in `/admin/team/tree` (`TreePositionEditor.js`), not derived from anything. Clamped server-side (`lib/teamHierarchy.js`'s `clampPosition()`) |
 | `qualifications` | [String] | trimmed, filtered |
 | `experience` | String | max 100 |
 | `bio` | String | max 1000 |
 | `photo` | `{ url, alt }` | |
 | `social` | `{ linkedin, twitter }` | |
-| `displayOrder` | Number | manual sort order — **scoped to siblings** (same `parentMember`) for the org tree's reorder controls, same as it always was for the flat list |
+| `displayOrder` | Number | manual sort order — **scoped to siblings** (same `parentMember`) for the admin list's reorder controls |
 | `featured` | Boolean | |
 | `status` / `publishedAt` | | same lifecycle pattern |
 | `author` | ObjectId ref → `User` | |
-
-Tree level (root = 0, etc.) is **derived at read time** from the
-`parentMember` chain (`lib/teamHierarchy.js`'s `buildTeamTree()`) — never a
-stored field, so nesting is unlimited and not hardcoded to a fixed depth.
 
 Indexes: `{status, displayOrder}`, `{status, parentMember, displayOrder}`
 (Sprint 14), text index on `name`/`designation`/`department`/

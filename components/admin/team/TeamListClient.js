@@ -14,6 +14,7 @@ import {
   Star,
   ArrowUp,
   ArrowDown,
+  Move,
 } from 'lucide-react';
 import StatusBadge from '@/components/admin/blogs/StatusBadge';
 
@@ -175,13 +176,22 @@ export default function TeamListClient() {
             </p>
           </div>
         </div>
-        <Link
-          href="/admin/team/new"
-          className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 font-display text-sm font-semibold text-white transition-colors duration-200 hover:bg-primary-dark"
-        >
-          <Plus size={16} />
-          New team member
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/team/tree"
+            className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-primary px-5 py-2.5 font-display text-sm font-semibold text-primary transition-colors duration-200 hover:bg-primary hover:text-white"
+          >
+            <Move size={16} />
+            Tree layout
+          </Link>
+          <Link
+            href="/admin/team/new"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 font-display text-sm font-semibold text-white transition-colors duration-200 hover:bg-primary-dark"
+          >
+            <Plus size={16} />
+            New team member
+          </Link>
+        </div>
       </div>
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

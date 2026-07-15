@@ -66,14 +66,18 @@ the only module with live stats on this page so far.
 
 **Status: full CRUD, production-capable.** Sprint 14 added org-hierarchy
 management on top of the existing CRUD — no second Team module, same
-`/admin/team` routes/components extended in place.
+`/admin/team` routes/components extended in place. A client-requested
+revision (Sprint 14 rev. 2 — see `docs/13_DECISIONS.md`) replaced the
+initial auto-laid-out design with an illustrated tree + manual drag
+placement.
 
 - List (`TeamListClient.js`): standard list pattern, plus (Sprint 14) each
   row shows its Department and "Reports to X" / "Root of tree" line, and
   Move Up/Move Down buttons that reorder within **siblings only** (members
   sharing the same parent, or other roots) — not the whole mixed-hierarchy
   list — via the existing PUT endpoint's `displayOrder` swap, same pattern
-  `MembershipListClient.js`/`EventsListClient.js` already use.
+  `MembershipListClient.js`/`EventsListClient.js` already use. Also links to
+  the new "Tree layout" position editor below.
 - Create/Edit (`TeamForm.js`): name, designation, qualifications, experience,
   bio, photo upload, LinkedIn/Twitter links, display order, featured toggle,
   Save as Draft / Publish, plus (Sprint 14) a Department text input and a
@@ -81,6 +85,13 @@ management on top of the existing CRUD — no second Team module, same
   admin team list, with the member itself and its own descendants excluded
   from the option list so a circular assignment can't even be selected (the
   API validates independently regardless, via `lib/teamHierarchy.js`).
+- **Tree layout (`/admin/team/tree`, `TreePositionEditor.js`) — Sprint 14
+  rev. 2.** Shows every member (all statuses) as a draggable marker over
+  the same `TeamTreeIllustration.js` the public About page renders. Drag a
+  marker and release it anywhere on the tree to set that member's
+  `xPosition`/`yPosition` — saves automatically via the existing team PUT
+  endpoint, no separate save step. Draft members show with a dashed photo
+  border so admins can tell what's not yet public.
 
 ## Membership — `/admin/membership`
 

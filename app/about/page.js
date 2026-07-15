@@ -2,7 +2,7 @@ import { Award, Milestone, Telescope, ArrowRight } from 'lucide-react';
 import { Button, Eyebrow, SectionHeading } from '@/components/ui';
 import StepDivider from '@/components/StepDivider';
 import OrgTree from '@/components/team/OrgTree';
-import { getTeamTree } from '@/lib/publicTeam';
+import { getTeamTreeData } from '@/lib/publicTeam';
 
 const CREDENTIALS = [
   'Diploma in Geriatric Medicine',
@@ -18,7 +18,7 @@ const TIMELINE = [
 ];
 
 export default async function AboutPage() {
-  const { tree, matchedIds } = await getTeamTree();
+  const { members, matchedIds } = await getTeamTreeData();
 
   return (
     <>
@@ -37,11 +37,11 @@ export default async function AboutPage() {
       <StepDivider from="#FBF7EF" to="#E6EEE4" />
 
       {/* Organization Tree (CRS §11 / Sprint 14) */}
-      {tree.length > 0 && (
+      {members.length > 0 && (
         <section className="bg-sage">
           <div className="mx-auto max-w-content px-6 py-16 md:py-20">
             <SectionHeading eyebrow="Who we are" title="Meet the team" />
-            <OrgTree initialTree={tree} initialMatchedIds={matchedIds} />
+            <OrgTree initialMembers={members} initialMatchedIds={matchedIds} />
           </div>
         </section>
       )}

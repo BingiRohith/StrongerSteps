@@ -3,7 +3,7 @@ import connectDB from '@/lib/db';
 import Team from '@/models/Team';
 import { requireAuth } from '@/lib/auth';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
-import { resolveParentMember } from '@/lib/teamHierarchy';
+import { resolveParentMember, clampPosition } from '@/lib/teamHierarchy';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,6 +60,8 @@ export const PUT = withErrorHandling(async (request, { params }) => {
       return fail(err.message, err.status || 400);
     }
   }
+  if (body.xPosition !== undefined) teamMember.xPosition = clampPosition(body.xPosition);
+  if (body.yPosition !== undefined) teamMember.yPosition = clampPosition(body.yPosition);
   if (body.qualifications !== undefined) {
     teamMember.qualifications = Array.isArray(body.qualifications) ? body.qualifications : [];
   }

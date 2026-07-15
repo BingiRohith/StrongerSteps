@@ -2,7 +2,7 @@ import connectDB from '@/lib/db';
 import Team from '@/models/Team';
 import { requireAuth } from '@/lib/auth';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
-import { resolveParentMember } from '@/lib/teamHierarchy';
+import { resolveParentMember, clampPosition } from '@/lib/teamHierarchy';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,6 +63,8 @@ export const POST = withErrorHandling(async (request) => {
     designation: body.designation,
     department: body.department || '',
     parentMember,
+    xPosition: body.xPosition !== undefined ? clampPosition(body.xPosition) : 50,
+    yPosition: body.yPosition !== undefined ? clampPosition(body.yPosition) : 50,
     qualifications: Array.isArray(body.qualifications) ? body.qualifications : [],
     experience: body.experience || '',
     bio: body.bio || '',

@@ -3,19 +3,26 @@ import mongoose from 'mongoose';
 const { Schema, models, model } = mongoose;
 
 /**
- * Team collection — feeds the About page's Organization Tree (Sprint 14;
- * originally a flat "Meet the founders" / "Our Team" grid, Sprint 9).
- * Mirrors the shape/conventions of `models/Blog.js` and `models/Infographic.js`
- * (draft/published lifecycle, photo sub-document like coverImage, `featured`
- * flag like Blog) so the admin CRUD and upload flow feel consistent with the
- * rest of the admin panel. No slug/detail page — team members don't have an
- * individual public page.
+ * Team collection — feeds the About page's illustrated Organization Tree
+ * (Sprint 14 rev. 2; originally a flat "Meet the founders" / "Our Team"
+ * grid, Sprint 9; a plain connector-line org chart in the first Sprint 14
+ * pass, rejected by the client for not matching their reference — see
+ * `docs/13_DECISIONS.md`). Mirrors the shape/conventions of `models/Blog.js`
+ * and `models/Infographic.js` (draft/published lifecycle, photo sub-document
+ * like coverImage, `featured` flag like Blog) so the admin CRUD and upload
+ * flow feel consistent with the rest of the admin panel. No slug/detail
+ * page — team members don't have an individual public page.
  *
- * `parentMember` (self-ref) + `department` drive the hierarchy: tree level is
- * derived at read time from the parent chain (see `lib/teamHierarchy.js`),
- * never stored, so nesting is unlimited and not hardcoded to a fixed depth.
- * `designation` doubles as the tree node's "Position" label — Sprint 14
- * intentionally reuses it rather than adding a duplicate field.
+ * `parentMember` (self-ref) still models the reporting relationship (used to
+ * draw a connector line between a node and its parent's `xPosition`/
+ * `yPosition`), but visual placement on the tree illustration is now
+ * independent of it: `xPosition`/`yPosition` (0-100, percentage of the
+ * illustration's width/height — `0,0` top-left, `100,100` bottom-right) are
+ * admin-set directly via a drag-and-drop position editor
+ * (`components/admin/team/TreePositionEditor.js`), not derived from the
+ * hierarchy. `status` (draft/published) doubles as this feature's "Active/
+ * Inactive" toggle — reused rather than adding a duplicate boolean.
+ * `designation` doubles as the tree node's "Position" label.
  */
 const TeamSchema = new Schema(
   {
@@ -47,6 +54,18 @@ const TeamSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'Team',
       default: null,
+    },
+    xPosition: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 50,
+    },
+    yPosition: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 50,
     },
     experience: {
       type: String,
@@ -117,6 +136,8 @@ TeamSchema.methods.toSafeObject = function toSafeObject() {
     designation: this.designation,
     department: this.department,
     parentMember: this.parentMember,
+    xPosition: this.xPosition,
+    yPosition: this.yPosition,
     qualifications: this.qualifications,
     experience: this.experience,
     bio: this.bio,

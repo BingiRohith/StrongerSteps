@@ -5,7 +5,47 @@ as of the 2026-07-07 documentation sprint — everything below Sprint 9 is
 reconstructed from code/CHANGELOG evidence, not from a prior decisions log
 (none existed).
 
-## 2026-07-15 — Sprint 14 Team Organization Tree: field-shape and scope assumptions
+## 2026-07-15 — Sprint 14 revision: client rejected the auto-laid-out org chart, required an illustrated tree with manual placement
+
+The first Sprint 14 pass (below) built an auto-generated connector-line org
+chart: nodes positioned by a layout algorithm derived from `parentMember`
+depth. The client rejected this outright, providing a reference image (a
+literal illustrated tree — trunk, leafy branches, circular photos, name/
+position cards) and an explicit checklist: large tree illustration
+background, admin-set `xPosition`/`yPosition` per member, and "the admin
+must be able to move members visually without editing code."
+**Why:** "Organization Tree" in the CRS/sprint brief turned out to mean a
+literal illustrated tree matching a specific visual reference, not a
+generic auto-layout org chart — a reasonable-sounding technical
+interpretation of "org tree" doesn't necessarily match what a non-technical
+stakeholder pictured. The client's "move visually" requirement also directly
+overrides this same sprint brief's stated non-goal, "❌ Drag-and-drop
+editor" — treated as an explicit, in-writing override of that non-goal for
+this one feature, not a general lifting of it project-wide.
+**What changed:** `buildTeamTree()`'s auto-layout was deleted; visual
+position is now two new stored fields (`xPosition`/`yPosition`, 0-100
+percentage) set by an admin dragging a marker over a hand-illustrated SVG
+tree (`components/team/TeamTreeIllustration.js`, `/admin/team/tree`).
+`parentMember` is retained but now only draws a connector *line* between a
+node and its parent's coordinates — it no longer determines where either
+node appears.
+**How to apply:** when a CRS/brief item describes something visually (a
+tree, an illustration, a specific layout), and the client later supplies a
+reference image, treat the reference as the more authoritative spec —
+rebuild to match it rather than defending the original technical
+interpretation. Don't assume a stated non-goal still holds once the client
+gives an explicit, specific instruction that contradicts it for that one
+feature.
+
+## 2026-07-15 — Sprint 14 (superseded layout, still-valid field/scope assumptions)
+
+Note: the auto-layout described in point 2 below (tree level derived from
+`parentMember` via the now-removed `buildTeamTree()`) no longer applies —
+see the revision entry above. Point 5's underlying claim (delete doesn't
+cascade to children) is still true, just via a different mechanism now (an
+orphaned child's connector line simply has no parent to draw to, rather
+than `buildTeamTree()` treating it as a root). Points 1, 3, 4 remain
+accurate for the current illustrated-tree design.
 
 The CRS (§11) and the sprint brief describe the tree conceptually (Founders
 → Departments → Team Members, unlimited nesting, admin-managed parent/

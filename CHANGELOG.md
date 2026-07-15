@@ -1,5 +1,91 @@
 # Changelog
 
+## Sprint 14 (revision): Illustrated Tree Redesign — 2026-07-15
+
+The client rejected the first Sprint 14 pass below: an auto-generated
+connector-line org chart. Explicit feedback, with a reference image
+attached: it must look like a real illustrated tree (trunk + branches +
+leaves), members are placed on it by the admin (not auto-laid-out from the
+hierarchy), and the admin must be able to drag them into place visually —
+explicitly overriding this sprint's own "no drag-and-drop editor" non-goal.
+See `docs/13_DECISIONS.md` for the full reasoning. This entry supersedes the
+layout/rendering parts of the original Sprint 14 entry below; the model/API
+foundation (parent assignment, department, cycle validation) from that entry
+is unchanged and reused.
+
+### Added
+- **`components/team/TeamTreeIllustration.js`** — hand-coded SVG tree
+  illustration (trunk, two-tone branch families, layered leaf clusters), in
+  the Stronger Steps palette (`primary`/green one side, `accent`/terracotta
+  the other) — built the same way `WhyItMattersHand.js`/`VisionHouse.js`
+  illustrate their sections, not a stock image. Purely decorative
+  background; shared by both the public tree and the admin position editor
+  so admins see exactly what the public page will render.
+- **`components/admin/team/TreePositionEditor.js`** + **`/admin/team/tree`**
+  — new admin page (extends the existing Team module, not a new one) where
+  every member (all statuses, so drafts can be laid out before publishing)
+  is a draggable marker over `TeamTreeIllustration`. Pointer-event based
+  drag (down/move/up), position persists immediately on release via the
+  existing `PUT /api/admin/team/[id]` endpoint — no new API route needed,
+  just two more accepted fields.
+- **`Team.xPosition` / `Team.yPosition`** — Number, 0-100 (percentage of the
+  illustration's width/height), default 50 (canvas center). Validated/
+  clamped server-side (`lib/teamHierarchy.js`'s `clampPosition()`).
+
+### Modified
+- **`components/team/OrgTree.js`** — completely rewritten. No more
+  connector-line chart / collapsible mobile list; renders the same
+  illustration with members absolutely positioned by `xPosition`/
+  `yPosition`, circular photo + name/position/department card per member,
+  and a dashed connector line from each member to their `parentMember`'s
+  coordinates (the reporting relationship is still real data, just no
+  longer drives layout). Search still highlights matches without removing
+  any member from view.
+- **`lib/teamHierarchy.js`** — removed `buildTeamTree()` (the nested-tree
+  layout builder from the rejected design — dead code once layout stopped
+  deriving from the hierarchy); added `clampPosition()`.
+- **`lib/publicTeam.js`** — `getTeamTree()` renamed `getTeamTreeData()`,
+  now returns `{ members, matchedIds }` (flat, always the full published
+  roster) instead of a nested tree. Both this and `getPublishedTeamMembers()`
+  backfill missing `xPosition`/`yPosition` to `50` at read time for any
+  Team doc saved before this field existed (`.lean()` skips schema
+  defaults on old documents — same pattern `lib/publicProducts.js` uses).
+- **`GET /api/team`** — `tree` response field renamed `treeMembers` (now a
+  flat array, not nested); `teamMembers` (search-filtered, Sprint 9 shape)
+  is unchanged for backward compatibility.
+- **`components/admin/team/TeamListClient.js`** — added a "Tree layout"
+  button linking to the new `/admin/team/tree` position editor.
+
+### Verified
+- `npm run build` passes cleanly (deleted `.next`, fresh build) — 33 routes
+  now (up one for `/admin/team/tree`), no errors.
+- Simulated a real pointer drag (pointerdown/pointermove/pointerup) on
+  Dr. Nikhil's marker in the position editor; confirmed via
+  `GET /api/admin/team` that `xPosition`/`yPosition` persisted to the
+  dragged coordinates. Positioned all 5 seeded members (founders near the
+  trunk, others out on the branches) and confirmed the public `/about` tree
+  rendered them at the correct spots with the dashed parent-connector line
+  visible, on both desktop (1280px) and mobile (375px, via the tree's
+  horizontal-scroll container — keeps cards legible rather than shrinking
+  them to illegibility on narrow screens). Search-highlight re-verified
+  against the rewritten component. No console errors on a from-scratch
+  server restart.
+- Existing Products/Membership/Programs/Recipes/Knowledge Center pages and
+  APIs unaffected (spot-checked).
+
+### Not touched
+Everything the original Sprint 14 entry below already listed as untouched,
+plus: the parent-assignment/department/cycle-validation admin UI in
+`TeamForm.js` (unchanged by this revision — only the tree's visual layer
+and the position editor are new).
+
+### CRS / feedback note
+The client's rejection is recorded as feedback, not just a changelog fact —
+"org tree" in a CRS can mean a literal illustrated tree, not a generic
+auto-laid-out chart; check reference images precisely before building.
+
+---
+
 ## Sprint 14: Team Organization Tree — 2026-07-15
 
 Scope: CRS §11. Replaced the About page's flat "Meet the founders"/"Our Team"
