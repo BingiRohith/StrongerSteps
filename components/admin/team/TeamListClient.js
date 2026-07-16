@@ -281,7 +281,7 @@ export default function TeamListClient() {
                       {teamMember.department && <span>{teamMember.department}</span>}
                       <span>
                         {teamMember.parentMember?.name
-                          ? `Reports to ${teamMember.parentMember.name}`
+                          ? `Parent: ${teamMember.parentMember.name}`
                           : 'Root of tree'}
                       </span>
                       <span>Order {teamMember.displayOrder}</span>

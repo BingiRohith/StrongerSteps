@@ -1,5 +1,130 @@
 # Changelog
 
+## Sprint 18: UI Polish, Product Categories CMS & Homepage Interaction — 2026-07-16
+
+Scope: UI/UX polish and making Products fully CMS-driven, per the brief.
+No payment system, no Courses CMS/model, no other new database modules.
+
+### Added
+- **`models/ProductCategory.js`** + full admin CRUD (`/admin/product-categories`,
+  create/edit/delete/reorder/activate-deactivate, optional icon upload) —
+  mirrors `models/RecipeCategory.js`'s shape/pattern exactly, per
+  `docs/13_DECISIONS.md`'s existing "future content type needing managed
+  categories should get its own `<Module>Category` model" precedent.
+  `Product.category` changed from a closed 3-value string enum
+  (`lib/productCategories.js`, deleted this sprint) to an `ObjectId ref`.
+  New API routes: `app/api/admin/product-categories/route.js`,
+  `.../[id]/route.js` (DELETE blocks with 409 if any Product still
+  references the category — a deliberate deviation from
+  `RecipeCategory`'s delete, which allows orphaning; see
+  `docs/13_DECISIONS.md`), `.../[id]/status/route.js`, `.../upload/route.js`.
+  `scripts/migrateProductCategories.mjs` (`npm run migrate:product-categories`)
+  creates the 3 legacy categories and converts every existing product's
+  string `category` to the matching new ObjectId — required once on any
+  environment with existing Product data.
+- **`components/motion.js`** — `Reveal` (one-time scroll-triggered fade+rise,
+  `viewport={{ once: true }}`), `FadeIn` (one-time on-mount fade+rise, for
+  above-the-fold content), `HoverLift`, `HoverScale` (hover-only, polymorphic
+  via an `as` prop). Each checks framer-motion's `useReducedMotion()` once
+  and renders a plain unanimated element when reduced motion is requested.
+  New `framer-motion` dependency (brief's explicit preference for this
+  module; tree-shaken into a single shared chunk, not duplicated per page).
+  Applied across every `app/page.js` section — deliberately only two motion
+  categories exist anywhere in the app (one-time reveal, hover) — no
+  continuous/looping/idle animation, per explicit client instruction during
+  planning.
+- **`components/courses/CourseCard.js`** — CMS-ready course card for the
+  Knowledge Center's Courses section (`app/knowledge-center/page.js`'s
+  `FREE_COURSES`/`PREMIUM_COURSES`, still hardcoded arrays, no CRUD yet).
+  Field shape (thumbnail/title/description/price/badge/tier) intentionally
+  matches what a future `Course` model would carry, so Sprint 19 can wire
+  real data in without a card redesign. Replaces `ComingSoonCard` for this
+  section only — `ComingSoonCard` is unchanged and still used by
+  Tools/Resources.
+- **`components/products/ProductsSidebar.js`** — collapsible mobile
+  accordion (`<md`: "Filters" toggle with an active-filter-count badge;
+  `md`–`lg`: always expanded; `lg`+: `lg:sticky lg:top-28 lg:self-start`,
+  clears the header and auto-unsticks past its own content, so it can never
+  overlap the footer). Chose an in-place accordion over a slide-out
+  drawer/dialog — simpler, no portal/focus-trap needed.
+
+### Modified
+- **`components/Header.js`** — fixed a real overflow bug: the desktop
+  nav+search+CTA cluster (7 nav items, all `whitespace-nowrap`) is ~1230px
+  wide at minimum, but the layout switched to desktop mode at `lg` (1024px),
+  overflowing the viewport by ~200px between 1024–1279px. Every `lg:`
+  responsive class in this file became `xl:` (desktop nav/search/CTA now
+  turn on at 1280px instead; the mobile hamburger + persistent search row
+  now cover up to 1279px). Also tightened nav item gap (`gap-9` → `gap-7`)
+  for a touch more breathing room in the cluster. Search placeholder
+  ("Search products..." → "Search") per the brief.
+- **`components/products/ProductCard.js`** — visual rework: square image
+  area (was 4:3), category label above the title, clearer price hierarchy
+  (larger selling price, cleaner strikethrough), softer badges, hover-only
+  lift+shadow+border transition via `framer-motion` (matches the "no idle
+  animation" rule — resets on mouse-leave, nothing plays on its own).
+  Category-specific lucide icon fallback removed (categories are open-ended
+  now) in favor of a single generic icon, or the category's own uploaded
+  icon image if set.
+- **`components/products/ProductGrid.js`**, **`ProductsListClient.js`**
+  (admin), **`ProductForm.js`** (admin), **`lib/publicProducts.js`**,
+  **`app/api/admin/products/route.js`** + **`[id]/route.js`** — wired
+  through the new `ProductCategory` ref: admin category `<select>`/filter
+  tabs now fetch live from `/api/admin/product-categories` instead of
+  importing a static array; public category filter (`?category=slug`,
+  unchanged URL contract) resolves the slug to the category's ObjectId
+  server-side before querying.
+- **`components/admin/team/TeamListClient.js`**, **`TeamForm.js`** — all
+  user-facing "Reports To"/"reports to" wording replaced with "Parent"
+  (list row: `Parent: ${name}`; form label: `Parent`). `parentMember` field
+  itself, its validation, and the org-tree rendering are unchanged — copy
+  only, per the brief ("Organization Tree only", `parentMember` kept
+  internally for rendering).
+- **`app/page.js`** — every section wrapped in `Reveal` (Hero uses `FadeIn`
+  instead, since it's above the fold); What We Do cards and Real Stories
+  testimonial cards get `HoverLift`; card images and the Hero illustration
+  get `HoverScale`.
+
+### Verified
+- `npm run build` clean before/after every group of changes.
+- `npm run migrate:product-categories` against the live seeded database:
+  created 3 categories, migrated 10 existing products' `category` field
+  from string to ObjectId, confirmed via `GET /api/products` responses
+  (category fully populated with name/slug/icon).
+- Public `/products`: category filter click confirmed end-to-end (button
+  click → `?category=mobility-aids` → `GET /api/products?category=mobility-aids`
+  → 5 matching products returned, category object populated).
+- Header: measured `document.body.scrollWidth` vs `window.innerWidth` at
+  360/375/390/768/1024/1280/1920px — no horizontal overflow at any width
+  (1024px was overflowing by ~200px before the `xl:` breakpoint fix).
+- Products filter sidebar: confirmed sticky positioning at 1920px
+  (`getBoundingClientRect().top` stays at 112px while scrolling, matching
+  `lg:top-28`), confirmed accordion collapse/expand at 360–767px, confirmed
+  always-expanded non-sticky layout at 768–1023px.
+- Responsive sweep (no horizontal overflow at any width) across `/`,
+  `/products`, `/about`, `/recipes`, `/programs`, `/join`,
+  `/knowledge-center` at 360/375/390/768/1024/1920px.
+- Homepage animations render correctly via `preview_screenshot`
+  (hero fade-in, section reveal, What We Do card hover), no console errors
+  at any point during the sweep.
+- Knowledge Center Courses section: both `FREE_COURSES`/`PREMIUM_COURSES`
+  render via the new `CourseCard`, free/premium tiers visually distinct.
+- **Not independently verified in this sandbox** (no admin session
+  available — credential handling was blocked by the sandbox's own
+  safeguards, consistent with prior sprints' "manual smoke-test before
+  relying on it" caveat): the full `/admin/product-categories` CRUD click-
+  through (create/edit/reorder/activate-deactivate/delete-blocked-when-in-use)
+  and `/admin/products`' category select/filter tabs. Code-reviewed and
+  mirrors the already-shipped `/admin/recipe-categories` module exactly;
+  recommend a manual pass before relying on it in production.
+
+### Not touched
+No CMS/model/API behavior changed for Blogs, Infographics, Team CRUD/
+hierarchy/drag-and-drop position editor, Membership, Programs/Events,
+Recipes/Recipe Categories, Homepage CMS, or the generic Blog `Category`
+model. No payment system, no Courses CMS/model/API, no other new database
+modules, per the brief's explicit non-goals.
+
 ## Sprint 17: Production Hardening & Version 1.0 — 2026-07-15
 
 Scope: no new features/CMS modules/architecture changes, per the brief.

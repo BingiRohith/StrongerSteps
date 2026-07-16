@@ -11,10 +11,12 @@
     "seed:team": "node scripts/seedTeam.mjs",
     "seed:products": "node scripts/seedProducts.mjs",
     "seed:membership": "node scripts/seedMembership.mjs",
-    "migrate:protected-infographics": "node scripts/migrateProtectedInfographics.mjs"
+    "migrate:protected-infographics": "node scripts/migrateProtectedInfographics.mjs",
+    "migrate:product-categories": "node scripts/migrateProductCategories.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "framer-motion": "^12.42.2",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.383.0",
     "mongodb": "^7.4.0",

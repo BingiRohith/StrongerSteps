@@ -5,6 +5,152 @@ as of the 2026-07-07 documentation sprint — everything below Sprint 9 is
 reconstructed from code/CHANGELOG evidence, not from a prior decisions log
 (none existed).
 
+## 2026-07-16 — Sprint 18: `Product.category`'s closed-enum decision superseded
+
+The 2026-07-06 decision below ("Product category is a closed enum, not free
+text") explicitly says to keep it that way *"unless a requirement to add
+arbitrary new product sections is explicitly raised."* Sprint 18's brief is
+exactly that explicit requirement (a full Product Categories CMS with
+admin Create/Edit/Delete/Reorder/Activate). Per that same decision's own
+recommended path, and this file's separate "future content type needing
+managed categories should get its own `<Module>Category` model" guidance
+(see the Sprint 13 Recipe Category entry below), built `models/ProductCategory.js`
+mirroring `RecipeCategory` rather than retrofitting the generic
+`models/Category.js`.
+**Why:** this is the intended escape hatch the original decision left open,
+not a contradiction — `docs/03_CLIENT_REQUIREMENTS.md`'s own core principle
+("if the client should be able to change it, it belongs in the Admin
+Panel") applies once category *is* something the client wants to manage.
+**What changed:** `Product.category` is now `ObjectId ref: 'ProductCategory'`
+(was a 3-value string enum). `lib/productCategories.js` deleted.
+`scripts/migrateProductCategories.mjs` required once on any environment with
+existing Product data.
+**How to apply:** don't re-introduce a hardcoded product category list —
+any future "add a new category" ask is now a normal admin action, not a code
+change.
+
+## 2026-07-16 — Sprint 18: Product Category delete blocks if still in use, unlike Recipe Category's
+
+`RecipeCategory`'s DELETE route (`app/api/admin/recipe-categories/[id]/route.js`)
+allows deleting a category even if `Recipe` documents still reference it,
+orphaning those recipes' `category` field. `ProductCategory`'s DELETE route
+does not follow that precedent — it returns 409 if any `Product.category`
+still points at the id being deleted.
+**Why:** `Product.category` is a `required` field; `Recipe.category` is not
+enforced as strictly required in the same way in practice. Silently
+orphaning a *required* relational field would leave products in a state the
+admin UI has no way to fix (the edit form's category `<select>` would have
+nothing valid to show), unlike an optional/loosely-enforced field.
+**How to apply:** this is a one-off, deliberate divergence from the
+Recipe Category precedent for this specific reason — don't "fix" it to
+match Recipe Categories' looser behavior without reconsidering the
+`required` constraint at the same time.
+
+## 2026-07-16 — Sprint 18: Products filter sidebar uses a mobile accordion, not a drawer
+
+The sprint brief's own plan draft proposed a slide-out drawer/dialog for the
+mobile filter sidebar (matching the modal pattern used elsewhere in the
+app). The user explicitly redirected this during plan review: use a
+collapsible accordion in place, not a separate drawer component.
+**Why:** simpler to maintain — no portal, no focus-trap, no
+`role="dialog"` wiring, fewer moving parts for the same outcome (filters
+tucked away by default on small screens, one tap to reveal).
+**What changed:** `components/products/ProductsSidebar.js` renders a
+"Filters" toggle button (with an active-filter-count badge) below `md`
+that shows/hides the existing filter groups in place via a `mobileOpen`
+state + Tailwind `hidden`/`block` classes. No new drawer/dialog component.
+**How to apply:** prefer this same in-place-accordion pattern for any
+future "collapse content on mobile" need before reaching for a drawer/modal.
+
+## 2026-07-16 — Sprint 18: homepage animation is one-time-reveal + hover only, never continuous
+
+The brief's Module 5 asked for "premium" homepage micro-animations without
+specifying exactly which motions. The user explicitly constrained this
+during plan review: **no continuous or looping animation anywhere** — only
+one-time reveal-on-scroll (plays once, `viewport={{ once: true }}`) and
+hover-only effects (reset on mouse-leave, never idle-animate).
+**Why:** continuous/looping motion on a senior-friendly, accessibility-
+focused site (per CRS §20 — "Senior-friendly... High accessibility") risks
+feeling distracting or gimmicky rather than premium, and conflicts with the
+brief's own "never be distracting" requirement.
+**What changed:** `components/motion.js`'s `Reveal`/`FadeIn`/`HoverLift`/
+`HoverScale` are the only motion primitives used anywhere in the app — none
+of them support/use `repeat: Infinity` or any idle/auto-playing variant.
+**How to apply:** any future animation addition should reuse one of these
+four primitives rather than hand-rolling a new `motion.div` — if a future
+ask implies a looping/idle animation, raise it rather than building it
+silently, since it contradicts this explicit instruction.
+
+## 2026-07-16 — Sprint 18: added `framer-motion` despite the "no new deps for modest needs" guideline
+
+`docs/08_CODING_STANDARDS.md` discourages new npm dependencies for
+"modest" needs (the rich text editor and slugify helper are both hand-rolled
+for this reason). Homepage micro-animations (one-time viewport-triggered
+reveal + `prefers-reduced-motion` awareness across 7+ sections) were judged
+to exceed "modest" — a correct hand-rolled `IntersectionObserver`-based
+reveal system plus reduced-motion handling is real, non-trivial code to
+maintain, and the Sprint 18 brief explicitly names Framer Motion as the
+preferred tool for this module.
+**Why:** the "avoid new deps" guideline's own examples (rich text editor,
+slugify) are cases where the equivalent hand-rolled code is small and the
+dependency would be heavyweight for the need; this is closer to the inverse
+— framer-motion is a well-established primitive for exactly this problem,
+tree-shakes into one shared chunk (not duplicated per page), and the brief
+explicitly asked for it by name.
+**How to apply:** this doesn't reopen the door to dependencies generally —
+still avoid a new package where a small amount of custom code covers the
+need. This one specific case (animation + accessibility primitives) was
+judged to be on the other side of that line, and was an explicit brief
+preference, not a unilateral pick.
+
+## 2026-07-16 — Sprint 18: header's desktop breakpoint moved from `lg` (1024px) to `xl` (1280px)
+
+Not a stylistic choice — a real bug found during Module 4 polish work.
+`components/Header.js`'s desktop nav (7 items) + search + CTA cluster has a
+combined intrinsic width of roughly 1230px, but the layout switched from
+the mobile hamburger to the desktop row at Tailwind's `lg` breakpoint
+(1024px). Measured via `document.body.scrollWidth` vs `window.innerWidth`
+in the live preview: ~200px of horizontal overflow at exactly 1024px,
+present at any width up to 1279px.
+**Why:** the number/length of nav items (`Home`, `Knowledge Center`,
+`Programs`, `Products`, `Recipes`, `About Us`, `Join Us`) plus the search
+box and "Take Your First Step" CTA simply don't fit in ~1230px of the
+~1024px this breakpoint offers with 48px of page padding — no amount of
+gap-tightening alone closes a 200px gap without cramming the nav
+illegibly. Switching the breakpoint to `xl` (1280px) is a one-line,
+low-risk fix that gives the cluster room to breathe; tablets/small
+laptops (1024–1279px) now get the (already-existing, already-working)
+hamburger menu instead of a broken desktop row.
+**What changed:** every `lg:` class in `components/Header.js` became `xl:`.
+Nav gap tightened `gap-9` → `gap-7` for a small additional safety margin.
+No other files changed — `lg:` usage elsewhere (e.g. the Products sidebar's
+`lg:sticky`) is unrelated and untouched.
+**How to apply:** if a future sprint adds another header nav item, re-check
+for overflow at 1280px specifically (the new tightest point) before
+shipping.
+
+## 2026-07-16 — Sprint 18: Courses redesign targets the existing Knowledge Center section, not a new homepage section
+
+The sprint brief's Module 6 ("Courses Section Redesign") didn't say where
+the Courses section lives, and the CRS doesn't mention Courses anywhere at
+all. The only Courses section that actually exists in the codebase is on
+`app/knowledge-center/page.js` (`FREE_COURSES`/`PREMIUM_COURSES` arrays,
+pre-dating the CRS) — there is no Courses section on the homepage. Raised to
+the user before building; they confirmed: redesign the existing Knowledge
+Center section, don't add a new homepage one.
+**Why:** per the CRS governance rule, an ambiguous brief instruction
+shouldn't be resolved by guessing/inventing scope — and building a second,
+new "Courses" section on the homepage in addition to the real one would
+directly duplicate content the site already has, one section pre-dating the
+CRS's `03_CLIENT_REQUIREMENTS.md`.
+**What changed:** `app/knowledge-center/page.js`'s Courses section gained
+richer per-course fields (thumbnail/price/badge/tier) and a new
+`components/courses/CourseCard.js`, replacing `ComingSoonCard` for that
+section only. No homepage change for this module.
+**How to apply:** when Sprint 19 builds the real Courses CMS, wire it into
+this same Knowledge Center section — don't split Courses across two pages
+without an explicit new instruction to do so.
+
 ## 2026-07-15 — Sprint 15: "Statistics" homepage module skipped as an internal contradiction in the sprint brief
 
 The Sprint 15 brief's Admin CMS section lists "Statistics" (label/value/

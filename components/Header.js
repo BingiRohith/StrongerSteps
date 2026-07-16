@@ -140,7 +140,7 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-line/70 bg-bg/95 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-content items-center justify-between gap-4 px-6 py-4 lg:grid lg:grid-cols-[auto_1fr_auto] lg:justify-normal">
+      <div className="mx-auto flex max-w-content items-center justify-between gap-4 px-6 py-4 xl:grid xl:grid-cols-[auto_1fr_auto] xl:justify-normal">
         {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white">
@@ -151,24 +151,27 @@ export default function Header() {
           </span>
         </Link>
 
-        {/* Desktop Nav — centered independently of the logo/search+CTA cluster */}
-        <nav className="hidden items-center justify-center gap-9 lg:flex" aria-label="Primary">
+        {/* Desktop Nav — centered independently of the logo/search+CTA cluster.
+            Switches on at `xl` (1280px), not `lg` (1024px): with 7 nav items +
+            search + CTA, the cluster overflows the viewport between 1024 and
+            1280px if the desktop layout turns on that early. */}
+        <nav className="hidden items-center justify-center gap-7 xl:flex" aria-label="Primary">
           {NAV_LINKS.map((link) => (
             <NavItem key={link.href || link.label} link={link} pathname={pathname} />
           ))}
         </nav>
 
-        <div className="hidden shrink-0 items-center gap-4 lg:flex">
-          <ProductSearchDropdown className="w-44 xl:w-52" />
+        <div className="hidden shrink-0 items-center gap-4 xl:flex">
+          <ProductSearchDropdown className="w-44 2xl:w-52" />
           <Button href="/join" variant="primary" size="sm">
             Take Your First Step
           </Button>
         </div>
 
-        {/* Mobile toggle */}
+        {/* Mobile/tablet toggle */}
         <button
           type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-line text-primary-dark lg:hidden"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-line text-primary-dark xl:hidden"
           aria-expanded={mobileOpen}
           aria-controls="mobile-menu"
           aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
@@ -178,16 +181,16 @@ export default function Header() {
         </button>
       </div>
 
-      {/* Product search — persistent row on tablet/mobile so it's reachable without opening the nav drawer */}
-      <div className="border-t border-line/70 px-6 py-3 lg:hidden">
+      {/* Product search — persistent row below `xl` so it's reachable without opening the nav drawer */}
+      <div className="border-t border-line/70 px-6 py-3 xl:hidden">
         <ProductSearchDropdown className="mx-auto max-w-content" />
       </div>
 
-      {/* Mobile Nav */}
+      {/* Mobile/tablet Nav */}
       {mobileOpen && (
         <nav
           id="mobile-menu"
-          className="border-t border-line/70 bg-bg lg:hidden max-h-[80vh] overflow-y-auto"
+          className="border-t border-line/70 bg-bg xl:hidden max-h-[80vh] overflow-y-auto"
           aria-label="Primary"
         >
           <div className="flex flex-col gap-1 px-4 py-4">

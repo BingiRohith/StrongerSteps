@@ -1,18 +1,16 @@
 import mongoose from 'mongoose';
-import { PRODUCT_CATEGORY_VALUES } from '@/lib/productCategories';
 import { discountFromPrices } from '@/lib/productPricing';
 
 const { Schema, models, model } = mongoose;
 
 /**
- * Products collection — the public /products page's Mobility Aids,
- * Educational Products, and Merchandise sections. Mirrors the
- * shape/conventions of models/Team.js (draft/published lifecycle, single
- * image sub-document, no slug/detail page) so the admin CRUD and upload
- * flow feel consistent with the rest of the admin panel. `category` is a
- * closed enum (see lib/productCategories.js) rather than free text like
- * Infographic.category, since the public page only ever renders these
- * three fixed sections.
+ * Products collection — the public /products page's marketplace listing.
+ * Mirrors the shape/conventions of models/Team.js (draft/published
+ * lifecycle, single image sub-document, no slug/detail page) so the admin
+ * CRUD and upload flow feel consistent with the rest of the admin panel.
+ * `category` is a ref to the fully admin-managed models/ProductCategory.js
+ * (Sprint 18) — previously a closed 3-value enum; see
+ * docs/13_DECISIONS.md for why that changed.
  *
  * Pricing fields default to 0/'in-stock'/false rather than being required,
  * so products created before this sprint (no pricing data) keep loading and
@@ -35,8 +33,8 @@ const ProductSchema = new Schema(
       default: '',
     },
     category: {
-      type: String,
-      enum: PRODUCT_CATEGORY_VALUES,
+      type: Schema.Types.ObjectId,
+      ref: 'ProductCategory',
       required: [true, 'Category is required'],
     },
     // Sprint 12.5: optional, free text — powers the marketplace redesign's

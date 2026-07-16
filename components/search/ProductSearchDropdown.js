@@ -48,7 +48,7 @@ export default function ProductSearchDropdown({ className = '', inputClassName =
           onBlur={() => {
             blurTimeoutRef.current = setTimeout(() => setOpen(false), 150);
           }}
-          placeholder="Search products..."
+          placeholder="Search"
           className={`w-full rounded-full border border-line bg-white py-2 pl-9 pr-4 text-sm text-ink focus:border-primary focus:outline-none ${inputClassName}`}
         />
       </label>

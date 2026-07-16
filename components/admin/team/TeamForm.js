@@ -195,7 +195,7 @@ export default function TeamForm({ teamMemberId, initialData }) {
           <p className="mt-1 text-xs text-muted">Powers the org tree&apos;s branch grouping</p>
 
           <label className="mt-4 block text-sm font-semibold text-ink" htmlFor="parentMember">
-            Parent member (reports to)
+            Parent
           </label>
           <select
             id="parentMember"

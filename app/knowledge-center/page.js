@@ -11,13 +11,13 @@ import {
   Dumbbell,
   Footprints,
   Armchair,
-  Sparkles,
   Quote,
   FileText,
   Download,
 } from 'lucide-react';
 import { Badge, Eyebrow, SectionHeading } from '@/components/ui';
 import ComingSoonCard from '@/components/ComingSoonCard';
+import CourseCard from '@/components/courses/CourseCard';
 import BlogGrid from '@/components/blog/BlogGrid';
 import InfographicsGrid from '@/components/infographics/InfographicsGrid';
 import StepDivider from '@/components/StepDivider';
@@ -45,17 +45,28 @@ const SUB_NAV = [
   { href: '#resources', label: 'Resources', icon: FolderOpen },
 ];
 
+// Sprint 18: field shape (thumbnail/title/description/price/badge/tier)
+// intentionally matches components/courses/CourseCard.js's props, which in
+// turn matches what a future `Course` model would carry — see that file's
+// header comment. Still a hardcoded array, no CMS/model/API yet.
 const FREE_COURSES = [
-  { title: 'Understanding Aging', description: 'The science of what happens to the body after 50 — and what you can realistically do about it.' },
-  { title: 'Nutrition Basics in Old Age', description: 'A foundational guide to eating right for strength, bones, and energy as you age.' },
-  { title: 'Common Disorders & Red Flag Signs in Old Age', description: 'Know what to look for — the early warning signs that need a doctor\'s attention.' },
-  { title: 'Psychology in Old Age', description: 'Understanding mood, memory, motivation, and mental health in later life.' },
-  { title: 'Prevention', description: 'The single most powerful thing you can do for your health is prevent problems before they start. Here\'s how.' },
-  { title: 'Simple Home Exercises', description: 'Safe, effective exercises you can do in your living room — no equipment needed.' },
+  { title: 'Understanding Aging', description: 'The science of what happens to the body after 50 — and what you can realistically do about it.', thumbnail: null, price: null, tier: 'free' },
+  { title: 'Nutrition Basics in Old Age', description: 'A foundational guide to eating right for strength, bones, and energy as you age.', thumbnail: null, price: null, tier: 'free' },
+  { title: 'Common Disorders & Red Flag Signs in Old Age', description: 'Know what to look for — the early warning signs that need a doctor\'s attention.', thumbnail: null, price: null, tier: 'free' },
+  { title: 'Psychology in Old Age', description: 'Understanding mood, memory, motivation, and mental health in later life.', thumbnail: null, price: null, tier: 'free' },
+  { title: 'Prevention', description: 'The single most powerful thing you can do for your health is prevent problems before they start. Here\'s how.', thumbnail: null, price: null, tier: 'free' },
+  { title: 'Simple Home Exercises', description: 'Safe, effective exercises you can do in your living room — no equipment needed.', thumbnail: null, price: null, tier: 'free' },
 ];
 
 const PREMIUM_COURSES = [
-  { title: 'Stronger Steps 8-Week Certification Programme', description: 'Our flagship guided journey combining exercise, nutrition, mindset, and doctor support — with a certificate on completion.' },
+  {
+    title: 'Stronger Steps 8-Week Certification Programme',
+    description: 'Our flagship guided journey combining exercise, nutrition, mindset, and doctor support — with a certificate on completion.',
+    thumbnail: null,
+    price: 4999,
+    badge: 'Certification',
+    tier: 'premium',
+  },
 ];
 
 const TOOLS = [
@@ -227,7 +238,7 @@ export default async function KnowledgeCenterPage() {
           </h3>
           <div className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {FREE_COURSES.map((course) => (
-              <ComingSoonCard key={course.title} icon={GraduationCap} {...course} />
+              <CourseCard key={course.title} {...course} />
             ))}
           </div>
 
@@ -236,7 +247,7 @@ export default async function KnowledgeCenterPage() {
           </h3>
           <div className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {PREMIUM_COURSES.map((course) => (
-              <ComingSoonCard key={course.title} icon={Sparkles} badgeLabel="Coming Soon" tone="accent" {...course} />
+              <CourseCard key={course.title} {...course} />
             ))}
           </div>
         </div>

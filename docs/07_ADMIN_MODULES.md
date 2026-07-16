@@ -82,16 +82,35 @@ as-is) → `/api/admin/homepage/upload`.
 **Status: full CRUD, production-capable. No checkout/payment yet.**
 
 - List (`ProductsListClient.js`): shows price/discount/stock inline, a
-  featured-toggle button, mirrors Team's list pattern.
-- Create/Edit (`ProductForm.js`): name, description, category (closed
-  3-value select from `lib/productCategories.js`), brand (optional free
-  text, Sprint 12.5 — powers the public Products page's Brand filter), image
-  upload, Original Price / Selling Price / Discount % section with **two-way live
-  auto-calculation** (editing either price recalculates discount; editing
-  discount recalculates selling price — using the same
-  `lib/productPricing.js` functions the server uses, so the preview can't
-  drift from what actually gets saved), Featured toggle, Stock status
-  select, Save as Draft / Publish.
+  featured-toggle button, category filter tabs fetched live from
+  `/admin/product-categories` (Sprint 18), mirrors Team's list pattern.
+- Create/Edit (`ProductForm.js`): name, description, category (`<select>`
+  fetched live from the active `ProductCategory` list — Sprint 18, was a
+  closed 3-value enum), brand (optional free text, Sprint 12.5 — powers the
+  public Products page's Brand filter), image upload, Original Price /
+  Selling Price / Discount % section with **two-way live auto-calculation**
+  (editing either price recalculates discount; editing discount recalculates
+  selling price — using the same `lib/productPricing.js` functions the
+  server uses, so the preview can't drift from what actually gets saved),
+  Featured toggle, Stock status select, Save as Draft / Publish.
+
+## Product Categories — `/admin/product-categories` (Sprint 18)
+
+**Status: full CRUD, production-capable.** Mirrors Recipe Categories'
+module exactly (same list/form components, same API route shape) — see
+`docs/13_DECISIONS.md` for why Product Categories got its own model instead
+of reusing an existing one.
+
+- List (`ProductCategoriesListClient.js`): name, active/inactive badge,
+  slug, display order, Move Up/Down (swaps `displayOrder` with the adjacent
+  category), activate/deactivate toggle, edit, delete. Delete shows the
+  server's 409 error inline (rather than silently failing) when the category
+  still has products assigned — a category in use can't be deleted until
+  those products are reassigned or removed.
+- Create/Edit (`ProductCategoryForm.js`): name, slug (auto-generated from
+  name, editable, resettable), description, optional icon upload
+  (future-ready — falls back to a generic icon on the public Products page
+  when unset), display order, Active toggle.
 
 ## Team — `/admin/team`
 
@@ -103,19 +122,23 @@ initial auto-laid-out design with an illustrated tree + manual drag
 placement.
 
 - List (`TeamListClient.js`): standard list pattern, plus (Sprint 14) each
-  row shows its Department and "Reports to X" / "Root of tree" line, and
-  Move Up/Move Down buttons that reorder within **siblings only** (members
-  sharing the same parent, or other roots) — not the whole mixed-hierarchy
-  list — via the existing PUT endpoint's `displayOrder` swap, same pattern
-  `MembershipListClient.js`/`EventsListClient.js` already use. Also links to
-  the new "Tree layout" position editor below.
+  row shows its Department and "Parent: X" / "Root of tree" line (wording
+  changed from "Reports to X" in Sprint 18 — this is an Organization Tree,
+  not a reporting hierarchy; the underlying `parentMember` field and its
+  behavior are unchanged), and Move Up/Move Down buttons that reorder within
+  **siblings only** (members sharing the same parent, or other roots) — not
+  the whole mixed-hierarchy list — via the existing PUT endpoint's
+  `displayOrder` swap, same pattern `MembershipListClient.js`/
+  `EventsListClient.js` already use. Also links to the new "Tree layout"
+  position editor below.
 - Create/Edit (`TeamForm.js`): name, designation, qualifications, experience,
   bio, photo upload, LinkedIn/Twitter links, display order, featured toggle,
   Save as Draft / Publish, plus (Sprint 14) a Department text input and a
-  Parent Member `<select>` — populated from a client-side fetch of the full
-  admin team list, with the member itself and its own descendants excluded
-  from the option list so a circular assignment can't even be selected (the
-  API validates independently regardless, via `lib/teamHierarchy.js`).
+  Parent `<select>` (labeled "Parent" as of Sprint 18, was "Parent member
+  (reports to)") — populated from a client-side fetch of the full admin team
+  list, with the member itself and its own descendants excluded from the
+  option list so a circular assignment can't even be selected (the API
+  validates independently regardless, via `lib/teamHierarchy.js`).
 - **Tree layout (`/admin/team/tree`, `TreePositionEditor.js`) — Sprint 14
   rev. 2.** Shows every member (all statuses) as a draggable marker over
   the same `TeamTreeIllustration.js` the public About page renders. Drag a

@@ -1,16 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Loader2, Save, Send, Star, Tag } from 'lucide-react';
 import ImageUploadField from '@/components/admin/infographics/ImageUploadField';
-import { PRODUCT_CATEGORIES } from '@/lib/productCategories';
 import { discountFromPrices, sellingPriceFromDiscount, clampPercent } from '@/lib/productPricing';
 
 const EMPTY_PRODUCT = {
   name: '',
   description: '',
-  category: PRODUCT_CATEGORIES[0].value,
+  category: '',
   brand: '',
   image: { url: '', alt: '' },
   originalPrice: 0,
@@ -29,11 +28,38 @@ export default function ProductForm({ productId, initialData }) {
   const [form, setForm] = useState(() => ({
     ...EMPTY_PRODUCT,
     ...initialData,
+    category: initialData?.category?._id || initialData?.category || '',
     image: { ...EMPTY_PRODUCT.image, ...initialData?.image },
   }));
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(null); // 'draft' | 'published' | null
   const [submitError, setSubmitError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/admin/product-categories?isActive=true');
+        const data = await res.json();
+        if (cancelled) return;
+        if (res.ok && data.success) {
+          setCategories(data.categories);
+          // Default a new product to the first active category once loaded.
+          if (!isEdit) {
+            setForm((prev) => (prev.category ? prev : { ...prev, category: data.categories[0]?._id || '' }));
+          }
+        }
+      } finally {
+        if (!cancelled) setCategoriesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function update(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -73,7 +99,7 @@ export default function ProductForm({ productId, initialData }) {
   function validate() {
     const next = {};
     if (!form.name.trim()) next.name = 'Name is required';
-    if (!PRODUCT_CATEGORIES.some((c) => c.value === form.category)) next.category = 'Category is required';
+    if (!form.category) next.category = 'Category is required';
     if (form.description && form.description.length > 500) {
       next.description = 'Description must be 500 characters or fewer';
     }
@@ -154,14 +180,22 @@ export default function ProductForm({ productId, initialData }) {
             id="category"
             value={form.category}
             onChange={(e) => update('category', e.target.value)}
-            className="mt-1.5 w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            disabled={categoriesLoading}
+            className="mt-1.5 w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
           >
-            {PRODUCT_CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
+            {categoriesLoading && <option value="">Loading categories…</option>}
+            {!categoriesLoading && !form.category && <option value="">Select a category</option>}
+            {categories.map((c) => (
+              <option key={c._id} value={c._id}>
+                {c.name}
               </option>
             ))}
           </select>
+          {!categoriesLoading && categories.length === 0 && (
+            <p className="mt-1 text-xs text-muted">
+              No categories yet — create one under Product Categories first.
+            </p>
+          )}
           {errors.category && (
             <p className="mt-1 text-xs font-semibold text-red-600">{errors.category}</p>
           )}

@@ -82,16 +82,17 @@ Indexes: `{status, createdAt}`, text index on `title`/`description`/`category`.
 
 ## Product — [`models/Product.js`](../models/Product.js)
 
-Mirrors Team's shape (no slug/detail page). `category` is a **closed enum**
-(3 fixed values from [`lib/productCategories.js`](../lib/productCategories.js)),
-unlike Infographic's free text, because the public `/products` page only
-ever renders those three sections.
+Mirrors Team's shape (no slug/detail page). `category` is an `ObjectId ref`
+to [`ProductCategory`](#productcategory--modelsproductcategoryjs) as of
+Sprint 18 — previously a closed 3-value string enum
+(`lib/productCategories.js`, deleted). See `docs/13_DECISIONS.md` for why
+that changed.
 
 | Field | Type | Notes |
 |---|---|---|
 | `name` | String | required, max 150 |
 | `description` | String | max 500 |
-| `category` | String enum | `mobility-aids` \| `educational-products` \| `merchandise`, required |
+| `category` | ObjectId ref → `ProductCategory` | required |
 | `brand` | String | optional, default `''` — added Sprint 12.5 to power the public Products page's "Dynamic Brands" sidebar filter (not in the original CRS; see `docs/13_DECISIONS.md`) |
 | `image` | `{ url, alt }` | single image, not gallery |
 | `originalPrice` | Number | default 0, ≥0 |
@@ -109,6 +110,31 @@ additionally backfills missing keys at read time (`.lean()` reads don't
 apply Mongoose schema defaults).
 
 Indexes: `{status, category, displayOrder}`, text index on `name`/`description`.
+
+## ProductCategory — [`models/ProductCategory.js`](../models/ProductCategory.js)
+
+Sprint 18. Replaces `Product.category`'s old closed 3-value string enum with
+a fully admin-managed taxonomy — same shape/CRUD pattern as
+[`RecipeCategory`](#recipecategory--modelsrecipecategoryjs) (Create/Edit/
+Delete/Activate-Deactivate/Reorder), per this project's "future content
+type needing managed categories should get its own `<Module>Category`
+model" precedent (see [13_DECISIONS.md](13_DECISIONS.md)). `icon` is
+optional and future-ready — the public Products page falls back to a
+generic icon when unset.
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | String | required, unique, max 100 |
+| `slug` | String | unique, auto-generated from `name`, collision-safe — also the public `/products?category=` query value |
+| `description` | String | optional, max 300 |
+| `icon` | `{ url, alt }` | optional |
+| `displayOrder` | Number | manual sort order — powers the public sidebar's category filter order |
+| `isActive` | Boolean | default `true` — only active categories are offered in the admin Product form and can appear in the public filter facets |
+
+Indexes: `{isActive, displayOrder}`. Deleting a category that's still
+referenced by any `Product` is blocked (409) rather than allowed to orphan
+the ref — `Product.category` is `required`, unlike `Recipe.category`'s
+looser relationship to `RecipeCategory`.
 
 ## Team — [`models/Team.js`](../models/Team.js)
 
@@ -244,11 +270,11 @@ max 3 OTP requests per identifier per 15 minutes), TTL index on `createdAt`
 ## RecipeCategory — [`models/RecipeCategory.js`](../models/RecipeCategory.js)
 
 Sprint 13. A dedicated, full-featured taxonomy for Recipes — unlike
-`Infographic.category` (free text) or `Product.category` (closed enum), the
-CRS explicitly requires admin-managed Create/Edit/Delete/Activate-
-Deactivate/Reorder here, so it needed its own model rather than reusing the
-minimal `models/Category.js` (Blog-only, no management UI). See
-[13_DECISIONS.md](13_DECISIONS.md).
+`Infographic.category` (still free text), the CRS explicitly requires
+admin-managed Create/Edit/Delete/Activate-Deactivate/Reorder here, so it
+needed its own model rather than reusing the minimal `models/Category.js`
+(Blog-only, no management UI). `ProductCategory` (Sprint 18, below) later
+followed this same pattern. See [13_DECISIONS.md](13_DECISIONS.md).
 
 | Field | Type | Notes |
 |---|---|---|
@@ -340,13 +366,14 @@ User 1---* Recipe (author)
 Event 1---* Booking (event)
 Category 1---* Blog (category)
 RecipeCategory 1---* Recipe (category)
+ProductCategory 1---* Product (category — Sprint 18)
 Team 1---* Team (parentMember, self-ref — Sprint 14 org tree)
 ```
 
-Infographic/Product/Team `category` fields are **not** relational — free
-text or closed string enum, not a `Category` ref. Recipe's `category` *is*
-relational, but against the dedicated `RecipeCategory` model, not the
-generic Blog-only `Category` model.
+Infographic's `category` field is **not** relational — free text, not a
+`Category` ref. Product's and Recipe's `category` fields *are* relational,
+each against its own dedicated `<Module>Category` model (`ProductCategory`,
+`RecipeCategory`) rather than the generic Blog-only `Category` model.
 
 ## Seeding
 
@@ -356,3 +383,4 @@ generic Blog-only `Category` model.
 - `npm run seed:membership` → [`scripts/seedMembership.mjs`](../scripts/seedMembership.mjs) — idempotent, migrates the 3 plans that used to be hardcoded on `/join`
 - No seed script for Events/Bookings (Sprint 12) — the old static `/programs` content (workshops with no real date/price/seat data) doesn't map onto the new `Event` schema, so nothing is migrated. The calendar ships with a friendly "no events yet" empty state instead.
 - `npm run migrate:protected-infographics` → [`scripts/migrateProtectedInfographics.mjs`](../scripts/migrateProtectedInfographics.mjs) — Sprint 12.5, one-time, idempotent. Moves any already-uploaded Infographic `fullImage`/`pdf` files from `public/uploads/` to the new `private-uploads/` directory and rewrites the affected documents' `url` fields to the new private storage key. **Must be run once after deploying Sprint 12.5** or pre-existing infographics' protected files won't resolve.
+- `npm run migrate:product-categories` → [`scripts/migrateProductCategories.mjs`](../scripts/migrateProductCategories.mjs) — Sprint 18, one-time, idempotent (safe to re-run). Creates the 3 `ProductCategory` documents matching the old enum values, then converts every existing `Product.category` string to the matching new ObjectId. **Must be run once after deploying Sprint 18** on any environment with existing Product data, or those products' `category` field will still hold a legacy string that no longer matches the schema's `ObjectId ref`.

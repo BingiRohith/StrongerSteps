@@ -26,6 +26,7 @@ export const NAV_ITEMS = [
   { href: '/admin/infographics', label: 'Infographics', icon: ImageIcon },
   { href: '/admin/team', label: 'Team', icon: Users },
   { href: '/admin/products', label: 'Products', icon: Package },
+  { href: '/admin/product-categories', label: 'Product Categories', icon: Tags },
   { href: '/admin/membership', label: 'Membership', icon: CreditCard },
   { href: '/admin/events', label: 'Programs', icon: Calendar },
   { href: '/admin/bookings', label: 'Bookings', icon: Ticket },

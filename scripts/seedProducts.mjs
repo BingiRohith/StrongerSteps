@@ -16,11 +16,18 @@
  * Mirrors scripts/seedTeam.mjs.
  *
  * Category/pricing shape is duplicated here (rather than imported from
- * lib/productCategories.js / lib/productPricing.js) because this script runs
- * under plain Node ESM, outside Next.js's bundler — the app's `lib/*.js`
- * files aren't loadable that way without a `"type": "module"` change to
- * package.json, which would affect unrelated build tooling (postcss/tailwind
- * configs). seedTeam.mjs took the same approach for the same reason.
+ * lib/productPricing.js) because this script runs under plain Node ESM,
+ * outside Next.js's bundler — the app's `lib/*.js` files aren't loadable
+ * that way without a `"type": "module"` change to package.json, which would
+ * affect unrelated build tooling (postcss/tailwind configs). seedTeam.mjs
+ * took the same approach for the same reason.
+ *
+ * Sprint 18: this script still writes the 3 legacy category strings
+ * ('mobility-aids' | 'educational-products' | 'merchandise') on purpose —
+ * `scripts/migrateProductCategories.mjs` (run it after this one on a fresh
+ * environment) creates the matching ProductCategory documents and converts
+ * every product's `category` field from that string to the new ObjectId
+ * ref, regardless of which script created the product.
  */
 import dotenv from 'dotenv';
 

@@ -86,8 +86,8 @@ Public, reusable, provider-agnostic — not Knowledge-Center-specific. See
 | Route | Method | Auth | Notes |
 |---|---|---|---|
 | `/api/admin/products` | GET | Any session | Query: `status`, `category`, `search`. No pagination. Returns `{ products }`. |
-| `/api/admin/products` | POST | Admin/editor | Body: `name`, `category` (must be a valid enum value) required; `brand` optional (Sprint 12.5). `originalPrice`/`sellingPrice` validated non-negative and `selling ≤ original`. `discountPercentage` is never accepted from the client — always server-derived. Returns `{ product }`, 201. |
-| `/api/admin/products/[id]` | GET | Any session | Single, populated author. |
+| `/api/admin/products` | POST | Admin/editor | Body: `name`, `category` (must be a valid `ProductCategory` id — Sprint 18, was a fixed enum value) required; `brand` optional (Sprint 12.5). `originalPrice`/`sellingPrice` validated non-negative and `selling ≤ original`. `discountPercentage` is never accepted from the client — always server-derived. Returns `{ product }`, 201. |
+| `/api/admin/products/[id]` | GET | Any session | Single, populated `author` + `category` (`name`, `slug`). |
 | `/api/admin/products/[id]` | PUT | Admin/editor | Partial update; same price validation as POST. |
 | `/api/admin/products/[id]` | DELETE | Admin/editor | `{ deleted: true }`. |
 | `/api/admin/products/[id]/status` | PATCH | Admin/editor | Publish toggle. |
@@ -97,7 +97,21 @@ Public, reusable, provider-agnostic — not Knowledge-Center-specific. See
 
 | Route | Method | Auth | Notes |
 |---|---|---|---|
-| `/api/products` | GET | Public | Query: `category`, `brand`, `search`, `minPrice`, `maxPrice`, `availability` (`in-stock`\|`out-of-stock`), `sort` (`price-asc`\|`price-desc`\|`featured`\|`name-asc`\|`newest`), `page` (default 1), `limit` (default 12, max 48). Published-only. Returns `{ products, pagination }` (Sprint 12.5 — filtering/sorting/pagination are server-side; used by both the header product search and the Products page). |
+| `/api/products` | GET | Public | Query: `category` (a `ProductCategory` **slug**, e.g. `mobility-aids` — resolved to its ObjectId server-side before querying, Sprint 18), `brand`, `search`, `minPrice`, `maxPrice`, `availability` (`in-stock`\|`out-of-stock`), `sort` (`price-asc`\|`price-desc`\|`featured`\|`name-asc`\|`newest`), `page` (default 1), `limit` (default 12, max 48). Published-only. Returns `{ products, pagination }`, each product's `category` populated with `{ _id, name, slug, icon }` (Sprint 12.5 — filtering/sorting/pagination are server-side; used by both the header product search and the Products page). |
+
+## Product Categories (Sprint 18)
+
+### Admin — `app/api/admin/product-categories/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/product-categories` | GET | Any session | Query: `isActive` (`'true'`\|`'false'`), `search`. No pagination. Returns `{ categories }`. |
+| `/api/admin/product-categories` | POST | Admin/editor | Body: `name` required; `slug` (auto-generated if omitted), `description`, `icon`, `displayOrder`, `isActive` optional. Returns `{ category }`, 201. |
+| `/api/admin/product-categories/[id]` | GET | Any session | Single category. |
+| `/api/admin/product-categories/[id]` | PUT | Admin/editor | Partial update — also used by the list's reorder controls to swap `displayOrder` between two adjacent categories. |
+| `/api/admin/product-categories/[id]` | DELETE | Admin/editor | Blocks with 409 if any `Product` still references this category (deliberate deviation from Recipe Categories' delete, which allows orphaning — see `docs/13_DECISIONS.md`). Otherwise `{ deleted: true }`. |
+| `/api/admin/product-categories/[id]/status` | PATCH | Admin/editor | Body: `{ isActive: boolean }`. Activate/deactivate toggle. |
+| `/api/admin/product-categories/upload` | POST | Admin/editor | multipart `file`, via `lib/localUpload.js`. Returns `{ url }`, 201. |
 
 ## Team
 

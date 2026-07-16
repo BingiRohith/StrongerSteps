@@ -1,15 +1,16 @@
+import mongoose from 'mongoose';
 import connectDB from '@/lib/db';
 import Product from '@/models/Product';
+import ProductCategory from '@/models/ProductCategory';
 import { requireAuth } from '@/lib/auth';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
-import { PRODUCT_CATEGORY_VALUES } from '@/lib/productCategories';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/admin/products
- * Query params: status ('draft'|'published'), category, search (text).
- * No pagination — the product catalog stays small. Mirrors
+ * Query params: status ('draft'|'published'), category (ProductCategory id),
+ * search (text). No pagination — the product catalog stays small. Mirrors
  * app/api/admin/team/route.js.
  */
 export const GET = withErrorHandling(async (request) => {
@@ -25,12 +26,13 @@ export const GET = withErrorHandling(async (request) => {
 
   const query = {};
   if (status && ['draft', 'published'].includes(status)) query.status = status;
-  if (category && PRODUCT_CATEGORY_VALUES.includes(category)) query.category = category;
+  if (category && mongoose.Types.ObjectId.isValid(category)) query.category = category;
   if (search) query.$text = { $search: search };
 
   const products = await Product.find(query)
     .populate('author', 'name')
-    .sort({ category: 1, displayOrder: 1, name: 1 })
+    .populate('category', 'name slug')
+    .sort({ displayOrder: 1, name: 1 })
     .lean();
 
   return ok({ products });
@@ -49,7 +51,9 @@ export const POST = withErrorHandling(async (request) => {
   const body = await request.json();
 
   if (!body?.name?.trim()) return fail('Name is required', 400);
-  if (!PRODUCT_CATEGORY_VALUES.includes(body?.category)) return fail('A valid category is required', 400);
+  if (!mongoose.Types.ObjectId.isValid(body?.category) || !(await ProductCategory.exists({ _id: body.category }))) {
+    return fail('A valid category is required', 400);
+  }
 
   const originalPrice = Number(body.originalPrice) || 0;
   const sellingPrice = Number(body.sellingPrice) || 0;

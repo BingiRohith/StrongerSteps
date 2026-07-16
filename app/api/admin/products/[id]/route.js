@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
 import connectDB from '@/lib/db';
 import Product from '@/models/Product';
+import ProductCategory from '@/models/ProductCategory';
 import { requireAuth } from '@/lib/auth';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
-import { PRODUCT_CATEGORY_VALUES } from '@/lib/productCategories';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +18,7 @@ export const GET = withErrorHandling(async (request, { params }) => {
   if (!isValidId(params.id)) return fail('Invalid product id', 400);
 
   await connectDB();
-  const product = await Product.findById(params.id).populate('author', 'name');
+  const product = await Product.findById(params.id).populate('author', 'name').populate('category', 'name slug');
   if (!product) return fail('Product not found', 404);
 
   return ok({ product });
@@ -47,7 +47,9 @@ export const PUT = withErrorHandling(async (request, { params }) => {
   if (body.description !== undefined) product.description = body.description;
   if (body.brand !== undefined) product.brand = body.brand;
   if (body.category !== undefined) {
-    if (!PRODUCT_CATEGORY_VALUES.includes(body.category)) return fail('A valid category is required', 400);
+    if (!isValidId(body.category) || !(await ProductCategory.exists({ _id: body.category }))) {
+      return fail('A valid category is required', 400);
+    }
     product.category = body.category;
   }
   if (body.image !== undefined) {
