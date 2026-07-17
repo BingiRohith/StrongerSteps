@@ -76,7 +76,7 @@ Public, reusable, provider-agnostic — not Knowledge-Center-specific. See
 | Route | Method | Auth | Notes |
 |---|---|---|---|
 | `/api/verify/generate-otp` | POST | Public | Body: `{ resourceType, resourceId, method: 'email'\|'mobile', email?, mobile? }`. `resourceType` is checked against `lib/verification/resourceRegistry.js`, not a DB enum. Rate-limited to 3 requests per identifier per 15 minutes (429 beyond that). Returns `{ verificationId }` — never the OTP itself. |
-| `/api/verify/verify-otp` | POST | Public | Body: `{ verificationId, otp }`. OTP expires after 10 minutes; locks out after 5 wrong attempts (429). On success returns `{ downloadToken }` — a short-lived (15 min) signed JWT, not a permanent URL. |
+| `/api/verify/verify-otp` | POST | Public | Body: `{ verificationId, otp }`. OTP expires after 10 minutes; locks out after 5 wrong attempts (429). On success returns `{ downloadToken }` — a short-lived (15 min) signed JWT, not a permanent URL. **Sprint 19.1B**: also upserts/links a `VerifiedLead` (`lib/verifiedLead.js`) for the verified identifier and sets/refreshes the `ss_lead` session cookie — see [14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md). |
 | `/api/verify/download` | GET | Public (token-gated) | Query: `token`, `fileKind` (`image`\|`pdf`). Validates the signed token, resolves the file via the resource registry, streams it from private storage with `Content-Disposition: attachment`, and stamps `downloadedAt` on the `Verification` row. The only route that ever serves bytes for a protected resource. |
 
 ## Products

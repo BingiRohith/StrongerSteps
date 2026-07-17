@@ -94,6 +94,16 @@ by default. Roles: `admin`, `editor` — write operations generally allow both;
 `admin`-only. See [06_API_DOCUMENTATION.md](06_API_DOCUMENTATION.md) for the
 per-route breakdown.
 
+**Sprint 19.1B** added a second, parallel session for public visitors —
+`VerifiedLead` identities, cookie `ss_lead` (`LEAD_COOKIE_NAME`), issued by
+`POST /api/verify/verify-otp` on every successful OTP check, resolved via
+`lib/access/leadSession.js`'s `getCurrentLead()`. This is a separate
+mechanism from the admin session above, not a role added to it — public
+visitors never get a `User` account. `middleware.js` is unchanged (still
+`/admin/:path*` only); the lead session is checked at the
+route/server-component level via `lib/access/canAccess.js`. Full design in
+[14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md).
+
 ## Upload strategy (current limitation)
 
 All uploads (`lib/localUpload.js` and three older duplicate implementations

@@ -5,6 +5,180 @@ as of the 2026-07-07 documentation sprint — everything below Sprint 9 is
 reconstructed from code/CHANGELOG evidence, not from a prior decisions log
 (none existed).
 
+## 2026-07-17 — Pre-Sprint-19.2 audit: `purchasedCourses`/`purchasedResources`/`purchasedTools` consolidated into one polymorphic `purchasedItems`
+
+Before approving Sprint 19.1B for commit, the user asked for a final audit
+assuming Sprint 19.2-19.5 will add Courses/Resources/Tools CMS, Membership,
+a User Dashboard, Payments, Purchase History, Certificates, and Assessments
+— and asked specifically whether any naming/shape decision should change
+before those modules start depending on it. Reviewing `models/VerifiedLead.js`
+against that lens surfaced a real inconsistency: `bookmarks` (added in the
+prior revision) was deliberately made polymorphic — one list spanning any
+future content type — while `purchasedCourses`/`purchasedResources`/
+`purchasedTools` were left as three separate per-type arrays, with the
+justification at the time ("purchases have distinct business meaning per
+type") that doesn't actually hold up against the same reasoning used to
+justify `bookmarks`'s polymorphic shape.
+**What changed:** `models/VerifiedLead.js`'s three arrays became one
+`purchasedItems: [{resourceType, resourceId, purchasedAt}]`, identical
+shape to `bookmarks`. `lib/access/canAccess.js`'s `hasPurchased()` now
+matches on `(resourceType, resourceId)` instead of taking a
+`purchaseListField` string — the caller passes `resourceType` explicitly
+(descriptor: `{accessLevel, resourceType, resourceId}`), which is also a
+simpler public API than needing to know a specific array field name per
+content type. `lib/verifiedLead.js`'s merge logic gained a second declared
+list, `RESOURCE_REF_LIST_FIELDS`, generalizing `unionBookmarks()` into a
+shared `unionResourceRefList()` used by both `purchasedItems` and
+`bookmarks` — `ARRAY_ID_FIELDS` (flat ref arrays) now only covers
+`orders`/`invoices`.
+**Why:** Sprint 19.2 (Courses) is the very next sprint and is exactly what
+would start writing to `purchasedCourses` — this was the last safe moment
+to fix the shape before real data/consumers existed. A future 4th
+purchasable type (Events, a future Program) now needs zero schema change,
+matching the same reasoning already applied to `bookmarks`. `orders`/
+`invoices` were deliberately left untouched — they represent the
+transaction record itself (a fundamentally different concept per type:
+an Order and an Invoice aren't "the same relationship for different
+content," unlike purchasedCourses/Resources/Tools which really were three
+copies of the identical relationship), so merging them into one array
+would not be the same kind of fix.
+**How to apply:** when Sprint 19.2's Courses CMS (or any future purchase
+flow) marks something as purchased, append `{resourceType: 'course',
+resourceId, purchasedAt}` to `VerifiedLead.purchasedItems` — don't
+reintroduce a type-specific array. `docs/14_ACCESS_CONTROL.md`'s "How
+future purchases will integrate" section documents the exact call shape.
+
+## 2026-07-17 — Sprint 19.1B revision: VerifiedLead schema/service adjusted for future extensibility, not pre-built
+
+The user asked for VerifiedLead to become the platform's permanent public
+identity and to verify the architecture doesn't make future additions
+(bookmarks, completed courses, certificates, assessment history,
+membership history, purchase history, saved resources, notification
+preferences, profile settings) difficult later — explicitly **not** asking
+for any of those nine features to be built now.
+**What was actually changed, and why each is a real fix rather than a
+speculative field:**
+1. **`lib/verifiedLead.js`'s `planLeadMerge()`/`toPlain()` now iterate over
+   a declared `ARRAY_ID_FIELDS` list** instead of calling `unionIds()` once
+   per hardcoded field name. Before this change, adding a new flat-array
+   field to the schema later (e.g. a future `completedCourses`) and
+   forgetting to also add it to the merge function's hand-written union
+   calls would silently drop that field's data during a merge — a latent
+   correctness risk, not a hypothetical one, and the whole point of the
+   merge feature is to never lose data silently. This is the one change in
+   this revision that was necessary regardless of which future fields
+   actually get built.
+2. **`models/VerifiedLead.js` gained one new field: `bookmarks`** — a
+   polymorphic `{resourceType, resourceId, savedAt}` list (free-text
+   `resourceType`, same convention as `models/Verification.js`), not three
+   separate `savedCourses`/`savedResources`/`savedTools` arrays mirroring
+   the existing `purchasedCourses`-style pattern. This is the one place
+   where waiting has a real cost: retrofitting three type-specific arrays
+   into one polymorphic list later is a genuine migration; adding an empty
+   array field is not. Every other listed feature (completed courses,
+   certificates, notification preferences, profile settings) is a plain
+   additive Mongoose field with zero migration cost whenever it's actually
+   built — deliberately **not** added now, since guessing their shape ahead
+   of a real requirement is exactly the "unnecessary abstraction" the user
+   separately said to avoid.
+3. **Documented, not coded**: a rule for future high-cardinality history
+   (assessment attempts, detailed activity logs, many years of membership
+   renewals) — these should be their own collection with a `lead` foreign
+   key, the same direction `models/Booking.js` already points at `Event`,
+   rather than an ever-growing array embedded on `VerifiedLead`. `orders`/
+   `invoices` (Sprint 19.1B's original design) are a deliberate, bounded
+   exception to this rule (convenience lookup arrays, not the authoritative
+   record) — not a precedent to copy for genuinely unbounded logs.
+**How to apply:** when a future sprint actually builds completed-course
+tracking, certificates, membership history, or profile settings, add the
+field then, following rule 3 above for anything that could grow without
+bound. Don't treat this entry as permission to keep deferring `bookmarks`
+work indefinitely, either — the schema field exists now specifically so a
+future bookmarking feature doesn't need a migration, not so it can be
+forgotten.
+
+## 2026-07-17 — Sprint 19.1B revision: `lib/baseContentFields.js` renamed to `lib/sharedContentFields.js`, reframed as a general pattern
+
+The original Sprint 19.1B framing described this file as "for future
+Course/Resource/Tool models," which the user flagged as too tightly
+coupled — the intent was always a reusable convention any future or
+future-rewritten content module could use (Blog, Infographic, Recipe, a
+future Program model, Product where appropriate, in addition to Course/
+Resource/Tool), explicitly without introducing inheritance or a plugin
+system.
+**What changed:** file renamed `lib/baseContentFields.js` →
+`lib/sharedContentFields.js` (function renamed `baseContentFields()` →
+`sharedContentFields()`) — no consumers existed yet (verified via a
+repo-wide search before renaming), so this was a zero-blast-radius rename,
+not a breaking change. The implementation itself was already just a plain
+spreadable object + a hook-attaching function (no class, no inheritance,
+no plugin registration) — it already satisfied "not a BaseModel"; what
+needed to change was the framing in comments/docs, which is now explicit
+that adoption is optional and partial (a module may spread the whole
+object, cherry-pick individual keys, or ignore it entirely).
+**Why the file name mattered even though the code didn't need to change
+structurally:** "base" reads as base-class/inheritance terminology, which
+the user explicitly ruled out — a misleading name on an otherwise-correct
+design is still worth fixing while nothing depends on it.
+**How to apply:** don't reintroduce Course/Resource/Tool-specific framing
+in future references to this file — it's a general convention, and any
+future model (new or rewritten) is a legitimate candidate for adopting it,
+in full or in part.
+
+## 2026-07-17 — Sprint 19.1B: VerifiedLead merge is evidence-based, never a silent heuristic
+
+Sprint 19.1A's original design flagged the "verify by email once, by mobile
+another time" case as an unresolved dual-identity risk. The user explicitly
+rejected leaving it unresolved: the goal is One Person → One VerifiedLead →
+One User → One Membership → One Purchase History, but merging must never be
+based on weak assumptions (matching name, coincidental timing).
+**What changed:** `models/VerifiedLead.js` allows a single lead to hold
+both `email` and `mobile` (already true from 19.1A), plus a `mergedInto`
+tombstone pointer and an `identifierLinks` audit trail. `lib/verifiedLead.js`
+only auto-merges two leads via two specific, strong-evidence paths: (1)
+proving a second identifier via OTP while an already-active lead session
+recognizes the visitor (`linkIdentifierToLead`, method `'otp'`), or (2)
+linking the same `User` account to two different leads (`linkUserToLead`,
+method `'linked_user_account'`) — a future flow, not wired up this sprint.
+Anything weaker stays two separate rows until an admin explicitly calls
+`mergeVerifiedLeads()` (`reason: 'admin_manual'`, no admin UI yet). Any
+merge attempt where the two leads disagree on an identity-bearing field
+(different `linkedUser` or `membership`) throws `LeadMergeConflictError`
+instead of silently picking a side.
+**Why:** per the user's explicit instruction — "Do not hardcode automatic
+merging based on weak assumptions" — while still designing for the stated
+end-state so this doesn't require a future schema redesign.
+**How to apply:** any future flow that wants to link a second identifier to
+an existing lead must go through one of the two defined evidence paths (or
+add a new, equally well-justified one and document it here) — don't add a
+third silent-merge trigger without the same kind of explicit reasoning.
+
+## 2026-07-17 — Sprint 19.1B: standardized CMS base fields diverge from existing `author` convention
+
+The user asked for a shared field shape (`title`, `slug`, `description`,
+`thumbnail`, `status`, `featured`, `displayOrder`, `accessLevel`, `seo`,
+`createdBy`, `updatedBy`) that future Course/Resource/Tool models should
+build on, rather than each one inventing its own shape the way Blog/
+Infographic/Product/Team/Recipe independently converged on a similar-but-
+not-identical pattern (see [08_CODING_STANDARDS.md](08_CODING_STANDARDS.md)'s
+"Content model pattern"). `lib/sharedContentFields.js` (renamed from
+`lib/baseContentFields.js` — see the entry above) implements this as a
+spreadable field-set plus `applyPublishLifecycle()` for the shared
+draft/published-stamping hook every existing model currently duplicates.
+One deliberate divergence: `createdBy`/`updatedBy` (a pair) replaces the
+existing single `author` field every pre-Sprint-19 model uses.
+**Why:** explicit brief instruction, and a pair tracks edits by a second
+editor correctly (`author` alone conflates "who created this" with "who
+last touched it," which single-admin-authored content never surfaced as a
+problem, but a growing Course/Resource/Tool catalog edited by multiple
+editors will).
+**How to apply:** this is **not** applied retroactively — Blog/Infographic/
+Product/Team/Recipe keep their existing `author` field unchanged; don't
+"fix" them to match without a separate, explicit migration decision (they'd
+need a data migration `author` → `createdBy`, out of scope here). Only
+models built on `lib/sharedContentFields.js` from Sprint 19.2+ onward use
+the new pair.
+
 ## 2026-07-16 — Sprint 18: `Product.category`'s closed-enum decision superseded
 
 The 2026-07-06 decision below ("Product category is a closed enum, not free

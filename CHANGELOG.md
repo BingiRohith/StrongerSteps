@@ -1,5 +1,196 @@
 # Changelog
 
+## Sprint 19.1B: VerifiedLead, Lead Sessions & Access Control Foundation — 2026-07-17
+
+Scope: implements only what Sprint 19.1A's architecture audit/design and the
+user's follow-up change requests specified — the reusable identity + access
+control foundation, nothing else. No Course/Resource/Tool CMS, no admin UI,
+no Dashboard, no Membership purchase flow.
+
+### Added
+- **`models/VerifiedLead.js`** — the shared "verify once, reuse everywhere"
+  visitor identity, meant to become the platform's one permanent public
+  identity. `email`/`mobile` both optional, independently sparse-unique (a
+  lead can eventually own both once evidence links them). `mergedInto`
+  self-ref tombstone pointer + `identifierLinks` audit trail (`{type,
+  value, method, linkedAt}`, `method` one of `otp` \| `linked_user_account`
+  \| `admin_manual`) — every identifier attachment is evidence, never a
+  guess. `linkedUser`/`membership`/`membershipExpiry`/`purchasedCourses`/
+  `purchasedResources`/`purchasedTools`/`orders`/`invoices` all
+  nullable/empty, ready for future modules that don't exist yet (Mongoose
+  refs resolve lazily). **Revision**: added `bookmarks`
+  (`{resourceType, resourceId, savedAt}`, polymorphic — spans any future
+  content type rather than one array per type) after an explicit
+  extensibility review; every other reviewed future field (completed
+  courses, certificates, membership history, notification preferences,
+  profile settings) was judged already zero-cost to add later as a plain
+  Mongoose field and deliberately **not** pre-built — see
+  `docs/13_DECISIONS.md` and `docs/14_ACCESS_CONTROL.md`'s extensibility
+  table for the full reasoning on all nine reviewed features.
+- **`lib/verifiedLead.js`** — `normalizeEmail`/`normalizeMobile` (reuses
+  `lib/eventValidation.js`'s `last10Digits()`, same rule
+  `/api/bookings/lookup` already uses), `findOrCreateVerifiedLead()`
+  (dedupes by normalized identifier, handles the create/create race via a
+  duplicate-key retry), `planLeadMerge()` (pure decision function — no DB,
+  fully unit-tested), `mergeVerifiedLeads()` (throws
+  `LeadMergeConflictError` if the two leads disagree on an identity-bearing
+  field rather than silently picking a side), `linkIdentifierToLead()` and
+  `linkUserToLead()` (the only two "sufficient evidence" auto-merge
+  triggers: OTP-proof of a second identifier under an already-active lead
+  session, or the same `User` account linked to two different leads),
+  `resolveActiveLead()` (walks the `mergedInto` chain). **Revision**:
+  `planLeadMerge()`/`toPlain()` now iterate over a declared
+  `ARRAY_ID_FIELDS` list instead of a hardcoded `unionIds()` call per field
+  — a new flat-array field added to the schema later only needs adding to
+  that one list, removing the risk of a future field silently losing data
+  on merge because someone forgot to wire it into hand-written union logic.
+  Added a dedicated `unionBookmarks()` (dedupes by `resourceType`+
+  `resourceId`, keeps the earlier `savedAt`) since bookmarks aren't a flat
+  id list.
+- **`lib/access/accessLevels.js`** — `ACCESS_LEVELS`
+  (`PUBLIC`/`OTP`/`MEMBER`/`PURCHASED`/`ADMIN`), replacing the brief's
+  "don't hardcode Free/Premium/Paid" instruction with a reusable enum.
+- **`lib/access/canAccess.js`** — pure, synchronous authorization function
+  (`{allowed, reason}`), no DB/cookie/request import, so it's directly
+  unit-tested. Admin sessions override every level by default
+  (`{allowAdminOverride: false}` to disable per-call).
+- **`lib/access/actor.js`** — `getCurrentActor(request)`, the request-scoped
+  half that resolves `{user, lead}` for `canAccess()`.
+- **`lib/access/leadToken.js`** / **`lib/access/leadSession.js`** — a
+  second, parallel session type for `VerifiedLead` (cookie `ss_lead`
+  /`LEAD_COOKIE_NAME`, JWT `purpose: 'lead'`, 180-day default expiry —
+  deliberately separate from the admin `ss_token` session so the two can
+  never be confused). Split into a pure token/cookie half
+  (`leadToken.js`, unit-tested) and a request-scoped half
+  (`leadSession.js`'s `getCurrentLead()`, needs `next/headers` + DB).
+- **`lib/sharedContentFields.js`** (renamed from `lib/baseContentFields.js`
+  — see Revision note below) — `sharedContentFields()` (spreadable
+  `title`/`slug`/`description`/`thumbnail`/`status`/`featured`/
+  `displayOrder`/`accessLevel`/`seo`/`createdBy`/`updatedBy` field set) +
+  `applyPublishLifecycle()` (shared draft/published-stamping hook). A
+  generic reusable field **pattern** — no inheritance, no plugin system —
+  any future or future-rewritten content module (Course/Resource/Tool,
+  Blog, Infographic, Recipe, a future Program model, Product where
+  appropriate) may adopt in full, adopt partially, or ignore. Not
+  retrofitted onto any existing model.
+- **`docs/14_ACCESS_CONTROL.md`** — the permission-system source of truth:
+  all 5 access levels, how `canAccess()` works, how OTP/Membership/Purchases
+  each interact with it, the full merge-strategy writeup, and a
+  future-extensibility table covering bookmarks/completed courses/
+  certificates/assessment history/membership history/purchase history/
+  notification preferences/profile settings.
+- **`tests/`** — Node's built-in `node --test` runner (zero new
+  dependencies; `next/headers`-free modules only, since that import can't
+  resolve outside the Next.js runtime — a custom resolution loader,
+  `tests/resolve-alias-loader.mjs`, maps this project's `@/` import alias
+  for plain Node). 33 tests covering `normalizeEmail`/`normalizeMobile`/
+  `planLeadMerge` (including the generalized array-field union and
+  bookmark deduplication), `canAccess()`'s every level + admin override,
+  and lead-token sign/verify/purpose-isolation/cookie helpers. `npm test`.
+  DB-touching functions (`findOrCreateVerifiedLead`, `mergeVerifiedLeads`,
+  etc.) are not covered here — no live MongoDB available in this sandbox,
+  same documented limitation as every earlier sprint's OTP/CRUD work;
+  smoke-test against a real database before relying on them.
+
+### Revision (same sprint, before commit — two follow-up architecture requests)
+- **Renamed `lib/baseContentFields.js` → `lib/sharedContentFields.js`**
+  (function `baseContentFields()` → `sharedContentFields()`). No consumers
+  existed yet (verified by repo-wide search), so this was a zero-blast-
+  radius rename. Reframed throughout the docs as a general convention any
+  future/rewritten content module can adopt, not something scoped to
+  Course/Resource/Tool.
+- **`models/VerifiedLead.js` gained `bookmarks`** and
+  **`lib/verifiedLead.js`'s merge logic was generalized** (`ARRAY_ID_FIELDS`,
+  `unionBookmarks()`) — see the Added section above for detail, and
+  `docs/13_DECISIONS.md`/`docs/14_ACCESS_CONTROL.md` for why these two were
+  judged worth doing now versus the other seven reviewed future features,
+  which were deliberately left unbuilt.
+
+### Revision 2 (final pre-commit audit, assuming Sprint 19.2-19.5 scope)
+- **`purchasedCourses`/`purchasedResources`/`purchasedTools` consolidated
+  into one polymorphic `purchasedItems: [{resourceType, resourceId,
+  purchasedAt}]`** on `models/VerifiedLead.js` — the audit surfaced that
+  these three arrays were the same inconsistency `bookmarks` had already
+  been fixed for, just not yet applied to purchases. `lib/access/canAccess.js`'s
+  `hasPurchased()` now matches on `(resourceType, resourceId)` instead of a
+  `purchaseListField` string; `descriptor` is now `{accessLevel,
+  resourceType, resourceId}`. `lib/verifiedLead.js` gained
+  `RESOURCE_REF_LIST_FIELDS` (generalizing the bookmarks-only
+  `unionBookmarks()` into a shared `unionResourceRefList()` covering both
+  `purchasedItems` and `bookmarks`); `ARRAY_ID_FIELDS` now only covers
+  `orders`/`invoices`. `orders`/`invoices` themselves were deliberately
+  left as two distinct arrays — they represent the transaction record, a
+  genuinely different concept per type, not three copies of the same
+  relationship the way the purchase arrays were. See `docs/13_DECISIONS.md`
+  for the full reasoning and `docs/14_ACCESS_CONTROL.md`'s updated
+  "How future purchases will integrate" section.
+- Every other question in the audit (session design, `lib/access/`
+  folder structure, `sharedContentFields()`'s field set, the `VerifiedLead`
+  name itself, the `ACCESS_LEVELS.OTP` name) was answered "no change
+  needed" with reasoning recorded inline in the audit response rather than
+  a doc file — nothing else in Sprint 19.1B was touched.
+
+### Modified
+- **`lib/verification/verificationService.js`** — `verifyOtp()` now also
+  returns `{method, email, mobile}` (which identifier was just proven), so
+  the route can upsert/link a `VerifiedLead`. OTP mechanics themselves
+  (rate limiting, expiry, attempt lockout, download token) are unchanged.
+- **`app/api/verify/verify-otp/route.js`** — on success, resolves any
+  existing lead session, either links the newly-proven identifier to it
+  (`linkIdentifierToLead`) or creates/updates a lead for it
+  (`findOrCreateVerifiedLead`), then sets/refreshes the `ss_lead` cookie
+  alongside the existing `downloadToken` response. This is what makes
+  "verify once, reuse everywhere" real for the one OTP flow that exists
+  today (Infographics) and every future one registered in
+  `lib/verification/resourceRegistry.js`.
+- **`package.json`** — new `"test"` script.
+- **`.env.example`** / **`docs/09_DEPLOYMENT.md`** — documented
+  `LEAD_COOKIE_NAME`/`LEAD_SESSION_EXPIRES_IN`.
+- **`docs/05_DATABASE.md`**, **`docs/04_ARCHITECTURE.md`**,
+  **`docs/08_CODING_STANDARDS.md`**, **`docs/06_API_DOCUMENTATION.md`**,
+  **`docs/13_DECISIONS.md`** (five entries total across all revisions: the
+  merge-strategy decision, the `createdBy`/`updatedBy` divergence from
+  `author`, the extensibility-review entry, the `sharedContentFields.js`
+  rename, and the `purchasedItems` consolidation), **`docs/README.md`** —
+  updated for the above.
+
+### Not touched
+`middleware.js` (still `/admin/:path*` only), the existing
+`app/api/verify/download` token-gate logic, and every existing content
+model/admin module — no CMS, UI, or Dashboard work this sprint.
+
+### Not implemented (by design, per this sprint's scope)
+- No Course/Resource/Tool models, CMS, or public pages.
+- No admin UI for viewing, editing, or manually merging leads.
+- No Membership purchase flow — `VerifiedLead.membership`/`membershipExpiry`
+  exist but nothing sets them yet.
+- No registration/login flow for `VerifiedLead` → `User` linking —
+  `linkUserToLead()` exists as ready infrastructure, not wired to any route.
+
+### Verified
+`npm run build` succeeds cleanly (all existing routes still build/dynamic
+as before, no regressions across either revision). `npm test` passes
+35/35. DB-dependent code paths were not exercised against a live MongoDB
+in this sandbox (same standing limitation noted in every earlier sprint's
+CHANGELOG entry) — smoke-test the OTP → VerifiedLead flow against a real
+database before relying on it in production.
+
+---
+
+## Sprint 19.1A: Knowledge Center Platform — Architecture Audit & Planning — 2026-07-17
+
+Planning-only sprint per its own brief — no code, models, or files changed.
+Full audit of existing auth/OTP/upload/CRUD/middleware architecture,
+followed by a design proposal for a `VerifiedLead` identity layer, a
+`PUBLIC`/`OTP`/`MEMBER`/`PURCHASED`/`ADMIN` access-level model, and a
+`canAccess()` permission-middleware — the foundation Sprint 19.1B then
+implemented. The user's follow-up change request (defining the
+`VerifiedLead` merge strategy precisely instead of leaving it open,
+standardizing future CMS fields, and requiring `docs/14_ACCESS_CONTROL.md`)
+is what Sprint 19.1B above delivers.
+
+---
+
 ## Sprint 18: UI Polish, Product Categories CMS & Homepage Interaction — 2026-07-16
 
 Scope: UI/UX polish and making Products fully CMS-driven, per the brief.

@@ -14,6 +14,8 @@
 | `OTP_EXPIRY_MINUTES` | No | Sprint 12.5 — defaults to `10`. |
 | `DOWNLOAD_TOKEN_EXPIRY_MINUTES` | No | Sprint 12.5 — defaults to `15`. Reuses `JWT_SECRET` (distinct `purpose` claim), not a separate secret. |
 | `NEXT_PUBLIC_SITE_URL` | No | Sprint 17 — defaults to `http://localhost:3000`. Public site origin, used for `metadataBase` (canonical/OpenGraph URLs in `app/layout.js`) and the absolute URLs in `app/sitemap.js`/`app/robots.js`. **Set this to the real production domain before going live** — left at the default, canonical/OG/sitemap URLs will all point at `localhost`. |
+| `LEAD_COOKIE_NAME` | No | Sprint 19.1B — defaults to `ss_lead`. The public visitor identity (`VerifiedLead`) session cookie — separate from `AUTH_COOKIE_NAME`'s admin session. See [14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md). |
+| `LEAD_SESSION_EXPIRES_IN` | No | Sprint 19.1B — defaults to `180d`. Reuses `JWT_SECRET` (distinct `purpose` claim), not a separate secret. |
 
 `.env.example` (restored in Sprint 17 — see [13_DECISIONS.md](13_DECISIONS.md))
 mirrors this table; `cp .env.example .env.local` and fill in real values.

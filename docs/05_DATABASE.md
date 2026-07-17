@@ -353,6 +353,62 @@ submitted array's position (see `app/api/admin/homepage/route.js`'s
 since the admin list editor's reorder buttons move array position without
 separately rewriting a `displayOrder` field.
 
+## VerifiedLead — [`models/VerifiedLead.js`](../models/VerifiedLead.js)
+
+Sprint 19.1B. The shared "verify once, reuse everywhere" visitor identity —
+not Knowledge-Center-specific, backs every current/future OTP-gated
+resource and the future Membership/purchase flows. See
+[14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md) for the full authorization
+model this feeds into.
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | String | optional, max 100 |
+| `email` | String | optional, lowercase/trim, **sparse unique** |
+| `mobile` | String | optional, **sparse unique** — normalized to last-10-digits before lookup (`lib/verifiedLead.js`'s `normalizeMobile()`, reuses `lib/eventValidation.js`'s `last10Digits()`, same convention as `/api/bookings/lookup`) |
+| `preferredMethod` | String enum | `email` \| `mobile` \| `null` |
+| `emailVerifiedAt` / `mobileVerifiedAt` | Date | stamped independently — a lead can prove each channel at a different time |
+| `lastActivityAt` | Date | refreshed on every OTP re-verification |
+| `linkedUser` | ObjectId ref → `User` | nullable — set once a lead registers/logs into a future account |
+| `linkedUserAt` | Date | nullable |
+| `membership` / `membershipExpiry` | ObjectId ref → `Membership` / Date | nullable — not set by anything yet (no purchase flow this sprint), read by `canAccess()`'s `MEMBER` level |
+| `orders` / `invoices` | `[ObjectId]` | ref future `Order`/`Invoice` models — the authoritative transaction record (amount, payment status, refunds); each future model will carry its own `lead` foreign key back |
+| `purchasedItems` | `[{ resourceType, resourceId, purchasedAt }]` | generic "what does this lead currently own" fast-lookup cache, read by `canAccess()`'s `PURCHASED` level. Polymorphic across any future purchasable type (Course/Resource/Tool and beyond) rather than one array per type (`purchasedCourses`/`purchasedResources`/`purchasedTools` in the original Sprint 19.1B design, consolidated during the pre-Sprint-19.2 audit — see [13_DECISIONS.md](13_DECISIONS.md)); `resourceType` free text (same convention as `Verification.resourceType`), not validated against a registry yet |
+| `bookmarks` | `[{ resourceType, resourceId, savedAt }]` | generic "saved for later," same polymorphic shape/reasoning as `purchasedItems`, spans any future content type |
+| `mergedInto` | ObjectId ref → `VerifiedLead` | nullable — tombstone pointer, see below |
+| `identifierLinks` | `[{ type, value, method, linkedAt }]` | audit trail of how each identifier got attached (`method`: `otp` \| `linked_user_account` \| `admin_manual`) — never a guess, see [13_DECISIONS.md](13_DECISIONS.md) |
+
+**Future extensibility** (Sprint 19.1B revision — see
+[14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md)'s full table): a short,
+bounded "does this lead have X" list is safe to add as a plain array field
+at any time with zero migration cost (covers completed courses,
+certificates, notification preferences, profile settings, whenever those
+features are actually built). An unbounded, ever-growing history
+(assessment attempts, detailed activity logs, many years of membership
+renewals) should be its own collection with a `lead` foreign key instead —
+same relational direction `Booking` already uses toward `Event` — not a
+new array on `VerifiedLead`.
+
+**Merge/tombstone pattern**: two leads later found to be the same person
+are merged via `lib/verifiedLead.js`'s `mergeVerifiedLeads()` — the
+non-canonical one is never deleted, only marked `mergedInto: <canonical id>`
+with its own `email`/`mobile` cleared (so the sparse-unique indexes stay
+valid for future real values). Always resolve a lead id through
+`resolveActiveLead()` before trusting it as "the" record — a lead-session
+JWT issued before a merge still lands on the correct canonical lead
+afterward. Merges refuse to proceed (`LeadMergeConflictError`) if the two
+leads disagree on an identity-bearing field (different `linkedUser` or
+`membership`) rather than silently picking a side.
+
+Indexes: `{email: 1}` unique sparse, `{mobile: 1}` unique sparse,
+`{mergedInto: 1}`, `{linkedUser: 1}` sparse. No TTL — unlike `Verification`
+(ephemeral, 24h), a `VerifiedLead` is meant to persist indefinitely.
+
+Created/updated by `lib/verifiedLead.js`'s `findOrCreateVerifiedLead()` —
+called from `app/api/verify/verify-otp/route.js` on every successful OTP
+check, so it needs zero extra code as new OTP-gated resource types are
+registered in `lib/verification/resourceRegistry.js`.
+
 ## Relationships summary
 
 ```
@@ -368,6 +424,9 @@ Category 1---* Blog (category)
 RecipeCategory 1---* Recipe (category)
 ProductCategory 1---* Product (category — Sprint 18)
 Team 1---* Team (parentMember, self-ref — Sprint 14 org tree)
+VerifiedLead 1---1 User (linkedUser, nullable — Sprint 19.1B)
+VerifiedLead 1---1 Membership (membership, nullable — Sprint 19.1B, not yet set by anything)
+VerifiedLead 1---1 VerifiedLead (mergedInto, self-ref tombstone — Sprint 19.1B)
 ```
 
 Infographic's `category` field is **not** relational — free text, not a

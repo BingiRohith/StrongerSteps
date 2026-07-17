@@ -12,7 +12,8 @@
     "seed:products": "node scripts/seedProducts.mjs",
     "seed:membership": "node scripts/seedMembership.mjs",
     "migrate:protected-infographics": "node scripts/migrateProtectedInfographics.mjs",
-    "migrate:product-categories": "node scripts/migrateProductCategories.mjs"
+    "migrate:product-categories": "node scripts/migrateProductCategories.mjs",
+    "test": "node --import ./tests/register-loader.mjs --test"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

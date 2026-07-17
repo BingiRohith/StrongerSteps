@@ -24,6 +24,7 @@ sprint.
 | [11_CHANGELOG.md](11_CHANGELOG.md) | Pointer to the canonical changelog location + this project's changelog convention |
 | [12_FUTURE_IDEAS.md](12_FUTURE_IDEAS.md) | Backlog ideas beyond the committed roadmap |
 | [13_DECISIONS.md](13_DECISIONS.md) | Architectural decisions and why, including conflicts found during this sprint |
+| [14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md) | The permission system: access levels, `canAccess()`, OTP/Membership/Purchase integration, VerifiedLead merge strategy |
 
 ## Governance: the CRS is the source of truth
 
