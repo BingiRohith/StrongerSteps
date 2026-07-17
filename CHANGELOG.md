@@ -1,5 +1,207 @@
 # Changelog
 
+## Sprint 19.2 pre-commit scalability review — 2026-07-17
+
+Before committing, reviewed Course/Section/Lesson against an assumed
+platform scale of 500+ Courses, 20,000+ Lessons, thousands of videos,
+multiple instructors, and future Quizzes/Assessments/Certificates/Progress
+Tracking/multi-language. Full reasoning in `docs/13_DECISIONS.md` (two new
+entries). Confirmed: still three separate collections at this scale (all
+comfortably small for MongoDB); no other field needed pre-building today
+(video metadata, lesson-level `status`, translation links, and every
+quiz/assessment/certificate/progress hook are all safely additive later).
+**One real fix made:** `models/Course.js`'s `instructor` (single embedded
+object) → `instructors` (array) — the one field whose *shape*, not just
+presence, would need a real migration once real course data existed;
+fixed now while nothing depends on the old shape, along with every
+consumer (`CourseForm.js` gained an instructor list editor, `CourseCard.js`,
+the course detail page, both admin API routes). Also added two indexes
+(`{status,difficulty}`, `{status,publishedAt}`) backing query patterns the
+sprint already shipped but hadn't indexed; deliberately did not index
+`language` since nothing queries by it yet. 72/72 tests, clean build — no
+regressions.
+
+---
+
+## Sprint 19.2: Courses CMS & Learning Management System — 2026-07-17
+
+Scope: a complete, production-ready Courses CMS — admin CMS, public pages,
+Course→Section→Lesson hierarchy, media, access control, progress
+foundation, SEO, tests, docs — built entirely on top of Sprint 19.1B's
+identity/access-control layer. No new authentication, no new permission
+system, no new identity system. No Membership purchase flow, Payments,
+Dashboard enhancements, Certificates, Assessment Engine, Course Reviews,
+Comments, Bookmarks, Ratings, Wishlist, Notifications, or Analytics — all
+explicitly deferred per this sprint's brief.
+
+### Added — Models
+- **`models/CourseCategory.js`** — mirrors `ProductCategory`/`RecipeCategory`
+  exactly (name/slug/description/icon/displayOrder/isActive, same
+  Create/Edit/Delete/Activate-Deactivate/Reorder pattern). Delete blocks
+  with 409 if any `Course` still references it (`Course.category` is
+  required — same rule as `ProductCategory`).
+- **`models/Course.js`** — the first real consumer of
+  `lib/sharedContentFields.js` (`title`/`slug`/`description`/`thumbnail`/
+  `status`/`featured`/`displayOrder`/`accessLevel`/`seo`/`createdBy`/
+  `updatedBy` all come from the shared pattern). Adds `longDescription`
+  (rich HTML), `banner`, `instructor` (embedded sub-doc, not a `Team` ref —
+  same precedent as `Event.hostName`/`hostImage`), `duration`, `difficulty`
+  (`Beginner`\|`Intermediate`\|`Advanced`, new `lib/courseOptions.js`),
+  `language`, `category` (ref `CourseCategory`), `tags`, `prerequisites`/
+  `learningOutcomes`/`whatYoullLearn` (three separate dynamic string
+  lists), `certificateAvailable` (metadata only — no issuing flow yet).
+  `DELETE` cascade-deletes the course's Sections/Lessons — a deliberate,
+  documented deviation from this project's usual no-cascade precedent.
+- **`models/Section.js`** / **`models/Lesson.js`** — separate top-level
+  collections (not embedded arrays), `Section.course` and
+  `Lesson.section`+`Lesson.course` (denormalized) FK refs, following this
+  project's established "hierarchy = separate collection + FK" pattern.
+  `Lesson` carries `lessonType` (`video`\|`pdf`\|`image`\|`external_link`\|
+  `text`), `estimatedDuration`, `previewAvailable` (bypasses its own
+  `accessLevel`, including `OTP`), `accessLevel` (reuses
+  `lib/access/accessLevels.js` directly — no lesson-specific enum), and
+  type-dependent content fields (`video`/`pdf`/`image`/`externalUrl`/`body`)
+  plus `attachments` (covers both "Attachments" and "Downloadable
+  Resources" from the brief as one field — see `docs/13_DECISIONS.md`).
+  Media fields are always **private storage keys**, regardless of
+  `accessLevel`. Section delete cascade-deletes its Lessons.
+
+### Added — Access control integration (reused, not duplicated)
+- **`lib/verification/resourceRegistry.js`** — new `lesson` entry
+  (`isAccessible` checks `accessLevel === 'OTP'` **and** the parent course
+  is published) alongside the existing `infographic` entry. Zero changes
+  to `lib/verification/verificationService.js`'s actual OTP mechanics.
+- **`app/api/lessons/[id]/media/route.js`** (new) — the
+  `canAccess()`-gated counterpart for `PUBLIC`/`MEMBER`/`PURCHASED`/`ADMIN`
+  lesson media, session-checked via `getCurrentActor()`, no token. Rejects
+  `OTP`-level lessons for non-admins (400, points at `/api/verify/*`); an
+  admin session bypasses this — the same admin-preview override
+  `canAccess()` already applies everywhere else.
+- **`lib/courseAccess.js`** (new) — `annotateLessonAccess()`/
+  `annotateCourseAccess()`, the pure bridge between
+  `lib/publicCourses.js`'s plain DB fetches and `canAccess()`. Strips a
+  locked lesson's content fields entirely (not just hides them
+  client-side) so a gated lesson's private storage key is never shipped to
+  a browser that shouldn't have it. `PURCHASED` checks always resolve
+  against the *course* id, never the lesson's own id (see
+  `docs/13_DECISIONS.md`).
+- **`lib/privateUpload.js`** — added `saveProtectedVideo()` (mp4/webm/ogg,
+  200MB cap) and `saveProtectedDocument()` (doc/docx/ppt/pptx/xls/xlsx,
+  20MB cap), alongside the existing `saveProtectedImage()`/
+  `saveProtectedPdf()`, all reused as-is for lesson media.
+- **`lib/fileMime.js`** — extended with video/office-document MIME types.
+- **`lib/verification/verificationService.js`** / **`app/api/verify/download/route.js`** —
+  `isAccessible` calls are now `await`ed (the new `lesson` entry's is
+  async); a no-op for the existing synchronous `infographic` entry.
+
+### Added — Admin API & UI
+- `app/api/admin/course-categories/*`, `app/api/admin/courses/*`
+  (including nested `sections/[sectionId]/lessons/[lessonId]` and
+  `.../upload`) — same `requireAuth`/`withErrorHandling`/`ok`/`fail`
+  pattern as every other admin route in this codebase.
+- `components/admin/course-categories/*`, `components/admin/courses/*`
+  (`CoursesListClient`, `CourseForm`, `CurriculumManager`,
+  `LessonEditorPanel`) — reuse `ImageUploadField`, `TagsInput`,
+  `BenefitsEditor`, `StatusBadge` as-is. `CurriculumManager` is the new
+  piece: sections + lessons list/add/edit/delete/reorder, with
+  `LessonEditorPanel` handling type-dependent media upload and inline
+  preview through the new gated media route (which the admin's own session
+  passes via its admin-override).
+- `app/admin/(protected)/course-categories/*`,
+  `app/admin/(protected)/courses/*` (list, new, edit, curriculum) pages.
+  `AdminSidebar.js` gained "Courses"/"Course Categories" nav entries.
+
+### Added — Public UI
+- **`lib/publicCourses.js`** — published-only query helpers
+  (`getPublishedCourses`, `getFeaturedCourses`, `getActiveCourseCategories`,
+  `getCourseTagsFacet`, `getCourseBySlug`, `getPublicLessonById`,
+  `getRelatedCourses`), mirrors `lib/publicRecipes.js`. Deliberately
+  actor-unaware — access redaction happens one layer up, in
+  `lib/courseAccess.js`.
+- `app/api/courses/route.js`, `app/api/courses/[slug]/route.js` — public
+  read routes.
+- `app/courses/page.js` + `components/courses/{CoursesPageClient,FeaturedCourses}.js` —
+  listing page (search by title/instructor/tag, filter by category/
+  difficulty, sort, pagination), consolidated into fewer files than
+  Recipes' five-component split since Courses' filter surface is smaller.
+- `app/courses/[slug]/page.js` + `components/courses/CourseCurriculumAccordion.js` —
+  detail page: hero, instructor card, prerequisites/learning outcomes/what
+  you'll learn, section accordion (lesson metadata always visible, lock
+  icon on gated lessons), related courses, and a `schema.org/Course`
+  JSON-LD block (this sprint's "Structured Data where appropriate"
+  requirement).
+- `app/courses/[slug]/lessons/[lessonId]/page.js` +
+  `components/courses/LessonOtpUnlock.js` — lesson viewer. Renders content
+  per `lessonType` when unlocked; locked lessons show an inline OTP verify
+  flow (`OTP` level — success triggers `router.refresh()`, not a download
+  navigation, since Sprint 19.1B's `verify-otp` route already sets the
+  lead-session cookie) or a membership/purchase message (`MEMBER`/
+  `PURCHASED` — no purchase flow exists yet, so this is an honest
+  "coming soon," not a broken button).
+- `components/courses/CourseCard.js` — **replaced** the Sprint 18
+  hardcoded-array placeholder with a real, DB-backed card.
+
+### Modified
+- **`app/knowledge-center/page.js`** — Courses section now fetches real
+  published courses (`getPublishedCourses`) instead of the hardcoded
+  `FREE_COURSES`/`PREMIUM_COURSES` arrays (both deleted), and links to the
+  new `/courses` page via a "View all courses" button. **No new header nav
+  item added** — see `docs/13_DECISIONS.md` for why this reconciles with
+  Sprint 18's "don't split Courses across two pages" decision without
+  reopening its 1280px header-overflow fix.
+- **`tests/`** — new `tests/models/courseModels.test.js` (Course/
+  CourseCategory/Section/Lesson schema validation via Mongoose's
+  `validateSync()` — confirmed empirically to run fully offline, including
+  for models with async pre-validate hooks), `tests/lib/courseAccess.test.js`
+  (Access Control — every level, `previewAvailable` override including
+  OTP, PURCHASED-resolves-to-course-id), `tests/lib/courseOptions.test.js`,
+  `tests/lib/slugify.test.js` (Slug Generation — `lib/slugify.js` had no
+  dedicated test file before this sprint despite predating it).
+- Docs: `04_ARCHITECTURE.md` (content hierarchy pattern, dual media-serving
+  paths), `05_DATABASE.md` (4 new model sections + relationships),
+  `06_API_DOCUMENTATION.md` (Course Categories/Courses/Lesson Media routes,
+  updated Verification section), `08_CODING_STANDARDS.md`
+  (`sharedContentFields()`'s first real consumer), `13_DECISIONS.md` (7 new
+  entries), `14_ACCESS_CONTROL.md` ("What this sprint does not do" updated
+  — Courses no longer unbuilt), `10_SPRINT_HISTORY.md`.
+
+### A real bug found and fixed while writing tests
+`lib/courseAccess.js`'s first draft short-circuited
+`lesson.accessLevel !== 'OTP'` *before* calling `canAccess()`, which meant
+an admin session could never preview OTP-gated lesson content —
+inconsistent with `canAccess()`'s own documented admin-override for every
+other level, and a real gap against this sprint's "Preview Course"
+requirement. Fixed in both `lib/courseAccess.js` and
+`app/api/lessons/[id]/media/route.js` before commit — see
+`docs/13_DECISIONS.md` for the full writeup.
+
+### Not implemented (by design, per this sprint's scope)
+- No Membership purchase flow, Payments, Dashboard enhancements,
+  Certificates, Assessment Engine, Course Reviews, Comments, Bookmarks (the
+  UI concept — `VerifiedLead.bookmarks` the *field* already exists from
+  Sprint 19.1B), Ratings, Wishlist, Notifications, or Analytics.
+- No real progress tracking (completed lessons/sections/courses, watch
+  progress, last-viewed lesson) — only the *foundation* (stable `Lesson`
+  ids, `VerifiedLead`'s already-documented extensibility path) exists.
+- No per-lesson purchases — `PURCHASED` always resolves against the parent
+  course.
+
+### Verified
+`npm run build` succeeds cleanly — every new admin/public route and page
+compiles, no regressions to existing routes. `npm test` passes 72/72 (up
+from 35 at the end of Sprint 19.1B). DB-dependent code paths (actual
+Course/Section/Lesson CRUD against a live MongoDB, the full admin
+curriculum-manager upload flow, end-to-end OTP/membership/purchase gating
+through the browser) were not exercised against a live database in this
+sandbox — same standing limitation noted in every prior sprint's CHANGELOG
+entry. Model-level validation rules **were** verified directly via
+Mongoose's `validateSync()`, which runs fully offline. Smoke-test the full
+admin curriculum flow (create course → add section → add lesson → upload
+video → publish → view as a MEMBER/PURCHASED/anonymous visitor) against a
+real database before relying on it in production.
+
+---
+
 ## Sprint 19.1B: VerifiedLead, Lead Sessions & Access Control Foundation — 2026-07-17
 
 Scope: implements only what Sprint 19.1A's architecture audit/design and the

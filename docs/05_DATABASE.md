@@ -409,6 +409,128 @@ called from `app/api/verify/verify-otp/route.js` on every successful OTP
 check, so it needs zero extra code as new OTP-gated resource types are
 registered in `lib/verification/resourceRegistry.js`.
 
+## CourseCategory — [`models/CourseCategory.js`](../models/CourseCategory.js)
+
+Sprint 19.2. A dedicated taxonomy for Courses — same shape/CRUD pattern as
+[`ProductCategory`](#productcategory--modelsproductcategoryjs)/
+[`RecipeCategory`](#recipecategory--modelsrecipecategoryjs) per this
+project's "future content type needing managed categories should get its
+own `<Module>Category` model" precedent.
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | String | required, unique, max 100 |
+| `slug` | String | unique, auto-generated from `name`, collision-safe |
+| `description` | String | optional, max 300 |
+| `icon` | `{ url, alt }` | optional |
+| `displayOrder` | Number | manual sort order |
+| `isActive` | Boolean | default `true` |
+
+Indexes: `{isActive, displayOrder}`. Deleting a category still referenced
+by any `Course` is blocked (409), same rule as `ProductCategory` (not
+`RecipeCategory`'s looser orphan-allowing delete) — `Course.category` is
+`required`.
+
+## Course — [`models/Course.js`](../models/Course.js)
+
+Sprint 19.2. The first model built on
+[`lib/sharedContentFields.js`](../lib/sharedContentFields.js)'s reusable
+field pattern (introduced but unused in Sprint 19.1B) — `title`, `slug`,
+`description` (doubles as the CRS's "Short Description"), `thumbnail`,
+`status`/`publishedAt`, `featured`, `displayOrder`, `accessLevel`, `seo`,
+`createdBy`/`updatedBy` all come from the shared pattern; everything below
+is Course-specific.
+
+| Field | Type | Notes |
+|---|---|---|
+| `longDescription` | String | rich HTML, same convention as `Blog.content` |
+| `banner` | `{ url, alt }` | optional wide hero image, separate from `thumbnail` |
+| `instructors` | `[{ name, title, bio, photo: {url,alt} }]` | array of embedded sub-documents (Sprint 19.2 scalability review — was a single object; changed before any real course data existed, since that shape change would need a real migration once it didn't), **not** a ref to `models/Team.js` — same precedent as `Event.hostName`/`hostImage` (a person shown on public content isn't forced into the Team taxonomy). Kept embedded, not extracted into its own `Instructor` collection — see [13_DECISIONS.md](13_DECISIONS.md) |
+| `duration` | String | free text ("6 weeks", "12 hours total") — not additive, unlike `Lesson.estimatedDuration` |
+| `difficulty` | String enum | `Beginner` \| `Intermediate` \| `Advanced` (see [`lib/courseOptions.js`](../lib/courseOptions.js)) |
+| `language` | String | free text, default `'English'` |
+| `category` | ObjectId ref → `CourseCategory` | required |
+| `tags` | [String] | deduped + lowercased on set, same convention as `Blog.tags`/`Recipe.tags` |
+| `prerequisites` / `learningOutcomes` / `whatYoullLearn` | [String] each | dynamic, reorderable — same convention as `Membership.benefits` (kept as three separate fields, not consolidated, since the CRS/brief lists them as three distinct page sections) |
+| `certificateAvailable` | Boolean | metadata only this sprint — no certificate-issuing flow exists yet |
+| `accessLevel` | String enum | from `sharedContentFields()` — gates the course *overview*; individual lessons carry their own `accessLevel` too (see below) |
+
+Indexes: `{status, category, displayOrder}`, `{status, featured}`,
+`{status, difficulty}` and `{status, publishedAt}` (added in the
+post-19.2 scalability review — both back query patterns `/api/courses`
+already ships), text index on `title`/`description`/`tags`/
+`instructors.name`. No index on `language` yet — nothing queries by it
+today; add one once a language filter is actually wired into the public
+API, not preemptively.
+
+`DELETE` cascades to the course's `Section`s and `Lesson`s — a deliberate
+deviation from this project's usual no-cascade precedent
+(`Event`→`Booking`, `RecipeCategory`→`Recipe`, `Team`→`Team` all leave
+orphans). See [13_DECISIONS.md](13_DECISIONS.md).
+
+## Section — [`models/Section.js`](../models/Section.js)
+
+Sprint 19.2. The middle tier of Course → Section → Lesson — a separate
+top-level collection (not an array embedded on `Course`), following this
+project's established "hierarchy = separate collection + FK ref" pattern
+(`Team.parentMember`, `Booking.event`), and because `Lesson` (the next
+tier down) needs its own stable id for future per-lesson progress
+tracking.
+
+| Field | Type | Notes |
+|---|---|---|
+| `course` | ObjectId ref → `Course` | required |
+| `title` | String | required, max 200 |
+| `description` | String | optional, max 1000 |
+| `displayOrder` | Number | manual sort order, scoped to siblings within the same course |
+| `collapsedByDefault` | Boolean | default `false` — public curriculum accordion's initial state |
+
+No `status`/`accessLevel` of its own — a Section's visibility follows its
+parent Course's `status`; access gating happens at the Course and Lesson
+level only. Indexes: `{course, displayOrder}`.
+
+## Lesson — [`models/Lesson.js`](../models/Lesson.js)
+
+Sprint 19.2. The leaf tier. Carries **both** `section` (direct parent) and
+a denormalized `course` ref — deliberate, not an oversight: lesson-level
+access checks and media serving need the course id on every request, and a
+populate-through-section chain for that would be needless overhead
+(`Booking.price`/`memberDiscount` are this project's existing precedent
+for a deliberate denormalized convenience field).
+
+| Field | Type | Notes |
+|---|---|---|
+| `section` | ObjectId ref → `Section` | required |
+| `course` | ObjectId ref → `Course` | required, denormalized (see above) |
+| `title` | String | required, max 200 |
+| `description` | String | optional, max 1000 |
+| `displayOrder` | Number | manual sort order, scoped to siblings within the same section |
+| `lessonType` | String enum | `video` \| `pdf` \| `image` \| `external_link` \| `text` (see [`lib/courseOptions.js`](../lib/courseOptions.js)) |
+| `estimatedDuration` | Number | minutes, default 0, ≥0 |
+| `previewAvailable` | Boolean | default `false` — bypasses the lesson's own `accessLevel` gate entirely (including `OTP`) when viewing, see [14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md) |
+| `accessLevel` | String enum | reuses `lib/access/accessLevels.js`'s `ACCESS_LEVELS` — no lesson-specific enum |
+| `video` / `pdf` | `{ url, filename }` | `url` is always a **private storage key** (`private-uploads/lessons-videos/`, `lessons-pdfs/`), regardless of `accessLevel` — see below |
+| `image` | `{ url, alt }` | same private-storage convention |
+| `externalUrl` | String | for `lessonType: 'external_link'` |
+| `body` | String | rich HTML, for `lessonType: 'text'` |
+| `attachments` | `[{ url, filename, label }]` | covers the brief's "Attachments" **and** "Downloadable Resources" as one field — both describe the identical technical concept, unlike `Course`'s three learning-content lists (see [13_DECISIONS.md](13_DECISIONS.md)) |
+
+**Media storage, always private.** Unlike every other module's uploads
+(public `public/uploads/`), Lesson media is written to
+`private-uploads/lessons-<kind>/` via `lib/privateUpload.js`
+**unconditionally** — even for a `PUBLIC`-accessLevel lesson. Reasoning:
+an accessLevel can change after upload, and a stale public static path
+would bypass any future gate change (the same reasoning Sprint 12.5
+already established for Infographics — see
+[13_DECISIONS.md](13_DECISIONS.md)). Two independent serving paths, by
+`accessLevel`:
+- `OTP` → the existing, unchanged `app/api/verify/*` flow (a `lesson`
+  entry is registered in `lib/verification/resourceRegistry.js`).
+- `PUBLIC`/`MEMBER`/`PURCHASED`/`ADMIN` → the new
+  `GET /api/lessons/[id]/media` route, gated by `canAccess()`.
+
+Indexes: `{section, displayOrder}`, `{course}`.
+
 ## Relationships summary
 
 ```
@@ -427,6 +549,11 @@ Team 1---* Team (parentMember, self-ref — Sprint 14 org tree)
 VerifiedLead 1---1 User (linkedUser, nullable — Sprint 19.1B)
 VerifiedLead 1---1 Membership (membership, nullable — Sprint 19.1B, not yet set by anything)
 VerifiedLead 1---1 VerifiedLead (mergedInto, self-ref tombstone — Sprint 19.1B)
+CourseCategory 1---* Course (category — Sprint 19.2)
+Course 1---* Section (course — Sprint 19.2)
+Section 1---* Lesson (section — Sprint 19.2)
+Course 1---* Lesson (course, denormalized — Sprint 19.2)
+User 1---* Course (createdBy/updatedBy — Sprint 19.2, sharedContentFields())
 ```
 
 Infographic's `category` field is **not** relational — free text, not a

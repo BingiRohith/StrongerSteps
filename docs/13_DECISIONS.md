@@ -5,6 +5,219 @@ as of the 2026-07-07 documentation sprint — everything below Sprint 9 is
 reconstructed from code/CHANGELOG evidence, not from a prior decisions log
 (none existed).
 
+## 2026-07-17 — Pre-commit scalability review: `Course.instructor` → `Course.instructors` (array), two new indexes
+
+Before committing Sprint 19.2, the user asked for a review assuming
+platform scale of 500+ Courses, 20,000+ Lessons, thousands of videos,
+multiple instructors, and future Quizzes/Assessments/Certificates/Progress
+Tracking/multi-language.
+**What was found:** `Course.instructor` (a single embedded object) is the
+one field whose *shape* — not just presence — would need to change for
+"Multiple Instructors," and unlike every other field considered (video
+metadata, lesson `status`, a translation-link field, quiz/assessment/
+certificate/progress hooks — all of which are safely, cheaply additive
+later per the same "additive fields are cheap anytime, shape changes to
+populated fields are not" reasoning this file's Sprint 19.1B entries
+already established), a shape change on an already-populated field is a
+real migration once real course data exists.
+This was the last safe window (no production course data yet).
+**What changed:** `instructor: {...}` → `instructors: [{...}]` on
+`models/Course.js`, plus every consumer (`CourseForm.js` gained an
+add/remove instructor list editor, `CourseCard.js`, the course detail
+page's structured data and instructor sidebar, both admin API routes).
+Kept **embedded**, not extracted into a separate `Instructor` collection —
+see the next entry.
+**Also added while the collection is small:** `Course` indexes
+`{status, difficulty}` and `{status, publishedAt}` — both back query
+patterns `/api/courses` already ships (the difficulty filter, the
+`sort=newest` option) that had no supporting index. Deliberately did
+**not** add a `language` index — `Course.language` exists as a field but
+nothing in the shipped API filters by it yet; indexing an unqueried field
+is premature optimization, not scalability prep. Add it the moment a
+language filter is actually wired in.
+**How to apply:** the general rule going forward — before committing any
+new content model, ask "does adding this capability later require
+changing an *existing populated field's shape*, or just adding a new
+field?" Only the former needs fixing before real data exists; the latter
+can always wait.
+
+## 2026-07-17 — Scalability review: `Instructor` would become its own collection at true LMS scale, but not yet
+
+Reviewing Course/Section/Lesson against 500+ courses and "Multiple
+Instructors" surfaced a second, smaller-stakes question beyond the
+singular-to-array fix above: should `instructors` reference a dedicated
+`Instructor` model (with its own admin CRUD and profile page) instead of
+staying embedded?
+**Why a referenced model would eventually be better:** at real scale with
+*recurring* named instructors teaching many courses, embedding duplicates
+each instructor's name/title/bio/photo on every course they teach — editing
+a typo in an instructor's bio means finding and re-editing it on every one
+of their courses, a genuine update-anomaly, not just a style preference.
+**Why this was not done now:** no instructor profile pages, "browse by
+instructor," or cross-course instructor reuse were requested by the CRS or
+this sprint's brief — building a full second CRUD module (list/create/
+edit/delete + admin UI + a migration extracting embedded data into the new
+collection) on top of an inferred future need, when the stated requirement
+is just "Course has instructor fields," would be exactly the kind of
+speculative scope this project's conventions warn against
+(`docs/08_CODING_STANDARDS.md`). Unlike the singular-to-array fix, staying
+embedded is *also* safely reversible later — extracting embedded data into
+a referenced collection is a well-defined, mechanical migration (write a
+script, backfill `Instructor` docs, replace embedded objects with refs) at
+any point, not a "last safe window" situation.
+**How to apply:** if a future sprint explicitly asks for instructor
+profile pages or cross-course instructor management, that's the trigger to
+extract `Instructor` into its own model — don't do it preemptively before
+that request exists.
+
+## 2026-07-17 — Sprint 19.2: Course/Section/Lesson are three separate collections, not embedded arrays
+
+The brief describes a Course → Section → Lesson hierarchy without
+specifying storage shape. Two options: embed Sections/Lessons as
+sub-document arrays on `Course` (like `Homepage`'s card lists), or three
+separate top-level collections with FK refs.
+**What was chosen:** three separate collections (`models/Section.js` refs
+`course`; `models/Lesson.js` refs `section` **and** a denormalized
+`course`), with nested admin CRUD routes
+(`app/api/admin/courses/[id]/sections/[sectionId]/lessons/[lessonId]`).
+**Why:** (1) consistency — every hierarchical relationship this project has
+built so far (`Team.parentMember`, `Booking.event`) uses separate
+collection + FK, never embedded sub-document CRUD; (2) forward-looking —
+`Lesson` needs a stable top-level id for future per-lesson progress
+tracking (`VerifiedLead`'s planned extensions, see
+[14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md)), which an embedded
+sub-document technically has too (Mongoose auto-assigns `_id`) but is much
+more awkward to query/update directly at scale; (3) admin CRUD ergonomics
+— List/Create/Edit/Delete/Reorder for Sections and Lessons reuses the
+exact same API/UI patterns as every other module, rather than inventing
+nested-array CRUD semantics from scratch.
+**How to apply:** any future 3+-level content hierarchy should default to
+this same separate-collection-with-FK shape unless there's a specific
+reason (like `Homepage`'s singleton card lists) to embed instead.
+
+## 2026-07-17 — Sprint 19.2: `Course.instructor` is an embedded sub-document, not a `Team` ref
+
+The brief lists "Instructor" as a Course field without specifying whether
+it should link to the existing Team roster.
+**What was chosen:** `instructor: { name, title, bio, photo }`, a
+self-contained embedded sub-document — not `ObjectId ref: 'Team'`.
+**Why:** direct precedent already exists in this exact codebase —
+`models/Event.js`'s `hostName`/`hostImage` are plain embedded fields, not a
+Team ref, even though an event host could conceptually be a team member
+(documented in `docs/05_DATABASE.md`). A person shown on public content
+isn't automatically forced into the Team taxonomy just because they could
+be one; Course instructors and Team members are different concepts that
+happen to sometimes overlap.
+**How to apply:** if the client later wants instructor bios to sync with
+the Team roster (e.g., an instructor who's also a listed team member), that
+is an additive, explicit decision to make later — don't retrofit a Team ref
+based on this entry alone.
+
+## 2026-07-17 — Sprint 19.2: `Lesson.attachments` covers both "Attachments" and "Downloadable Resources"
+
+The brief lists "Attachments" and "Downloadable Resources" as two separate
+Lesson fields.
+**What was chosen:** one field, `attachments: [{url, filename, label}]`,
+not two parallel arrays.
+**Why:** unlike `Course`'s `learningOutcomes`/`whatYoullLearn` (kept as two
+separate fields earlier in this same sprint because they render as two
+distinct marketing sections despite similar shape), "Attachments" and
+"Downloadable Resources" describe the *identical* technical concept at the
+lesson level — a file attached for download. There is no way to
+distinguish them in the data model or the UI; building two structurally
+identical arrays would be pure duplication, not two features.
+**How to apply:** don't split this into two fields later without a
+concrete reason (e.g., the client wants attachments displayed inline
+mid-lesson vs. resources listed in a separate downloads panel) — that
+would be a real distinction worth modeling, mere naming from the brief is
+not.
+
+## 2026-07-17 — Sprint 19.2: PURCHASED-level checks always resolve against the Course id, never the Lesson id
+
+Both `Course` and `Lesson` carry their own `accessLevel` (per the brief).
+When a `Lesson.accessLevel` is `PURCHASED`, should `canAccess()` check
+`VerifiedLead.purchasedItems` for the *lesson's* id or the *course's* id?
+**What was chosen:** always the course id — `lib/courseAccess.js`'s
+`annotateLessonAccess()` passes `resourceId: lesson.course`, never
+`lesson.id`, regardless of which level (Course or Lesson) declared
+`PURCHASED`.
+**Why:** nothing in the CRS or this sprint's brief describes per-lesson
+purchases — a visitor buys a whole course. Checking against the lesson id
+would require a future purchase flow to record every individual lesson
+purchased (never specified), instead of the natural "bought this course"
+record `VerifiedLead.purchasedItems` already models.
+**How to apply:** if a future sprint introduces genuine per-lesson
+purchases (e.g., à la carte lessons independent of a course), that's a new,
+explicit requirement needing its own resourceType (`'lesson'` distinct
+from `'course'`) in `purchasedItems` — don't silently repurpose this
+course-level check for it.
+
+## 2026-07-17 — Sprint 19.2: Course delete cascades to its Sections and Lessons
+
+This project's established precedent is **no cascade delete**
+(`Event`→`Booking`, `RecipeCategory`→`Recipe`, `Team`→`Team` all leave
+orphans in place — see earlier entries in this file). Course delete
+deviates from it.
+**Why:** every prior no-cascade case leaves an orphan that's still
+*reachable* through some existing admin list or public view (an orphaned
+Team member still shows in the flat admin list; a cancelled Booking still
+shows in Bookings). An orphaned `Section`/`Lesson` has no admin list of its
+own to browse independently of its parent Course — it becomes permanently
+unreachable dead data, not a visible dangling reference. That's a
+materially different failure mode, not just "more of the same."
+**How to apply:** this is specific to Course's exact hierarchy shape — it
+does not generally relax the no-cascade precedent for anything else.
+Section delete also cascades to its own Lessons for the identical reason.
+
+## 2026-07-17 — Sprint 19.2: two independent media-serving paths by accessLevel, admin overrides both
+
+`Lesson` media is always written to private storage regardless of
+`accessLevel` (see `docs/05_DATABASE.md`), served by one of two routes
+depending on the lesson's `accessLevel`: `OTP` goes through the existing
+`app/api/verify/*` flow (registered in
+`lib/verification/resourceRegistry.js`); `PUBLIC`/`MEMBER`/`PURCHASED`/
+`ADMIN` goes through the new session-checked `GET /api/lessons/[id]/media`.
+**A bug surfaced while writing this sprint's tests and was fixed before
+commit:** the first draft of `lib/courseAccess.js`'s `annotateLessonAccess()`
+short-circuited `lesson.accessLevel !== 'OTP'` *before* calling
+`canAccess()`, meaning an admin session could never preview OTP-gated
+lesson content — inconsistent with `canAccess()`'s own documented
+admin-override behavior for every other level (`docs/14_ACCESS_CONTROL.md`),
+and a real gap against this sprint's "Preview Course" admin requirement.
+**Fix:** `annotateLessonAccess()` now always calls `canAccess()` (whose
+admin-override already handles OTP correctly), and
+`app/api/lessons/[id]/media/route.js` was updated to let an admin session
+through even for `accessLevel: 'OTP'` lessons, instead of unconditionally
+rejecting them.
+**How to apply:** any future lesson-media-adjacent route should resolve
+`getCurrentActor()` before deciding whether to reject an OTP-level
+request — never reject purely on `accessLevel` without checking for an
+admin session first.
+
+## 2026-07-17 — Sprint 19.2: real `/courses` pages, reconciled with the Sprint 18 "don't split Courses across two pages" decision
+
+Sprint 18's decision log says: "when Sprint 19 builds the real Courses CMS,
+wire it into this same Knowledge Center section — don't split Courses
+across two pages without an explicit new instruction to do so." Sprint
+19.2's own brief explicitly requires a "Courses Listing Page" and "Course
+Detail Page" as public-website deliverables.
+**What was chosen:** built real `/courses` and `/courses/[slug]` pages (the
+explicit new instruction Sprint 18 anticipated needing) — but did **not**
+add a new top-level header nav item. The Knowledge Center's existing
+`#courses` section was wired to real data (replacing the `FREE_COURSES`/
+`PREMIUM_COURSES` hardcoded arrays) and now links out to `/courses` via a
+"View all courses" button, rather than nav duplicating it.
+**Why:** honors both instructions — the CRS's header nav list doesn't
+include Courses, and Sprint 18's fix for the header's 1280px overflow bug
+(`docs/13_DECISIONS.md`) explicitly measured the current 7-item nav as
+already at its width limit; adding an 8th item would risk reopening that
+exact bug. Knowledge Center remains the discovery entry point, `/courses`
+is where the real browsing/search/filter experience and detail/lesson
+pages live.
+**How to apply:** don't add a top-level "Courses" nav item without
+re-checking the 1280px overflow measurement Sprint 18 recorded, and
+without an explicit instruction that supersedes this reasoning.
+
 ## 2026-07-17 — Pre-Sprint-19.2 audit: `purchasedCourses`/`purchasedResources`/`purchasedTools` consolidated into one polymorphic `purchasedItems`
 
 Before approving Sprint 19.1B for commit, the user asked for a final audit

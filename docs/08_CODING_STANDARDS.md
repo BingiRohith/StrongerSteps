@@ -29,17 +29,26 @@ mirror and why any field differs.
 **Sprint 19.1B (revised)**: [`lib/sharedContentFields.js`](../lib/sharedContentFields.js)'s
 `sharedContentFields()` is a generic, reusable **field pattern** — not a
 base class, not a plugin, nothing is forced to inherit from it. Any future
-content module (Course/Resource/Tool, none built yet) or any future
-rewrite of an existing one (Blog, Infographic, Recipe, a future Program
-model, Product where it fits) can spread it into a `new Schema({...})` call
-— in full, or just cherry-picking individual keys — and call
-`applyPublishLifecycle()` for the shared status/publishedAt hook, rather
-than hand-writing the same `title`/`slug`/`description`/`thumbnail`/
-`status`/`featured`/`displayOrder`/`accessLevel`/`seo`/`createdBy`/
-`updatedBy` fields again. **No existing model is refactored onto this** —
-Blog/Infographic/Product/Team/Recipe keep their current shape and single
-`author` field unchanged; adoption is opt-in per new/rewritten model, never
-retroactive. See [13_DECISIONS.md](13_DECISIONS.md).
+content module or any future rewrite of an existing one (Blog, Infographic,
+Recipe, a future Program model, Product where it fits) can spread it into a
+`new Schema({...})` call — in full, or just cherry-picking individual keys
+— and call `applyPublishLifecycle()` for the shared status/publishedAt
+hook, rather than hand-writing the same `title`/`slug`/`description`/
+`thumbnail`/`status`/`featured`/`displayOrder`/`accessLevel`/`seo`/
+`createdBy`/`updatedBy` fields again. **No existing model is refactored
+onto this** — Blog/Infographic/Product/Team/Recipe keep their current shape
+and single `author` field unchanged; adoption is opt-in per new/rewritten
+model, never retroactive. See [13_DECISIONS.md](13_DECISIONS.md).
+
+**Sprint 19.2**: `models/Course.js` is the pattern's first real consumer —
+`{ ...sharedContentFields(), longDescription, banner, instructor, ... }`,
+then its own `pre('validate')` slug hook plus `applyPublishLifecycle()`.
+Confirms the pattern works as designed: `Course` adds ~10 module-specific
+fields on top without needing to touch or extend `sharedContentFields()`
+itself. `models/Section.js`/`models/Lesson.js` (the tiers below Course)
+deliberately do **not** use it — they have no `status`/`slug`/`seo` of
+their own (visibility follows the parent Course) — a reminder that
+adoption is genuinely per-model, not "every new schema must use this."
 
 ## Slug generation
 

@@ -1,48 +1,81 @@
-import { GraduationCap, Sparkles } from 'lucide-react';
+import Link from 'next/link';
+import { Clock, GraduationCap, Star } from 'lucide-react';
 import { Badge } from '@/components/ui';
 
 /**
- * CMS-ready course card (Sprint 18 Module 6) — the field shape here
- * (thumbnail/title/description/price/badge/tier) intentionally matches what
- * a future `Course` model would carry, so Sprint 19's Courses CMS can wire
- * real data into this component without a redesign. No CRUD/model/API
- * exists yet — `app/knowledge-center/page.js`'s FREE_COURSES/PREMIUM_COURSES
- * arrays are still hardcoded, just richer than before.
+ * Sprint 19.2 — replaces the Sprint 18 hardcoded-array placeholder with a
+ * real, DB-backed card (mirrors components/recipes/RecipeCard.js's shape).
+ * Links to /courses/[slug]. `course.accessLevel` is shown as a small badge
+ * so a visitor knows before clicking whether a course needs verification/
+ * membership/purchase — the actual gate is enforced on the detail/lesson
+ * pages, this is just a hint.
  */
-export default function CourseCard({ thumbnail, title, description, price, badge = 'Coming Soon', tier = 'free' }) {
-  const isPremium = tier === 'premium';
-  const TierIcon = isPremium ? Sparkles : GraduationCap;
+export default function CourseCard({ course }) {
+  if (!course) return null;
 
   return (
-    <div className="group flex h-full flex-col overflow-hidden rounded-xl2 border border-line bg-white shadow-sm transition-shadow duration-200 hover:shadow-lg">
-      <div className={`relative aspect-[16/10] w-full shrink-0 overflow-hidden ${isPremium ? 'bg-accent-soft' : 'bg-sage'}`}>
-        {thumbnail?.url ? (
-          // eslint-disable-next-line @next/next/no-img-element -- CMS-ready thumbnail field, not yet backed by an optimizable upload pipeline
-          <img src={thumbnail.url} alt={thumbnail.alt || ''} className="h-full w-full object-cover" />
+    <Link
+      href={`/courses/${course.slug}`}
+      className="group flex h-full flex-col overflow-hidden rounded-xl2 border border-line bg-white transition-colors hover:border-primary"
+    >
+      <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden bg-sage">
+        {course.thumbnail?.url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- locally-uploaded file, not an optimizable remote image
+          <img
+            src={course.thumbnail.url}
+            alt={course.thumbnail.alt || course.title}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
         ) : (
-          <div className={`flex h-full w-full items-center justify-center ${isPremium ? 'text-accent-dark/40' : 'text-primary/25'}`}>
-            <TierIcon size={36} aria-hidden="true" />
+          <div className="flex h-full w-full items-center justify-center text-primary/25">
+            <GraduationCap size={36} aria-hidden="true" />
           </div>
         )}
-        <span className="absolute left-3 top-3">
-          <Badge tone={isPremium ? 'accent' : 'sage'}>{badge}</Badge>
-        </span>
+        {course.category?.name && (
+          <span className="absolute left-3 top-3">
+            <Badge tone="accent">{course.category.name}</Badge>
+          </span>
+        )}
+        {course.featured && (
+          <span className="absolute right-3 top-3">
+            <Badge tone="primary">
+              <Star size={11} className="mr-1 -ml-0.5 fill-current" aria-hidden="true" />
+              Featured
+            </Badge>
+          </span>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col p-5">
-        <p className={`text-[11px] font-semibold uppercase tracking-wide ${isPremium ? 'text-accent-dark' : 'text-primary'}`}>
-          {isPremium ? 'Premium' : 'Free'}
-        </p>
-        <h3 className="mt-1 font-display text-base font-semibold leading-snug text-primary-dark">{title}</h3>
-        {description && <p className="mt-2 flex-1 text-sm text-muted">{description}</p>}
+        <h3 className="font-display text-base font-semibold leading-snug text-primary-dark line-clamp-2 group-hover:text-primary">
+          {course.title}
+        </h3>
+        {course.description && (
+          <p className="mt-2 flex-1 text-sm text-muted line-clamp-2">{course.description}</p>
+        )}
 
-        <div className="mt-4 flex items-center justify-between border-t border-line/70 pt-3">
-          <span className="font-display text-sm font-bold text-primary-dark">
-            {price ? `₹${Number(price).toLocaleString('en-IN')}` : 'Free'}
-          </span>
-          <span className="text-xs font-semibold text-muted">Coming soon</span>
+        <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-muted">
+          {course.duration && (
+            <span className="inline-flex items-center gap-1">
+              <Clock size={13} aria-hidden="true" />
+              {course.duration}
+            </span>
+          )}
+          {course.difficulty && <span>{course.difficulty}</span>}
+          {course.instructors?.[0]?.name && (
+            <span>
+              {course.instructors[0].name}
+              {course.instructors.length > 1 ? ` +${course.instructors.length - 1}` : ''}
+            </span>
+          )}
         </div>
+
+        {course.accessLevel && course.accessLevel !== 'PUBLIC' && (
+          <div className="mt-3">
+            <Badge tone="sage">{course.accessLevel}</Badge>
+          </div>
+        )}
       </div>
-    </div>
+    </Link>
   );
 }

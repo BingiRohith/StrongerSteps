@@ -104,6 +104,44 @@ visitors never get a `User` account. `middleware.js` is unchanged (still
 route/server-component level via `lib/access/canAccess.js`. Full design in
 [14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md).
 
+## Content hierarchy pattern (Course → Section → Lesson)
+
+**Sprint 19.2** introduced this project's first 3-level content hierarchy.
+Each tier is its own top-level Mongoose collection with an FK ref to its
+parent (`Section.course`, `Lesson.section` + a denormalized `Lesson.course`
+convenience ref) — **not** embedded sub-document arrays on `Course`. This
+follows the same "hierarchy = separate collection + FK" pattern this
+project already used for `Team.parentMember` and `Booking.event`, and
+matters specifically because `Lesson` needs a stable top-level id for
+future per-lesson progress tracking (`VerifiedLead`'s planned
+`completedCourses`/assessment-history extensions — see
+[14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md)). Admin CRUD for
+Sections/Lessons is nested under the course
+(`app/api/admin/courses/[id]/sections/[sectionId]/lessons/[lessonId]`),
+same nested-route shape as any parent/child relationship elsewhere in this
+codebase.
+
+## Gated media, two serving paths (Sprint 19.2)
+
+`Lesson` media (video/pdf/image/attachments) is always written to private
+storage (`private-uploads/lessons-<kind>/`), regardless of the lesson's
+`accessLevel` — a public-looking lesson today could be re-gated tomorrow,
+and a stale public static path would bypass that (same reasoning Sprint
+12.5 established for Infographics). Two independent, non-overlapping
+serving routes:
+
+- **`accessLevel: 'OTP'`** → the existing, unchanged `app/api/verify/*`
+  flow (a `lesson` entry registered in
+  `lib/verification/resourceRegistry.js`) — a one-time OTP proof issues a
+  short-lived download token, same as Infographics.
+- **`PUBLIC`/`MEMBER`/`PURCHASED`/`ADMIN`** → the new
+  `GET /api/lessons/[id]/media` route, checked against the current
+  request's session (`lib/access/canAccess.js`) — no token, just "is this
+  actor currently allowed."
+
+An admin session bypasses both paths (can preview any lesson regardless of
+its gate), consistent with `canAccess()`'s existing admin-override design.
+
 ## Upload strategy (current limitation)
 
 All uploads (`lib/localUpload.js` and three older duplicate implementations

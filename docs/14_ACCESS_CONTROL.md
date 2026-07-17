@@ -240,9 +240,12 @@ genuinely unbounded logs like assessment attempts.
   This was the last safe moment: Sprint 19.2's Courses CMS is the very next
   sprint that would have started writing to whichever shape existed.
 
-## What this sprint does not do
+## What Sprint 19.1B did not do (superseded)
 
-- No Course/Resource/Tool models or CMS.
+- ~~No Course/Resource/Tool models or CMS.~~ **Courses shipped in Sprint
+  19.2** — see its own section above ("How future purchases will
+  integrate") and `docs/05_DATABASE.md`'s `Course`/`Section`/`Lesson`
+  entries. Resources/Tools remain unbuilt.
 - No admin UI for viewing/merging leads.
 - No Membership purchase flow (the fields exist; nothing sets them yet).
 - No change to `middleware.js` or the existing Infographic OTP download gate's

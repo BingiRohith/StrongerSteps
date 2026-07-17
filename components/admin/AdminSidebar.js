@@ -16,6 +16,7 @@ import {
   Tags,
   Home,
   Ticket,
+  GraduationCap,
   X,
 } from 'lucide-react';
 
@@ -32,6 +33,8 @@ export const NAV_ITEMS = [
   { href: '/admin/bookings', label: 'Bookings', icon: Ticket },
   { href: '/admin/recipes', label: 'Recipes', icon: Soup },
   { href: '/admin/recipe-categories', label: 'Recipe Categories', icon: Tags },
+  { href: '/admin/courses', label: 'Courses', icon: GraduationCap },
+  { href: '/admin/course-categories', label: 'Course Categories', icon: Tags },
   { href: '/admin/categories', label: 'Categories', icon: FolderTree },
 ];
 

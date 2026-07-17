@@ -77,7 +77,7 @@ Public, reusable, provider-agnostic — not Knowledge-Center-specific. See
 |---|---|---|---|
 | `/api/verify/generate-otp` | POST | Public | Body: `{ resourceType, resourceId, method: 'email'\|'mobile', email?, mobile? }`. `resourceType` is checked against `lib/verification/resourceRegistry.js`, not a DB enum. Rate-limited to 3 requests per identifier per 15 minutes (429 beyond that). Returns `{ verificationId }` — never the OTP itself. |
 | `/api/verify/verify-otp` | POST | Public | Body: `{ verificationId, otp }`. OTP expires after 10 minutes; locks out after 5 wrong attempts (429). On success returns `{ downloadToken }` — a short-lived (15 min) signed JWT, not a permanent URL. **Sprint 19.1B**: also upserts/links a `VerifiedLead` (`lib/verifiedLead.js`) for the verified identifier and sets/refreshes the `ss_lead` session cookie — see [14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md). |
-| `/api/verify/download` | GET | Public (token-gated) | Query: `token`, `fileKind` (`image`\|`pdf`). Validates the signed token, resolves the file via the resource registry, streams it from private storage with `Content-Disposition: attachment`, and stamps `downloadedAt` on the `Verification` row. The only route that ever serves bytes for a protected resource. |
+| `/api/verify/download` | GET | Public (token-gated) | Query: `token`, `fileKind` (`image`\|`pdf`\|**`video`\|`attachment-<index>` — Sprint 19.2**). Validates the signed token, resolves the file via the resource registry, streams it from private storage with `Content-Disposition: attachment`, and stamps `downloadedAt` on the `Verification` row. The only route that ever serves bytes for an OTP-protected resource. **Sprint 19.2**: `resourceType: 'lesson'` is now registered alongside `'infographic'` — only reachable for lessons with `accessLevel: 'OTP'`. |
 
 ## Products
 
@@ -224,6 +224,63 @@ Singleton — no `[id]` routes, since there's exactly one document.
 | Route | Method | Auth | Notes |
 |---|---|---|---|
 | `/api/recipes` | GET | Public | Query: `category` (slug, not id), `tag`, `difficulty`, `search`, `sort` (`name-asc`\|`newest`\|`featured`), `page` (default 1), `limit` (default 12, max 48). Published-only. Filtering/sorting/pagination are all server-side. Returns `{ recipes, pagination }`. Category/tag facets and active-category navigation are fetched once by `app/recipes/page.js` via `lib/publicRecipes.js` directly, not recomputed on every request. |
+
+## Course Categories (Sprint 19.2)
+
+### Admin — `app/api/admin/course-categories/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/course-categories` | GET | Any session | Query: `isActive` (`'true'`\|`'false'`), `search`. No pagination. Returns `{ categories }`. |
+| `/api/admin/course-categories` | POST | Admin/editor | Body: `name` required; `slug`, `description`, `icon`, `displayOrder`, `isActive` optional. Returns `{ category }`, 201. |
+| `/api/admin/course-categories/[id]` | GET \| PUT \| DELETE | Any session (GET) / Admin/editor (PUT/DELETE) | Same shape as Product Categories — DELETE blocks with 409 if any `Course` still references the category (`Course.category` is `required`). |
+| `/api/admin/course-categories/[id]/status` | PATCH | Admin/editor | Body: `{ isActive: boolean }`. |
+| `/api/admin/course-categories/upload` | POST | Admin/editor | multipart `file`, via `lib/localUpload.js`. Returns `{ url }`, 201. |
+
+## Courses (Sprint 19.2)
+
+### Admin — `app/api/admin/courses/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/courses` | GET | Any session | Query: `status` (`draft`\|`published`), `category` (id), `difficulty`, `search`. No pagination. Returns `{ courses }`. |
+| `/api/admin/courses` | POST | Admin/editor | Body: `title`, `category` (valid `CourseCategory` id) required. `accessLevel` validated against `ACCESS_LEVELS`; `difficulty` against `DIFFICULTY_VALUES`. Returns `{ course }`, 201. |
+| `/api/admin/courses/[id]` | GET | Any session | Single, populated `createdBy`/`updatedBy`/`category`. |
+| `/api/admin/courses/[id]` | PUT | Admin/editor | Partial update; also used by the list's reorder controls. Stamps `updatedBy`. |
+| `/api/admin/courses/[id]` | DELETE | Admin/editor | Cascade-deletes the course's `Section`s and `Lesson`s — see [13_DECISIONS.md](13_DECISIONS.md). `{ deleted: true }`. |
+| `/api/admin/courses/[id]/status` | PATCH | Admin/editor | Publish toggle. |
+| `/api/admin/courses/upload` | POST | Admin/editor | multipart `file`, via `lib/localUpload.js` (public storage — thumbnail/banner/instructor photo are never gated). Returns `{ url }`, 201. |
+
+### Admin — Sections, nested under a course
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/courses/[id]/sections` | GET | Any session | Every section for the course, ordered. Returns `{ sections }`. |
+| `/api/admin/courses/[id]/sections` | POST | Admin/editor | Body: `title` required; `description`, `displayOrder`, `collapsedByDefault` optional. Returns `{ section }`, 201. |
+| `/api/admin/courses/[id]/sections/[sectionId]` | PUT | Admin/editor | Partial update; also the reorder-swap endpoint. |
+| `/api/admin/courses/[id]/sections/[sectionId]` | DELETE | Admin/editor | Cascade-deletes the section's `Lesson`s. `{ deleted: true }`. |
+
+### Admin — Lessons, nested under a section
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/courses/[id]/sections/[sectionId]/lessons` | GET | Any session | Every lesson in the section, ordered. Returns `{ lessons }`. |
+| `/api/admin/courses/[id]/sections/[sectionId]/lessons` | POST | Admin/editor | Body: `title` required (minimal create — media/content fields are set afterward via PUT, same two-step "create then attach media" flow as every upload-bearing module). Returns `{ lesson }`, 201. |
+| `/api/admin/courses/[id]/sections/[sectionId]/lessons/[lessonId]` | GET \| PUT \| DELETE | Admin/editor (GET: any session) | PUT accepts `video`/`pdf`/`image`/`externalUrl`/`body`/`attachments` plus the reorder-swap `displayOrder`. |
+| `/api/admin/courses/[id]/sections/[sectionId]/lessons/[lessonId]/upload` | POST | Admin/editor | multipart `file`; query `?mediaType=video\|pdf\|image\|attachment` (not a form field — the request body is read exactly once by the underlying `saveProtected*` helper). Always writes to **private** storage (`private-uploads/lessons-<kind>/`) via `lib/privateUpload.js`, regardless of the lesson's current `accessLevel`. Returns `{ url, filename }`, 201 — `url` is a private storage key, not a browsable path. |
+
+### Public — `app/api/courses/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/courses` | GET | Public | Query: `category` (`CourseCategory` slug), `difficulty`, `tag`, `search`, `sort` (`title-asc`\|`newest`\|`featured`), `page` (default 1), `limit` (default 12, max 48). Published-only. Returns `{ courses, pagination }`. |
+| `/api/courses/[slug]` | GET | Public | Published-only. Returns `{ course }` with its full curriculum (`sections[].lessons[]`) attached. Each lesson's actual content fields (`video`/`pdf`/`image`/`externalUrl`/`body`/`attachments`) are stripped unless the current actor can access it (`lib/courseAccess.js`'s `annotateCourseAccess()`) — the curriculum *outline* (title/type/duration/accessLevel/locked) is always present. |
+
+### Public — `app/api/lessons/[id]/media/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/lessons/[id]/media` | GET | Public (session-checked) | Query: `fileKind` (`video`\|`pdf`\|`image`\|`attachment-<index>`). The `canAccess()`-gated counterpart to the OTP flow — serves `PUBLIC`/`MEMBER`/`PURCHASED`/`ADMIN`-level lesson media based on the current request's session (admin or `VerifiedLead` lead session), no token involved. Rejects `accessLevel: 'OTP'` lessons for non-admins (400 — those go through `/api/verify/*` instead); admin sessions bypass this for OTP lessons too, so admins can preview any lesson regardless of gate. Draft-course lessons 404 for non-admins even if `previewAvailable`. See [14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md). |
 
 ## Bookings — `app/api/bookings/`
 

@@ -36,7 +36,7 @@ export const GET = withErrorHandling(async (request) => {
 
   await connectDB();
   const resource = await config.model.findById(resourceId);
-  if (!resource || !config.isAccessible(resource)) {
+  if (!resource || !(await config.isAccessible(resource))) {
     return fail('Resource not found', 404);
   }
 
