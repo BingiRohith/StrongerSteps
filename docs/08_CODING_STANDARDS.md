@@ -50,6 +50,46 @@ deliberately do **not** use it — they have no `status`/`slug`/`seo` of
 their own (visibility follows the parent Course) — a reminder that
 adoption is genuinely per-model, not "every new schema must use this."
 
+**Sprint 19.3**: `models/Resource.js` is the pattern's second consumer,
+confirming the same thing again — Resource-specific fields (`author`,
+`keywords`, `estimatedReadingTime`, `fileTypes`, ...) layer on top with no
+changes to `sharedContentFields()` itself. `models/ResourceFile.js` (the
+tier below Resource) also skips it, same reasoning as `Lesson`.
+
+## Soft-delete (Sprint 19.3 — scoped, not a new default)
+
+`Resource`/`ResourceFile` are this project's first soft-deleted models
+(`deletedAt: Date, default: null`) — every other module (`Course`,
+`Product`, ...) still hard-deletes via `findByIdAndDelete`/
+`findOneAndDelete`. This is a deliberate, scoped deviation for the
+Resource module specifically, not a new project-wide convention — don't
+retrofit it onto existing models without a separate, explicit decision
+(see [13_DECISIONS.md](13_DECISIONS.md) for why the Resource module
+needed it). If a future model does adopt it:
+- Every read query (public helpers, admin list, the verification
+  registry's `isAccessible`, any gated serving route) must add
+  `deletedAt: null` to its filter — soft-deleted rows are invisible
+  everywhere by default, not just hidden from one view.
+- `DELETE` sets `deletedAt: new Date()` instead of removing the document;
+  restoring is `PUT`/`PATCH` with `{ deletedAt: null }` — no separate
+  "restore" endpoint.
+- A parent-child cascade (e.g. `Resource` → `ResourceFile`) becomes a
+  cascade *soft*-delete (`updateMany({ deletedAt: null }, { deletedAt })`)
+  instead of a cascade hard-delete.
+- No restore UI, trash view, or purge job is required to adopt this
+  pattern — `deletedAt` alone makes `DELETE` reversible at the database
+  level, which was the actual requirement.
+
+## Denormalized facet fields (Sprint 19.3)
+
+`Resource.fileTypes` (a server-maintained `[String]`, refreshed by
+`lib/resourceFileTypes.js` whenever a child `ResourceFile` changes) is
+this project's pattern for a public filter facet that would otherwise
+require a join: compute it once on write, store it flat on the parent, and
+never accept it from the client. Reach for this instead of querying the
+child collection at every listing request when a facet's source of truth
+lives on a child/related document, not the model being listed.
+
 ## Slug generation
 
 Use `slugify()` / `ensureUniqueSlug()` / `estimateReadingTime()` from

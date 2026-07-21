@@ -142,6 +142,33 @@ serving routes:
 An admin session bypasses both paths (can preview any lesson regardless of
 its gate), consistent with `canAccess()`'s existing admin-override design.
 
+## Content hierarchy pattern (Resource → ResourceFile, Sprint 19.3)
+
+A two-tier variant of the Course→Section→Lesson pattern above — `Resource`
+is the top tier, `ResourceFile` the leaf, no middle "Section" tier since
+the brief doesn't ask for one. Same rules apply: separate top-level
+collections with an FK ref (`ResourceFile.resource`), not an embedded
+array, and the same gated-media two-serving-path split
+(`accessLevel: 'OTP'` → `app/api/verify/*`;
+`PUBLIC`/`MEMBER`/`PURCHASED`/`ADMIN` → a `canAccess()`-gated route). One
+routing difference from Lessons: the gated route lives at a **flat**
+`GET /api/resource-files/[fileId]` rather than nested under
+`/api/resources/[id]/files/[fileId]` — nesting it there collided with the
+public `GET /api/resources/[slug]` route (Next.js requires every dynamic
+segment at one path level to share a param name), the same reason
+`/api/lessons/[id]/media` already lives outside `/api/courses/` instead of
+nested under it. See [13_DECISIONS.md](13_DECISIONS.md).
+
+`Resource.accessLevel` (like `Course.accessLevel`) is informational only
+at the overview level; the real gate is each `ResourceFile.accessLevel`,
+an independent field, not inherited from its parent.
+
+`Resource`/`ResourceFile` also introduce this project's first soft-delete
+(`deletedAt`, cleared only via an explicit `PUT { deletedAt: null }`) —
+every other module hard-deletes. A deliberate, scoped deviation, not a
+new default convention; see [13_DECISIONS.md](13_DECISIONS.md) and
+[08_CODING_STANDARDS.md](08_CODING_STANDARDS.md).
+
 ## Upload strategy (current limitation)
 
 All uploads (`lib/localUpload.js` and three older duplicate implementations

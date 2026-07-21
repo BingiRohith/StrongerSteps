@@ -4,6 +4,8 @@ import { verifyDownloadToken, stampDownload } from '@/lib/verification/verificat
 import { getResourceConfig } from '@/lib/verification/resourceRegistry';
 import { readProtectedFile } from '@/lib/privateUpload';
 import { mimeFromFilename } from '@/lib/fileMime';
+import { getCurrentLead } from '@/lib/access/leadSession';
+import { recordDownload } from '@/lib/downloadLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +42,7 @@ export const GET = withErrorHandling(async (request) => {
     return fail('Resource not found', 404);
   }
 
-  const file = config.getFile(resource, fileKind);
+  const file = await config.getFile(resource, fileKind);
   if (!file?.url) {
     return fail('File not available for this resource', 404);
   }
@@ -54,6 +56,11 @@ export const GET = withErrorHandling(async (request) => {
   }
 
   await stampDownload(verificationId);
+
+  // Sprint 19.3 — generic download log, covers every resourceType this
+  // route serves (not just 'resource'), never blocks the response.
+  const lead = await getCurrentLead(request).catch(() => null);
+  await recordDownload({ resourceType, resourceId, fileKind, fileLabel: file.filename || '', lead });
 
   const downloadName = file.filename || file.url;
 

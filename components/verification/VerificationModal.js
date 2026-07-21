@@ -12,8 +12,18 @@ import { X, Mail, Phone, Loader2, ShieldCheck, AlertCircle, CheckCircle2 } from 
  * successful OTP check, never a permanent public link.
  *
  * Steps: choose-method -> enter-contact -> enter-otp -> done.
+ *
+ * `onVerified` (optional, Sprint 19.3): called with the freshly-issued
+ * `downloadToken` right before the auto-navigation below, so a caller that
+ * needs to download *more than one file* from the same resourceId (e.g.
+ * ResourceDownloadsSection.js) can cache the token and reuse it for
+ * further OTP files without reopening this modal — the token already
+ * works for any `fileKind` on that resourceId within its ~15 min
+ * lifetime (see lib/verification/verificationService.js). Existing
+ * callers (InfographicViewer.js) don't pass it, so their behavior is
+ * unchanged.
  */
-export default function VerificationModal({ resourceType, resourceId, fileKind, onClose }) {
+export default function VerificationModal({ resourceType, resourceId, fileKind, onClose, onVerified }) {
   const [step, setStep] = useState('choose-method');
   const [method, setMethod] = useState('');
   const [contact, setContact] = useState('');
@@ -74,6 +84,7 @@ export default function VerificationModal({ resourceType, resourceId, fileKind, 
         return;
       }
       setStep('done');
+      onVerified?.(data.downloadToken);
       const downloadUrl = `/api/verify/download?token=${encodeURIComponent(data.downloadToken)}&fileKind=${encodeURIComponent(fileKind)}`;
       window.location.href = downloadUrl;
     } catch (err) {

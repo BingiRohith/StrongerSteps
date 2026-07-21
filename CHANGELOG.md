@@ -1,5 +1,222 @@
 # Changelog
 
+## Sprint 19.3: Digital Resource Library & Knowledge Center — 2026-07-21
+
+Scope: a complete, production-ready Digital Resource Library — admin CMS,
+public library, Resource→ResourceFile hierarchy, access control, OTP
+download flow, search/filters, SEO, tests, docs — built entirely on top of
+Sprint 19.1B/19.2's identity/access-control/verification/upload
+architecture. No new authentication, no new permission system, no new
+upload mechanism, no new verification service. No Payments, Membership
+Purchase, Bookmarks, Ratings, Comments, AI Search, Recommendations,
+Analytics Dashboard, Version History UI, Notifications, Wishlist, or
+Dashboard Enhancements — all explicitly deferred per this sprint's brief.
+
+### Added — Models
+- **`models/ResourceCategory.js`** — mirrors `CourseCategory`/
+  `ProductCategory`/`RecipeCategory` exactly (name/slug/description/icon/
+  displayOrder/isActive, same Create/Edit/Delete/Activate-Deactivate/
+  Reorder pattern). Delete blocks with 409 if any `Resource` still
+  references it.
+- **`models/Resource.js`** — built on `lib/sharedContentFields.js` (the
+  second real consumer after `Course`): `title`/`slug`/`description`/
+  `thumbnail`/`status`/`featured`/`displayOrder`/`accessLevel`/`seo`/
+  `createdBy`/`updatedBy` all come from the shared pattern. Adds
+  `longDescription`, `banner`, `category` (ref `ResourceCategory`), `tags`
+  (public filter facet) and `keywords` (search-only, kept as two separate
+  fields since the brief lists them as distinct — unlike Lesson's
+  `attachments` consolidation), `author` (free text, no embedded person
+  sub-document — the brief only asks for a single author, unlike Course's
+  "Multiple Instructors"), `estimatedReadingTime`, `language`,
+  `fileTypes` (server-maintained denormalization of child files'
+  `fileType`s — never client-writable, refreshed by
+  `lib/resourceFileTypes.js` whenever a `ResourceFile` changes, avoids a
+  join for the public "File Type" filter), `deletedAt` (soft-delete — see
+  Decisions). `Resource.accessLevel` is deliberately **informational
+  only** at the overview level, same as `Course.accessLevel` — the real
+  per-download gate is each file's own `accessLevel`.
+- **`models/ResourceFile.js`** — separate top-level collection (same
+  "hierarchy = separate collection + FK" pattern as `Section`/`Lesson`),
+  `resource` FK ref. `fileType` (`pdf`\|`image`\|`word`\|`excel`\|
+  `powerpoint`\|`zip`\|`audio`\|`video`\|`external_link`, new
+  `lib/resourceOptions.js`), `previewAvailable` (bypasses its own
+  `accessLevel` gate, mirrors `Lesson.previewAvailable`), `downloadable`
+  (view-only vs. downloadable), `accessLevel` (own field, default
+  `PUBLIC`, independent of the parent Resource — mirrors
+  `Lesson.accessLevel`/`Course.accessLevel`), `file` (nested
+  `{url, filename, mimeType, sizeBytes, storageProvider}` — provider-
+  agnostic metadata captured at upload time, and deliberately the exact
+  shape a future `ResourceFileVersion` row would carry), `currentVersion`
+  (bumped on re-upload), `deletedAt`. Media always written to **private**
+  storage (`private-uploads/resources-files/`) regardless of
+  `accessLevel`, same Sprint 12.5/19.2 reasoning.
+- **`models/DownloadLog.js`** — a **generic**, not Resource-only,
+  download-tracking log (`resourceType`/`resourceId`/`fileKind`/
+  `fileLabel`/`lead`/`downloadedAt`), same polymorphic free-text
+  convention as `Verification.resourceType`/`VerifiedLead.purchasedItems`.
+  Written best-effort from the one shared OTP download route (covers
+  `infographic`/`lesson`/`resource` uniformly) and the new
+  `/api/resource-files/[fileId]` route's `action=download` branch. This is
+  the sprint's "prepare the architecture, don't build analytics"
+  requirement — no admin route reads this collection yet.
+
+### Added — Access control integration (reused, not duplicated)
+- **`lib/verification/resourceRegistry.js`** — new `resource` entry
+  alongside the existing `infographic`/`lesson` entries. `getFile` is
+  async (files live in a separate `ResourceFile` collection, unlike
+  Lesson's embedded fields) — both call sites now `await` it, a no-op for
+  the existing synchronous entries.
+- **`app/api/resource-files/[fileId]/route.js`** (new) — the
+  `canAccess()`-gated counterpart for `PUBLIC`/`MEMBER`/`PURCHASED`/
+  `ADMIN` file access, mirroring `app/api/lessons/[id]/media/route.js`
+  exactly (session-checked via `getCurrentActor()`, rejects `OTP`-level
+  files for non-admins, admin session bypasses). Deliberately a **flat**
+  route (`ResourceFile._id` only, not nested under `/api/resources/[id]/`)
+  — see "A real bug found" below. Supports `?action=view|download` (inline
+  vs. attachment disposition; `download` also requires
+  `file.downloadable !== false` and writes a `DownloadLog` entry).
+- **`lib/resourceAccess.js`** (new) — `annotateResourceFileAccess()`/
+  `annotateResourceAccess()`, the pure bridge between
+  `lib/publicResources.js`'s plain DB fetches and `canAccess()`, mirrors
+  `lib/courseAccess.js` exactly. Strips a locked file's content fields
+  entirely, not just client-side. `PURCHASED` always resolves against the
+  *resource* id, never the file's own id.
+- **`lib/privateUpload.js`** — added `saveProtectedZip()` (100MB cap) and
+  `saveProtectedAudio()` (mp3/wav/m4a, 50MB cap), alongside the existing
+  four savers. `saveProtectedFile()`'s return value additively gained
+  `mimeType`/`sizeBytes` (existing callers ignore the new keys) — captured
+  once at upload time so a future cloud-storage migration doesn't need to
+  re-derive them from the stored filename's extension.
+- **`lib/fileMime.js`** — extended with `.zip`/`.mp3`/`.wav`/`.m4a`.
+- **`components/verification/VerificationModal.js`** — gained one optional
+  `onVerified(downloadToken)` callback, called right before the existing
+  auto-navigation. Lets `ResourceDownloadsSection.js` cache the token and
+  reuse it for every further OTP file in the same resource without
+  reopening the modal — the token already works for any `fileKind` on that
+  `resourceId` within its ~15 min lifetime, no mechanism change needed.
+  `InfographicViewer.js` (the only other caller) doesn't pass it, so its
+  behavior is unchanged — verified live end-to-end.
+- **`app/api/verify/download/route.js`** — `config.getFile()` is now
+  `await`ed (required for the new async `resource` entry, a no-op for the
+  existing synchronous ones); one best-effort `DownloadLog` write added
+  after the existing `stampDownload()` call, covering every `resourceType`
+  this shared route serves, not just `resource`.
+
+### Added — Admin API & UI
+- `app/api/admin/resource-categories/*`, `app/api/admin/resources/*`
+  (including nested `[id]/files/[fileId]` and `.../upload`) — same
+  `requireAuth`/`withErrorHandling`/`ok`/`fail` pattern as every other
+  admin route. `DELETE` on both Resources and ResourceFiles **soft-deletes**
+  (sets `deletedAt`) instead of removing the document — a deliberate,
+  scoped deviation from this project's usual hard-delete precedent, see
+  Decisions. Resource `DELETE` cascades to soft-deleting its files.
+- `components/admin/resource-categories/*`,
+  `components/admin/resources/*` (`ResourcesListClient`, `ResourceForm`,
+  `ResourceFilesManager`, `ResourceFileEditorPanel`) — reuse
+  `ImageUploadField`, `TagsInput`, `StatusBadge` as-is.
+  `ResourceFilesManager` is a simplified, single-level version of
+  `CurriculumManager` (no Section-style middle tier).
+- `app/admin/(protected)/resource-categories/*`,
+  `app/admin/(protected)/resources/*` (list, new, edit, files) pages.
+  `AdminSidebar.js` gained "Resources"/"Resource Categories" nav entries.
+
+### Added — Public UI
+- **`lib/publicResources.js`** — published-only query helpers
+  (`getPublishedResources`, `getFeaturedResources`,
+  `getActiveResourceCategories`, `getResourceTagsFacet`,
+  `getResourceBySlug`, `getRelatedResources`), mirrors
+  `lib/publicCourses.js`. `getPublishedResources` supports a dedicated
+  `featured` boolean **filter** (distinct from the existing
+  `sort: 'featured'` reordering) per this sprint's Filters requirement.
+- `app/api/resources/route.js`, `app/api/resources/[slug]/route.js` —
+  public read routes.
+- `app/resources/page.js` +
+  `components/resources/{ResourcesPageClient,FeaturedResources,ResourceCard}.js` —
+  listing page: category tabs, search (title/description/tags/keywords/
+  author, via `Resource`'s text index), File Type / Featured / Access
+  Level filters, Newest/Title sort, pagination.
+- `app/resources/[slug]/page.js` +
+  `components/resources/{ResourceDownloadsSection,ResourceFileViewer}.js` —
+  detail page: hero, banner/thumbnail, author/reading-time/language, tags
+  sidebar, related resources, `schema.org/CreativeWork` JSON-LD. The
+  Downloads section renders each file's action by its
+  `locked`/`requiresOtp` flags: `Verify to download` (OTP, with the
+  token-reuse behavior above), a lock badge (`MEMBER`/`PURCHASED`, no
+  purchase flow exists yet so this is an honest "Members only," not a
+  broken button), or View/Preview/Download for unlocked files.
+  `ResourceFileViewer` is an image/video lightbox mirroring
+  `InfographicViewer` — pdf/audio get a plain `action=view` link instead
+  (the browser already renders those natively; a bespoke viewer would just
+  reinvent that).
+
+### Modified
+- **`app/knowledge-center/page.js`** — Resources section now fetches real
+  featured resources (`getFeaturedResources`) instead of the hardcoded
+  `RESOURCES` placeholder array (deleted), and links to the new
+  `/resources` page via a "View all resources" button — same "don't split
+  across two pages" precedent Sprint 19.2 set for Courses. No new header
+  nav item.
+- **`tests/`** — new `tests/models/resourceModels.test.js` (Resource/
+  ResourceCategory/ResourceFile/DownloadLog schema validation via
+  `validateSync()`), `tests/lib/resourceAccess.test.js` (every access
+  level, `previewAvailable` override including OTP, PURCHASED-resolves-
+  to-resource-id — mirrors `courseAccess.test.js`).
+- Docs: `04_ARCHITECTURE.md`, `05_DATABASE.md` (4 new model sections +
+  relationships), `06_API_DOCUMENTATION.md` (Resource Categories/
+  Resources/Resource Files routes, updated Verification section),
+  `08_CODING_STANDARDS.md` (soft-delete + denormalized-facet
+  conventions), `13_DECISIONS.md` (new entries), `14_ACCESS_CONTROL.md`
+  (`resource`/`DownloadLog` added to the reusable-architecture list),
+  `10_SPRINT_HISTORY.md`.
+
+### A real bug found and fixed during implementation
+The first draft nested the gated file-serving route at
+`app/api/resources/[id]/files/[fileId]/route.js`. `npm run build` failed
+immediately: Next.js requires every dynamic segment at the same path level
+to share one param name, and this collided with the existing public
+`app/api/resources/[slug]/route.js`. Fixed by moving it to a flat
+`app/api/resource-files/[fileId]/route.js` — the same shape
+`/api/lessons/[id]/media` already uses for exactly this reason (not nested
+under `/api/courses/`). Caught immediately by the build, not by manual
+testing; every doc/code comment referencing the old path was corrected
+before commit.
+
+### Not implemented (by design, per this sprint's scope)
+- No Payments, Membership Purchase flow, Bookmarks (UI), Ratings,
+  Comments, AI Search, Recommendations, Analytics Dashboard (`DownloadLog`
+  the *data* exists, no dashboard reads it), Version History UI
+  (`ResourceFile.currentVersion` the *counter* exists, no history
+  collection or UI), Notifications, Wishlist, or Dashboard Enhancements.
+- No admin "Trash" view or restore UI for soft-deleted Resources/Files —
+  restoration is possible via the existing `PUT .../[id]` with
+  `{ deletedAt: null }`, just not exposed in the admin UI yet.
+- No hard-purge job for soft-deleted rows or their orphaned uploaded
+  files — same standing limitation this project already has for every
+  hard-deleted module's uploads (nothing cleans up orphaned files on disk
+  anywhere).
+
+### Verified
+Unlike most prior sprints, this one **was** exercised end-to-end against a
+live MongoDB in a real browser session (`preview_*` tooling), not just
+`npm run build`/model-level validation: full admin CRUD for Categories/
+Resources/Files (create, edit, reorder, replace-file version bump,
+soft-delete with DB-level confirmation that rows persist with `deletedAt`
+set rather than being removed), the public listing's search/filters/
+category-nav/pagination (verified via direct network-request inspection
+of the resulting queries), the detail page's PUBLIC downloads
+(`Content-Disposition` headers checked directly), the full OTP round-trip
+using the mock email provider (real OTP read from server logs), token
+reuse across two OTP files in the same resource (confirmed exactly one
+`generate-otp`/`verify-otp` pair for both downloads), expired-token
+handling (a deliberately-expired JWT confirmed 401 from `/api/verify/download`),
+the existing Infographic OTP flow run live end-to-end to confirm it's
+unaffected, mobile layout at 375px for both listing and detail pages, and
+a regression pass across Courses/Lessons/Products/Recipes/Programs/
+Membership/Infographics admin + public pages. `npm test`: 98/98. `npm run
+build`: clean.
+
+---
+
 ## Sprint 19.2 pre-commit scalability review — 2026-07-17
 
 Before committing, reviewed Course/Section/Lesson against an assumed

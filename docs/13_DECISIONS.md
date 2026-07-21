@@ -5,6 +5,149 @@ as of the 2026-07-07 documentation sprint — everything below Sprint 9 is
 reconstructed from code/CHANGELOG evidence, not from a prior decisions log
 (none existed).
 
+## 2026-07-21 — Sprint 19.3: gated file route moved to a flat `/api/resource-files/[fileId]`, not nested under `/api/resources/[id]/`
+
+The first implementation attempt put the `canAccess()`-gated file-serving
+route at `app/api/resources/[id]/files/[fileId]/route.js`, mirroring the
+*admin* nested-route shape. `npm run build` failed immediately:
+
+```
+Error: You cannot use different slug names for the same dynamic path ('id' !== 'slug').
+```
+
+**Why:** Next.js requires every dynamic segment at one path level to share
+a single param name. `app/api/resources/[slug]/route.js` (the existing
+public detail route) and `app/api/resources/[id]/...` both resolve to a
+single dynamic segment at `/api/resources/<dynamic>` — `slug` and `id`
+collide.
+
+**What changed:** moved the route to a flat `app/api/resource-files/[fileId]/route.js`.
+`ResourceFile._id` is already globally unique, so no parent id is needed
+in the URL — the file's own `resource` ref is resolved server-side
+instead.
+
+**Why this isn't a new pattern:** it's the same shape
+`/api/lessons/[id]/media` already uses, and for the identical reason —
+that route also isn't nested under `/api/courses/[id]/...` for exactly
+this collision risk. This decision generalizes that precedent rather than
+inventing a new one: **a gated media/file-serving route for a
+slugged-detail-page content type should be a flat top-level route, not
+nested under the parent's admin-style path.**
+
+**How to apply:** any future content type with both a public
+`/api/<module>/[slug]` route and a gated per-file/per-media route should
+default to the flat `/api/<module>-files/[id]` (or similar) shape from the
+start, not discover the collision at build time.
+
+## 2026-07-21 — Sprint 19.3: `DownloadLog` generalized to a shared, polymorphic log instead of a Resource-only model
+
+The original design (pre-implementation-review) proposed a
+`ResourceDownload` model scoped to the Resource module only. Revised
+before implementation.
+
+**Why:** this codebase already has an established polymorphic-log
+convention for exactly this situation —
+`Verification.resourceType`/`VerifiedLead.purchasedItems`/`bookmarks` are
+all free-text-`resourceType`-keyed, spanning every current and future
+content type in one collection, not one collection per type. A
+Resource-only download log would have been the one inconsistent piece,
+and would have missed the (essentially free) opportunity to give
+Infographic/Lesson downloads the same tracking.
+
+**What changed:** `models/DownloadLog.js` is generic
+(`resourceType`/`resourceId`/`fileKind`/`fileLabel`/`lead`/`downloadedAt`),
+written from **one** shared call site
+(`app/api/verify/download/route.js`, covering every OTP-gated
+`resourceType` uniformly) plus the new
+`app/api/resource-files/[fileId]/route.js`'s `action=download` branch —
+not two separate logging mechanisms.
+
+**How to apply:** any future "record that X happened for Y resource"
+need (views, shares, ratings-eligibility, whatever comes next) should
+default to this same polymorphic-log shape unless there's a concrete
+reason a specific content type needs its own dedicated schema.
+
+## 2026-07-21 — Sprint 19.3: `Resource`/`ResourceFile` soft-delete — a scoped deviation, not a new default
+
+Every existing content model in this codebase hard-deletes
+(`findByIdAndDelete`/`findOneAndDelete`) — `Course`, `Product`, `Team`,
+etc. all follow this. Reviewed during implementation planning and adopted
+for the Resource module specifically.
+
+**Why:** unlike a blog post or a product listing, a Resource's downloadable
+files can represent real user-facing content (guides, checklists, forms)
+that an admin may delete by mistake, or want to temporarily unpublish
+without losing entirely. `deletedAt` makes the existing `DELETE` action
+reversible at the database level with a one-field addition, at effectively
+zero cost given how small this collection will be.
+
+**What changed:** `Resource.deletedAt`/`ResourceFile.deletedAt` (both
+`Date, default: null`). Every read path (public `lib/publicResources.js`
+helpers, the admin list default, the verification registry's
+`isAccessible`, the gated file route) filters `deletedAt: null`.
+`DELETE /api/admin/resources/[id]` sets `deletedAt` and cascades to
+soft-deleting the resource's files (the non-destructive version of
+`Course`'s existing hard-cascade-to-Sections/Lessons rule). Restoring is
+`PUT` with `{ deletedAt: null }` — no dedicated restore endpoint.
+
+**What was deliberately not built:** an admin "Trash" view, a restore
+button in the UI, or a purge job. `deletedAt` alone satisfies "the Delete
+action should be safe" — the rest is real but not-yet-needed scope; see
+`docs/08_CODING_STANDARDS.md`'s "Soft-delete" section for the pattern if
+a future model adopts it too.
+
+**How to apply:** this is scoped to Resource/ResourceFile. Don't retrofit
+soft-delete onto `Course`/`Product`/etc. without a separate, explicit
+decision — most of this project's content types have no equivalent
+"admin might regret a hard delete of real content" pressure, and adding
+`deletedAt: null` filters to every one of their read paths is a real,
+not-free migration.
+
+## 2026-07-21 — Sprint 19.3: `Resource.tags`/`Resource.keywords` kept as two separate fields
+
+The brief lists "Tags" and "Keywords" as two distinct fields in both the
+Resource Model section and the Search section — unlike `Lesson.attachments`
+(Sprint 19.2), where "Attachments" and "Downloadable Resources" were
+judged to be the *same* underlying concept described twice and were
+collapsed into one field.
+
+**What was chosen:** `tags` (public filter facet, shown as chips — same
+role as `Course.tags`) and `keywords` (search-only, never rendered as a
+filter chip) stay separate, both `[String]`, deduped/lowercased on set.
+
+**Why:** the brief's own Search requirements list treats them as two
+independently searchable fields with different display roles (one is a
+browsing affordance, the other is purely for findability) — a real
+distinction, not brief looseness the way Lesson's two attachment labels
+were.
+
+**How to apply:** when a future field pair looks similar, check whether
+the brief describes a genuine display/behavior difference (keep separate,
+like this one) or the identical technical concept under two names (collapse,
+like `Lesson.attachments`) — don't default to either without checking.
+
+## 2026-07-21 — Sprint 19.3: `Resource.author` is a plain string, not an embedded person sub-document
+
+`Course.instructors` (Sprint 19.2) is an array of embedded
+`{name, title, bio, photo}` sub-documents, explicitly because the brief
+asked for "Multiple Instructors." The Sprint 19.3 brief's Resource Model
+section lists a single "Author" field with no such plural/multi-field ask.
+
+**What was chosen:** `Resource.author` is a plain `String`, mirroring
+`Blog`/`Infographic`'s existing single-`author`-field convention in
+spirit (though those are `User` refs, this is free text since a Resource's
+author is often an external clinician/source, not necessarily an admin
+`User`) — not an embedded object, not a `Team` ref.
+
+**Why:** building the embedded-array shape for a field the brief describes
+as singular would be speculative scope beyond what's asked, the same
+reasoning that kept `Instructor` embedded-not-referenced in Sprint 19.2
+until a concrete multi-instructor need existed.
+
+**How to apply:** if a future requirement asks for multiple/structured
+authors (bio, photo, credentials) per Resource, that's the trigger to
+revisit this — don't build it ahead of that ask.
+
 ## 2026-07-17 — Pre-commit scalability review: `Course.instructor` → `Course.instructors` (array), two new indexes
 
 Before committing Sprint 19.2, the user asked for a review assuming

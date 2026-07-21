@@ -223,6 +223,16 @@ at `Event` rather than `Event` holding an array of its own bookings.
 (shipped in the original Sprint 19.1B design) — not a precedent to copy for
 genuinely unbounded logs like assessment attempts.
 
+**Sprint 19.3** shipped the first real example of that "own collection
+with a `lead` foreign key" rule: `models/DownloadLog.js` (a generic,
+polymorphic `{resourceType, resourceId, fileKind, lead, downloadedAt}`
+log, not Resource-specific — see `docs/05_DATABASE.md`), written from
+`app/api/verify/download/route.js` and
+`app/api/resource-files/[fileId]/route.js`. This is the "prepare the
+architecture, don't build analytics" instruction taken literally: the log
+exists and is populated, but no admin route reads it yet — a future
+analytics dashboard is a read-only addition on top, not a schema change.
+
 **The two things that did need fixing now, not later:**
 - `lib/verifiedLead.js`'s merge logic (`planLeadMerge()`/`toPlain()`)
   iterates over a declared `ARRAY_ID_FIELDS` list (flat ref arrays, e.g.
@@ -243,9 +253,9 @@ genuinely unbounded logs like assessment attempts.
 ## What Sprint 19.1B did not do (superseded)
 
 - ~~No Course/Resource/Tool models or CMS.~~ **Courses shipped in Sprint
-  19.2** — see its own section above ("How future purchases will
-  integrate") and `docs/05_DATABASE.md`'s `Course`/`Section`/`Lesson`
-  entries. Resources/Tools remain unbuilt.
+  19.2, Resources in Sprint 19.3** — see `docs/05_DATABASE.md`'s
+  `Course`/`Section`/`Lesson` and `Resource`/`ResourceFile` entries. Tools
+  remain unbuilt.
 - No admin UI for viewing/merging leads.
 - No Membership purchase flow (the fields exist; nothing sets them yet).
 - No change to `middleware.js` or the existing Infographic OTP download gate's

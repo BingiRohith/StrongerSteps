@@ -12,19 +12,19 @@ import {
   Footprints,
   Armchair,
   Quote,
-  FileText,
-  Download,
 } from 'lucide-react';
 import Link from 'next/link';
-import { Badge, Eyebrow, SectionHeading } from '@/components/ui';
+import { Eyebrow, SectionHeading } from '@/components/ui';
 import ComingSoonCard from '@/components/ComingSoonCard';
 import CourseCard from '@/components/courses/CourseCard';
+import ResourceCard from '@/components/resources/ResourceCard';
 import BlogGrid from '@/components/blog/BlogGrid';
 import InfographicsGrid from '@/components/infographics/InfographicsGrid';
 import StepDivider from '@/components/StepDivider';
 import { getPublishedBlogs, getBlogCategories } from '@/lib/publicBlogs';
 import { getPublishedInfographics, getInfographicCategories } from '@/lib/publicInfographics';
 import { getPublishedCourses } from '@/lib/publicCourses';
+import { getFeaturedResources } from '@/lib/publicResources';
 
 // This page now reads published blogs live from MongoDB (see the Blogs
 // section below), so it can't be statically cached at build time — same
@@ -96,45 +96,6 @@ const TOOLS = [
   },
 ];
 
-const RESOURCES = [
-  {
-    title: 'Mini-Cog Assessment',
-    description: 'A rapid 3-minute cognitive screening tool using a 3-word recall and clock drawing test. Widely used by clinicians to detect cognitive impairment.',
-  },
-  {
-    title: 'GPCOG Assessment',
-    description: 'The General Practitioner Assessment of Cognition — a validated, brief cognitive screening tool suitable for use in primary care settings.',
-  },
-  {
-    title: 'Geriatric Depression Scale (GDS)',
-    description: 'A 30-item (or 15-item short form) questionnaire designed specifically to screen for depression in older adults.',
-  },
-  {
-    title: 'STEADI Fall Risk Checklist',
-    description: 'Developed by the CDC — the Stopping Elderly Accidents, Deaths & Injuries fall-risk screening checklist for older adults.',
-  },
-  {
-    title: 'Timed Up & Go Test (TUG)',
-    description: 'A simple timed test measuring balance and walking ability. Stand up from a chair, walk 3 metres, turn around, and return. Widely used in clinical geriatric assessment.',
-  },
-  {
-    title: 'Elderly Health Monitoring Handbook',
-    description: 'A practical downloadable handbook for tracking health metrics, medications, appointments, and wellness habits for adults 50+.',
-  },
-  {
-    title: 'Community-Based Assessment Checklist',
-    description: 'A structured checklist for evaluating older adults in non-clinical, community settings — ideal for family members and community health workers.',
-  },
-  {
-    title: 'Katz Index of Independence',
-    description: 'Assesses a patient\'s functional status by measuring independence in six basic Activities of Daily Living (ADLs): bathing, dressing, toileting, transferring, continence, and feeding.',
-  },
-  {
-    title: 'Mini Nutritional Assessment (MNA)',
-    description: 'The gold standard screening and assessment tool for malnutrition in older adults — used in hospitals, nursing homes, and community care worldwide.',
-  },
-];
-
 export default async function KnowledgeCenterPage() {
   const [
     { blogs, pagination },
@@ -142,12 +103,14 @@ export default async function KnowledgeCenterPage() {
     { infographics, pagination: infographicsPagination },
     infographicCategories,
     { courses },
+    featuredResources,
   ] = await Promise.all([
     getPublishedBlogs({ page: 1, limit: 9 }),
     getBlogCategories(),
     getPublishedInfographics({ page: 1, limit: 18 }),
     getInfographicCategories(),
     getPublishedCourses({ page: 1, limit: 6, sort: 'newest' }),
+    getFeaturedResources(6),
   ]);
 
   return (
@@ -289,39 +252,38 @@ export default async function KnowledgeCenterPage() {
 
       <StepDivider from="#FBF7EF" to="#E6EEE4" />
 
-      {/* Resources */}
+      {/* Resources — Sprint 19.3: real Resource model, replacing the
+          hardcoded RESOURCES placeholder array. This section stays the
+          entry point per the same "don't split across two pages"
+          precedent Sprint 19.2 established for Courses
+          (docs/13_DECISIONS.md) — a dedicated /resources listing + detail
+          page, linked from here rather than a new top-level header nav
+          item. */}
       <section id="resources" className="bg-sage">
         <div className="mx-auto max-w-content px-6 py-16 md:py-20">
-          <div className="flex flex-wrap items-center gap-3">
-            <Eyebrow>Resources</Eyebrow>
-            <Badge tone="accent">Printable PDFs</Badge>
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <SectionHeading
+              eyebrow="Resources"
+              title="Guides, checklists, and downloads"
+              description="Clinically validated resources sourced from geriatric practice — browse the full library or start with what's featured below."
+            />
+            <Link
+              href="/resources"
+              className="mb-10 inline-flex items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm font-semibold text-primary-dark hover:border-primary hover:text-primary md:mb-14"
+            >
+              View all resources
+            </Link>
           </div>
-          <h2 className="mt-3 font-display text-3xl font-bold text-primary-dark md:text-4xl">
-            Clinically validated assessments & checklists
-          </h2>
-          <p className="mt-4 max-w-2xl text-lg text-muted">
-            Downloadable PDF resources sourced from clinical geriatric practice — assessments, 
-            checklists, and guides used by doctors worldwide, now available for you and your family. 
-            PDFs being added shortly.
-          </p>
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {RESOURCES.map((item) => (
-              <div key={item.title} className="flex flex-col rounded-xl2 border border-line bg-white p-5">
-                <div className="flex items-start gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sage text-primary">
-                    <FileText size={18} aria-hidden="true" />
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-display text-sm font-semibold text-primary-dark">{item.title}</h3>
-                    <p className="mt-1 text-xs text-muted">{item.description}</p>
-                  </div>
-                </div>
-                <div className="mt-4 flex items-center gap-2">
-                  <Badge tone="outline">PDF Coming Soon</Badge>
-                </div>
-              </div>
-            ))}
-          </div>
+
+          {featuredResources.length > 0 ? (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {featuredResources.map((resource) => (
+                <ResourceCard key={resource._id} resource={resource} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted">Resources are on their way — check back soon.</p>
+          )}
         </div>
       </section>
     </>

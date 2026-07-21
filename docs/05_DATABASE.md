@@ -531,6 +531,115 @@ already established for Infographics — see
 
 Indexes: `{section, displayOrder}`, `{course}`.
 
+## ResourceCategory — [`models/ResourceCategory.js`](../models/ResourceCategory.js)
+
+Sprint 19.3. A dedicated taxonomy for the Resource Library — same shape/CRUD
+pattern as [`CourseCategory`](#coursecategory--modelscoursecategoryjs)/
+[`ProductCategory`](#productcategory--modelsproductcategoryjs)/
+[`RecipeCategory`](#recipecategory--modelsrecipecategoryjs) per this
+project's "future content type needing managed categories should get its
+own `<Module>Category` model" precedent.
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | String | required, unique, max 100 |
+| `slug` | String | unique, auto-generated from `name`, collision-safe |
+| `description` | String | optional, max 300 |
+| `icon` | `{ url, alt }` | optional |
+| `displayOrder` | Number | manual sort order |
+| `isActive` | Boolean | default `true` |
+
+Indexes: `{isActive, displayOrder}`. Deleting a category still referenced
+by any `Resource` is blocked (409), same rule as `CourseCategory`/
+`ProductCategory` — `Resource.category` is `required`.
+
+## Resource — [`models/Resource.js`](../models/Resource.js)
+
+Sprint 19.3. The top tier of the Resource → ResourceFile hierarchy (see
+`ResourceFile` below), the second real consumer of
+[`lib/sharedContentFields.js`](../lib/sharedContentFields.js) after
+`Course` — `title`, `slug`, `description`, `thumbnail`, `status`/
+`publishedAt`, `featured`, `displayOrder`, `accessLevel`, `seo`,
+`createdBy`/`updatedBy` all come from the shared pattern; everything below
+is Resource-specific.
+
+| Field | Type | Notes |
+|---|---|---|
+| `longDescription` | String | rich HTML, same convention as `Course.longDescription` |
+| `banner` | `{ url, alt }` | optional wide hero image, separate from `thumbnail` |
+| `category` | ObjectId ref → `ResourceCategory` | required |
+| `tags` | [String] | deduped + lowercased on set — public filter facet |
+| `keywords` | [String] | deduped + lowercased on set, kept **separate from `tags`** — search-only, never shown as a filter chip. The brief lists Tags and Keywords as two distinct fields in both the Resource Model and Search sections, unlike Lesson's `attachments` consolidation (see `docs/13_DECISIONS.md`) |
+| `author` | String | free text — no embedded person sub-document, unlike `Course.instructors` (the brief only asks for a single "Author," not "Multiple Instructors") |
+| `estimatedReadingTime` | Number | minutes, default 0, ≥0 |
+| `language` | String | free text, default `'English'`, mirrors `Course.language` |
+| `fileTypes` | [String] | **server-maintained**, never client-writable — denormalized from the resource's non-deleted `ResourceFile.fileType`s by `lib/resourceFileTypes.js`'s `refreshResourceFileTypes()`, so the public "File Type" filter never needs to join against `ResourceFile` |
+| `deletedAt` | Date | default `null` — **soft-delete**, a deliberate Sprint 19.3-only deviation from this project's usual hard-delete precedent (see `docs/13_DECISIONS.md`). `DELETE` cascades to soft-deleting the resource's `ResourceFile`s |
+
+`accessLevel` (from the shared pattern) is deliberately **informational
+only** at this overview level — mirrors how `Course.accessLevel` behaves
+today (only ever rendered as a badge; nothing calls `canAccess()` against
+`Course`/`Resource` itself). The real per-download gate is each
+`ResourceFile.accessLevel`, an independent field, not inherited from here.
+
+Indexes: `{status, category, displayOrder}`, `{status, featured}`,
+`{status, publishedAt}`, `{deletedAt}`, text index on
+`title`/`description`/`tags`/`keywords`/`author`.
+
+## ResourceFile — [`models/ResourceFile.js`](../models/ResourceFile.js)
+
+Sprint 19.3. The leaf tier — a separate top-level collection (not an
+embedded array), same "hierarchy = separate collection + FK" pattern as
+`Section`/`Lesson`, `resource` FK ref. Each file needs its own stable
+top-level id for the verification registry, download-token scoping, and
+`DownloadLog`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `title` | String | required, max 200 |
+| `description` | String | optional, max 500 |
+| `fileType` | String enum | `pdf`\|`image`\|`word`\|`excel`\|`powerpoint`\|`zip`\|`audio`\|`video`\|`external_link` (see [`lib/resourceOptions.js`](../lib/resourceOptions.js)) |
+| `displayOrder` | Number | manual sort order, scoped to siblings within the same resource |
+| `previewAvailable` | Boolean | default `false` — bypasses this file's own `accessLevel` gate entirely (including `OTP`), mirrors `Lesson.previewAvailable` exactly |
+| `downloadable` | Boolean | default `true` — if `false`, only inline viewing (`action=view`) is offered, no attachment download |
+| `accessLevel` | String enum | reuses `lib/access/accessLevels.js`'s `ACCESS_LEVELS`, default `PUBLIC`, **own field, not inherited** from the parent `Resource` — mirrors `Lesson.accessLevel`/`Course.accessLevel`'s exact relationship |
+| `file` | `{ url, filename, mimeType, sizeBytes, storageProvider }` | `url` is always a **private storage key** (`private-uploads/resources-files/`), regardless of `accessLevel` — same Sprint 12.5/19.2 reasoning. `mimeType`/`sizeBytes` captured once at upload time (provider-agnostic metadata, ready for a future cloud-storage migration); `storageProvider` defaults to `'local'`. This nested shape is deliberately the exact shape a future `ResourceFileVersion` row would carry (see `docs/13_DECISIONS.md`) |
+| `externalUrl` | String | for `fileType: 'external_link'` only |
+| `currentVersion` | Number | default 1, min 1 — bumped server-side whenever an admin replaces an already-uploaded `file` with a new one. No version *history* is kept yet (no `ResourceFileVersion` collection) — the brief's own "DO NOT BUILD" list excludes a Version History UI this sprint |
+| `deletedAt` | Date | default `null` — soft-delete, mirrors `Resource.deletedAt` |
+
+Media is always written to private storage **unconditionally**, same
+reasoning as `Lesson`. Two independent serving paths, by `accessLevel`:
+`OTP` → the existing, unchanged `app/api/verify/*` flow (a `resource`
+entry is registered in `lib/verification/resourceRegistry.js`, `fileKind`
+is this file's own `_id`); `PUBLIC`/`MEMBER`/`PURCHASED`/`ADMIN` → the new
+`GET /api/resource-files/[fileId]` route, gated by `canAccess()`.
+
+Indexes: `{resource, displayOrder}`, `{deletedAt}`.
+
+## DownloadLog — [`models/DownloadLog.js`](../models/DownloadLog.js)
+
+Sprint 19.3. A **generic**, not Resource-specific, download-tracking log —
+same polymorphic free-text convention as `Verification.resourceType`/
+`VerifiedLead.purchasedItems`. Prepares the architecture for future
+analytics without building any (per this sprint's explicit brief); no
+admin route reads this collection yet.
+
+| Field | Type | Notes |
+|---|---|---|
+| `resourceType` | String | free text, matches `lib/verification/resourceRegistry.js`'s keys (`infographic`\|`lesson`\|`resource`) |
+| `resourceId` | ObjectId | the resource/lesson/infographic being downloaded |
+| `fileKind` | String | mirrors the existing `fileKind` query param convention (a `ResourceFile` id string for Resources, `'image'`\|`'pdf'` for Infographics, etc.) |
+| `fileLabel` | String | optional human-readable snapshot, survives a later file rename/delete |
+| `lead` | ObjectId ref → `VerifiedLead` | nullable — `PUBLIC`-level downloads have no lead |
+| `downloadedAt` | Date | default now |
+
+Written best-effort (never blocks the response) from
+`app/api/verify/download/route.js` (covers every OTP-gated
+`resourceType` uniformly) and `app/api/resource-files/[fileId]/route.js`'s
+`action=download` branch. Indexes: `{resourceType, resourceId,
+downloadedAt}`, `{lead, downloadedAt}`.
+
 ## Relationships summary
 
 ```
@@ -554,6 +663,10 @@ Course 1---* Section (course — Sprint 19.2)
 Section 1---* Lesson (section — Sprint 19.2)
 Course 1---* Lesson (course, denormalized — Sprint 19.2)
 User 1---* Course (createdBy/updatedBy — Sprint 19.2, sharedContentFields())
+ResourceCategory 1---* Resource (category — Sprint 19.3)
+Resource 1---* ResourceFile (resource — Sprint 19.3)
+User 1---* Resource (createdBy/updatedBy — Sprint 19.3, sharedContentFields())
+VerifiedLead 1---* DownloadLog (lead, nullable — Sprint 19.3)
 ```
 
 Infographic's `category` field is **not** relational — free text, not a

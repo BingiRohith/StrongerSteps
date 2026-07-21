@@ -77,7 +77,7 @@ Public, reusable, provider-agnostic — not Knowledge-Center-specific. See
 |---|---|---|---|
 | `/api/verify/generate-otp` | POST | Public | Body: `{ resourceType, resourceId, method: 'email'\|'mobile', email?, mobile? }`. `resourceType` is checked against `lib/verification/resourceRegistry.js`, not a DB enum. Rate-limited to 3 requests per identifier per 15 minutes (429 beyond that). Returns `{ verificationId }` — never the OTP itself. |
 | `/api/verify/verify-otp` | POST | Public | Body: `{ verificationId, otp }`. OTP expires after 10 minutes; locks out after 5 wrong attempts (429). On success returns `{ downloadToken }` — a short-lived (15 min) signed JWT, not a permanent URL. **Sprint 19.1B**: also upserts/links a `VerifiedLead` (`lib/verifiedLead.js`) for the verified identifier and sets/refreshes the `ss_lead` session cookie — see [14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md). |
-| `/api/verify/download` | GET | Public (token-gated) | Query: `token`, `fileKind` (`image`\|`pdf`\|**`video`\|`attachment-<index>` — Sprint 19.2**). Validates the signed token, resolves the file via the resource registry, streams it from private storage with `Content-Disposition: attachment`, and stamps `downloadedAt` on the `Verification` row. The only route that ever serves bytes for an OTP-protected resource. **Sprint 19.2**: `resourceType: 'lesson'` is now registered alongside `'infographic'` — only reachable for lessons with `accessLevel: 'OTP'`. |
+| `/api/verify/download` | GET | Public (token-gated) | Query: `token`, `fileKind` (`image`\|`pdf`\|`video`\|`attachment-<index>` — Sprint 19.2; **or a `ResourceFile` id string — Sprint 19.3**). Validates the signed token, resolves the file via the resource registry, streams it from private storage with `Content-Disposition: attachment`, stamps `downloadedAt` on the `Verification` row, and (Sprint 19.3) writes a best-effort `DownloadLog` entry for every `resourceType` it serves. The only route that ever serves bytes for an OTP-protected resource. **Sprint 19.2**: `resourceType: 'lesson'` registered alongside `'infographic'` — only reachable for lessons with `accessLevel: 'OTP'`. **Sprint 19.3**: `resourceType: 'resource'` registered — only reachable for `ResourceFile`s with `accessLevel: 'OTP'`; the token is scoped to the *Resource* id, so the same token downloads every OTP file in that resource within its ~15 min lifetime, not just one. |
 
 ## Products
 
@@ -281,6 +281,54 @@ Singleton — no `[id]` routes, since there's exactly one document.
 | Route | Method | Auth | Notes |
 |---|---|---|---|
 | `/api/lessons/[id]/media` | GET | Public (session-checked) | Query: `fileKind` (`video`\|`pdf`\|`image`\|`attachment-<index>`). The `canAccess()`-gated counterpart to the OTP flow — serves `PUBLIC`/`MEMBER`/`PURCHASED`/`ADMIN`-level lesson media based on the current request's session (admin or `VerifiedLead` lead session), no token involved. Rejects `accessLevel: 'OTP'` lessons for non-admins (400 — those go through `/api/verify/*` instead); admin sessions bypass this for OTP lessons too, so admins can preview any lesson regardless of gate. Draft-course lessons 404 for non-admins even if `previewAvailable`. See [14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md). |
+
+## Resource Categories (Sprint 19.3)
+
+### Admin — `app/api/admin/resource-categories/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/resource-categories` | GET | Any session | Query: `isActive` (`'true'`\|`'false'`), `search`. No pagination. Returns `{ categories }`. |
+| `/api/admin/resource-categories` | POST | Admin/editor | Body: `name` required; `slug`, `description`, `icon`, `displayOrder`, `isActive` optional. Returns `{ category }`, 201. |
+| `/api/admin/resource-categories/[id]` | GET \| PUT \| DELETE | Any session (GET) / Admin/editor (PUT/DELETE) | Same shape as Course Categories — DELETE blocks with 409 if any `Resource` still references the category. Hard delete (categories keep the existing `isActive`-hide precedent, not soft-delete). |
+| `/api/admin/resource-categories/[id]/status` | PATCH | Admin/editor | Body: `{ isActive: boolean }`. |
+| `/api/admin/resource-categories/upload` | POST | Admin/editor | multipart `file`, via `lib/localUpload.js`. Returns `{ url }`, 201. |
+
+## Resources (Sprint 19.3)
+
+### Admin — `app/api/admin/resources/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/resources` | GET | Any session | Query: `status` (`draft`\|`published`), `category` (id), `search`, `trashed` (`'true'` to include soft-deleted rows — default excludes them). No pagination. Returns `{ resources }`. |
+| `/api/admin/resources` | POST | Admin/editor | Body: `title`, `category` (valid `ResourceCategory` id) required. `accessLevel` validated against `ACCESS_LEVELS`. Returns `{ resource }`, 201. |
+| `/api/admin/resources/[id]` | GET | Any session | Single, populated `createdBy`/`updatedBy`/`category`. |
+| `/api/admin/resources/[id]` | PUT | Admin/editor | Partial update; also used by the list's reorder controls. `{ deletedAt: null }` in the body restores a soft-deleted resource — the only way `deletedAt` is ever cleared. Stamps `updatedBy`. |
+| `/api/admin/resources/[id]` | DELETE | Admin/editor | **Soft-deletes** (sets `deletedAt`) rather than removing the document, and cascades to soft-deleting the resource's `ResourceFile`s — a deliberate deviation from this project's usual hard-delete precedent, see [13_DECISIONS.md](13_DECISIONS.md). `{ deleted: true }`. |
+| `/api/admin/resources/[id]/status` | PATCH | Admin/editor | Publish toggle. |
+| `/api/admin/resources/upload` | POST | Admin/editor | multipart `file`, via `lib/localUpload.js` (public storage — thumbnail/banner are never gated). Returns `{ url }`, 201. |
+
+### Admin — Files, nested under a resource
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/resources/[id]/files` | GET | Any session | Every non-deleted file for the resource, ordered. Returns `{ files }`. |
+| `/api/admin/resources/[id]/files` | POST | Admin/editor | Body: `title`, `fileType` required (minimal create — the binary is uploaded afterward, same two-step "create then attach media" flow as Lessons). Refreshes the parent `Resource.fileTypes` facet. Returns `{ file }`, 201. |
+| `/api/admin/resources/[id]/files/[fileId]` | GET \| PUT \| DELETE | Admin/editor (GET: any session) | PUT accepts `file`/`externalUrl`/`accessLevel`/`previewAvailable`/`downloadable`/`fileType`/the reorder-swap `displayOrder`; bumps `currentVersion` server-side when replacing an already-populated `file.url`. DELETE **soft-deletes**. Both PUT-with-`fileType`-change and DELETE refresh `Resource.fileTypes`. |
+| `/api/admin/resources/[id]/files/[fileId]/upload` | POST | Admin/editor | multipart `file`; query `?mediaType=video\|pdf\|image\|document\|zip\|audio` (not a form field, same reasoning as the Lesson upload route). Always writes to **private** storage (`private-uploads/resources-files/`) via `lib/privateUpload.js`, regardless of the file's current `accessLevel`. Returns `{ url, filename, mimeType, sizeBytes }`, 201 — `url` is a private storage key. |
+
+### Public — `app/api/resources/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/resources` | GET | Public | Query: `category` (`ResourceCategory` slug), `fileType`, `tag`, `search`, `accessLevel`, `featured` (`'true'` — a dedicated filter, distinct from `sort=featured`), `sort` (`title-asc`\|`newest`), `page` (default 1), `limit` (default 12, max 48). Published-only. Returns `{ resources, pagination }`. |
+| `/api/resources/[slug]` | GET | Public | Published-only. Returns `{ resource }` with its files attached. Each file's actual content fields (`file`/`externalUrl`) are stripped unless the current actor can access it (`lib/resourceAccess.js`'s `annotateResourceAccess()`) — the file *list outline* (title/fileType/displayOrder/accessLevel/locked) is always present. |
+
+### Public — `app/api/resource-files/[fileId]/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/resource-files/[fileId]` | GET | Public (session-checked) | Query: `action` (`view`\|`download`, default `download`). The `canAccess()`-gated counterpart to the OTP flow — serves `PUBLIC`/`MEMBER`/`PURCHASED`/`ADMIN`-level file content based on the current request's session, no token involved. A **flat** route (not nested under `/api/resources/[id]/`) — nesting it there collided with the public `/api/resources/[slug]` route at build time, since Next.js requires every dynamic segment at one path level to share a param name; see [13_DECISIONS.md](13_DECISIONS.md). Rejects `accessLevel: 'OTP'` files for non-admins (400 — those go through `/api/verify/*` instead); admin sessions bypass this. `action=download` additionally requires `file.downloadable !== false` and writes a best-effort `DownloadLog` entry. |
 
 ## Bookings — `app/api/bookings/`
 
