@@ -90,8 +90,36 @@ const LessonSchema = new Schema(
     // cross-field validation" leniency as Product's optional pricing
     // fields defaulting rather than requiring).
     video: {
-      url: { type: String, default: '' }, // private storage key, resolved via the gated media route
+      // Sprint 19.5 — admin picks the source; the player adapts. `url`
+      // keeps its pre-19.5 dual role: for `upload` it's a private storage
+      // key resolved via the gated media route (unchanged behavior); for
+      // youtube/vimeo/external it's the actual video URL, parsed by
+      // lib/videoEmbed.js on both the admin preview and the public player.
+      source: {
+        type: String,
+        enum: ['upload', 'youtube', 'vimeo', 'external'],
+        default: 'upload',
+      },
+      url: { type: String, default: '' },
       filename: { type: String, default: '' },
+      // Sprint 19.5 — architecture placeholder only, not wired to any
+      // upload UI or player yet (deliberately, per this sprint's brief):
+      // future WebVTT caption/subtitle files, same private-storage +
+      // gated-media-route shape as `attachments`/`bodyImages` below, added
+      // now so a future captions feature is a plain additive UI/route
+      // change, not a schema redesign.
+      captions: {
+        type: [
+          {
+            url: { type: String, default: '' },
+            filename: { type: String, default: '' },
+            label: { type: String, trim: true, maxlength: 100, default: '' },
+            language: { type: String, trim: true, maxlength: 20, default: '' },
+            _id: false,
+          },
+        ],
+        default: [],
+      },
     },
     pdf: {
       url: { type: String, default: '' },
@@ -124,6 +152,25 @@ const LessonSchema = new Schema(
       ],
       default: [],
     },
+    // Sprint 19.5 — inline images inserted into `body` by the Tiptap rich
+    // text editor (lessonType 'text'). Same private-storage shape as
+    // `attachments`; a body image is referenced from the rendered HTML via
+    // /api/lessons/[id]/media?fileKind=body-image-<index> (mirrors the
+    // existing `attachment-<index>` fileKind pattern in
+    // lib/verification/resourceRegistry.js), never a public path — the
+    // whole lesson is gated as one unit, so an inline image needs no
+    // separate access check beyond the lesson's own.
+    bodyImages: {
+      type: [
+        {
+          url: { type: String, default: '' },
+          filename: { type: String, default: '' },
+          alt: { type: String, trim: true, maxlength: 150, default: '' },
+          _id: false,
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );
@@ -149,6 +196,7 @@ LessonSchema.methods.toSafeObject = function toSafeObject() {
     externalUrl: this.externalUrl,
     body: this.body,
     attachments: this.attachments,
+    bodyImages: this.bodyImages,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };

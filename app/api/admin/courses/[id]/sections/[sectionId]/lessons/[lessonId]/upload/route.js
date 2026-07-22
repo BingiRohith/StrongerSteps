@@ -7,13 +7,13 @@ import {
   saveProtectedImage,
   saveProtectedPdf,
   saveProtectedVideo,
-  saveProtectedDocument,
+  saveProtectedAttachment,
 } from '@/lib/privateUpload';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * POST /api/admin/courses/:id/sections/:sectionId/lessons/:lessonId/upload?mediaType=video|pdf|image|attachment
+ * POST /api/admin/courses/:id/sections/:sectionId/lessons/:lessonId/upload?mediaType=video|pdf|image|attachment|bodyImage
  *
  * multipart/form-data: `file` only — `mediaType` is a query param, not a
  * form field, so the request body is read exactly once (each
@@ -49,11 +49,13 @@ export const POST = withErrorHandling(async (request, { params }) => {
   const { searchParams } = new URL(request.url);
   const mediaType = searchParams.get('mediaType');
 
-  // Route to the right validator/subdir by declared media type — a
-  // document upload for an "attachment" is validated against office-doc
-  // mimetypes only (lib/privateUpload.js's saveProtectedDocument);
-  // attachments that are actually images or PDFs should be uploaded with
-  // mediaType 'image'/'pdf' instead, reusing those savers directly.
+  // Route to the right validator/subdir by declared media type. `image`
+  // (the lesson's single hero image) and `bodyImage` (inline images inserted
+  // into the rich text `body`, Sprint 19.5) both use saveProtectedImage but
+  // write to separate subdirs since they're unrelated fields
+  // (`Lesson.image` vs `Lesson.bodyImages`). `attachment` accepts any of
+  // image/PDF/document/ZIP (lib/privateUpload.js's saveProtectedAttachment)
+  // since the brief lists all four as valid attachment types.
   let result;
   if (mediaType === 'video') {
     result = await saveProtectedVideo(request, 'lessons-videos');
@@ -61,10 +63,12 @@ export const POST = withErrorHandling(async (request, { params }) => {
     result = await saveProtectedPdf(request, 'lessons-pdfs');
   } else if (mediaType === 'image') {
     result = await saveProtectedImage(request, 'lessons-images');
+  } else if (mediaType === 'bodyImage') {
+    result = await saveProtectedImage(request, 'lessons-body-images');
   } else if (mediaType === 'attachment') {
-    result = await saveProtectedDocument(request, 'lessons-attachments');
+    result = await saveProtectedAttachment(request, 'lessons-attachments');
   } else {
-    return fail("mediaType must be 'video', 'pdf', 'image', or 'attachment'", 400);
+    return fail("mediaType must be 'video', 'pdf', 'image', 'bodyImage', or 'attachment'", 400);
   }
 
   if (result.error) return result.error;

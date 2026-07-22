@@ -13,8 +13,21 @@ import { Mail, Phone, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
  * cookie on success, so `router.refresh()` re-runs this server-rendered
  * page with that cookie present and the lesson renders unlocked. No
  * download-token navigation needed here.
+ *
+ * Sprint 19.5: `heading`/`description`/`onVerified` are optional so this
+ * same component can be reused as the "verify to save your progress"
+ * prompt (progress tracking requires a VerifiedLead, same as an OTP-gated
+ * lesson) without forking a second modal — the underlying generate-otp/
+ * verify-otp flow already only cares that the lesson exists and its course
+ * is published, not that the lesson's own accessLevel is 'OTP'. Defaults
+ * keep the original OTP-unlock call site's copy/behavior unchanged.
  */
-export default function LessonOtpUnlock({ lessonId }) {
+export default function LessonOtpUnlock({
+  lessonId,
+  heading = 'Verify to unlock this lesson',
+  description = 'Verify with your email or mobile number to watch this lesson.',
+  onVerified,
+}) {
   const router = useRouter();
   const [step, setStep] = useState('choose-method');
   const [method, setMethod] = useState('');
@@ -75,7 +88,11 @@ export default function LessonOtpUnlock({ lessonId }) {
         setError(data.error || 'Incorrect code. Please try again.');
         return;
       }
-      router.refresh();
+      if (onVerified) {
+        onVerified();
+      } else {
+        router.refresh();
+      }
     } catch (err) {
       setError('Could not verify the code. Please try again.');
     } finally {
@@ -87,7 +104,7 @@ export default function LessonOtpUnlock({ lessonId }) {
     <div className="rounded-xl2 border border-line bg-white p-6">
       <div className="mb-4 flex items-center gap-2">
         <ShieldCheck size={18} className="text-primary" aria-hidden="true" />
-        <h3 className="font-display text-base font-bold text-primary-dark">Verify to unlock this lesson</h3>
+        <h3 className="font-display text-base font-bold text-primary-dark">{heading}</h3>
       </div>
 
       {error && (
@@ -99,7 +116,7 @@ export default function LessonOtpUnlock({ lessonId }) {
 
       {step === 'choose-method' && (
         <div>
-          <p className="mb-4 text-sm text-muted">Verify with your email or mobile number to watch this lesson.</p>
+          <p className="mb-4 text-sm text-muted">{description}</p>
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"

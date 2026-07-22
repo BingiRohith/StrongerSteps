@@ -4,6 +4,15 @@ import { useRef, useState } from 'react';
 import { Loader2, Trash2, Upload, ExternalLink, Save, X } from 'lucide-react';
 import { LESSON_TYPES } from '@/lib/courseOptions';
 import { ACCESS_LEVELS } from '@/lib/access/accessLevels';
+import { parseVideoUrl, isDirectVideoFile } from '@/lib/videoEmbed';
+import LessonRichTextEditor from './LessonRichTextEditor';
+
+const VIDEO_SOURCES = [
+  { value: 'upload', label: 'Upload file (MP4/WebM/Ogg)' },
+  { value: 'youtube', label: 'YouTube URL' },
+  { value: 'vimeo', label: 'Vimeo URL' },
+  { value: 'external', label: 'External hosted URL' },
+];
 
 /**
  * Full edit form for one lesson, shown inline under its row in
@@ -23,12 +32,13 @@ export default function LessonEditorPanel({ courseId, sectionId, lesson, onSaved
     estimatedDuration: lesson.estimatedDuration || 0,
     previewAvailable: Boolean(lesson.previewAvailable),
     accessLevel: lesson.accessLevel || ACCESS_LEVELS.PUBLIC,
-    video: lesson.video || { url: '', filename: '' },
+    video: lesson.video || { source: 'upload', url: '', filename: '', captions: [] },
     pdf: lesson.pdf || { url: '', filename: '' },
     image: lesson.image || { url: '', alt: '' },
     externalUrl: lesson.externalUrl || '',
     body: lesson.body || '',
     attachments: lesson.attachments || [],
+    bodyImages: lesson.bodyImages || [],
   }));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -70,7 +80,23 @@ export default function LessonEditorPanel({ courseId, sectionId, lesson, onSaved
   async function handleVideoFile(file) {
     if (!file) return;
     const result = await uploadMedia(file, 'video');
-    if (result) update('video', { url: result.url, filename: result.filename });
+    if (result) update('video', { ...form.video, source: 'upload', url: result.url, filename: result.filename });
+  }
+
+  function handleVideoSourceChange(source) {
+    update('video', { ...form.video, source, url: '', filename: '' });
+  }
+
+  function handleVideoUrlChange(url) {
+    update('video', { ...form.video, url });
+  }
+
+  async function handleBodyImageUpload(file) {
+    const result = await uploadMedia(file, 'bodyImage');
+    if (!result) return null;
+    const index = form.bodyImages.length;
+    update('bodyImages', [...form.bodyImages, { url: result.url, filename: result.filename, alt: '' }]);
+    return `/api/lessons/${lesson._id}/media?fileKind=body-image-${index}`;
   }
 
   async function handlePdfFile(file) {
@@ -210,35 +236,98 @@ export default function LessonEditorPanel({ courseId, sectionId, lesson, onSaved
 
       {form.lessonType === 'video' && (
         <div className="mt-4 rounded-lg border border-dashed border-line p-3">
-          <p className="text-xs font-semibold text-ink">Video</p>
-          {form.video?.url ? (
-            <div className="mt-2 flex items-center justify-between gap-2 text-xs">
-              <a href={mediaPreviewUrl('video')} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
-                <ExternalLink size={12} /> {form.video.filename || 'View video'}
-              </a>
-              <button type="button" onClick={() => update('video', { url: '', filename: '' })} className="text-red-600 hover:underline">
-                Remove
+          <p className="text-xs font-semibold text-ink">Video source</p>
+          <select
+            value={form.video?.source || 'upload'}
+            onChange={(e) => handleVideoSourceChange(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+          >
+            {VIDEO_SOURCES.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </select>
+
+          {(form.video?.source || 'upload') === 'upload' ? (
+            <div className="mt-3">
+              {form.video?.url ? (
+                <div>
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <a href={mediaPreviewUrl('video')} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                      <ExternalLink size={12} /> {form.video.filename || 'View video'}
+                    </a>
+                    <button type="button" onClick={() => update('video', { ...form.video, url: '', filename: '' })} className="text-red-600 hover:underline">
+                      Remove
+                    </button>
+                  </div>
+                  <p className="mb-1.5 mt-3 text-xs text-primary">Live preview:</p>
+                  {/* eslint-disable-next-line jsx-a11y/media-has-caption -- admin preview only */}
+                  <video controls className="w-full max-w-sm rounded-lg bg-ink" src={mediaPreviewUrl('video')}>
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+              ) : (
+                <p className="text-xs text-muted">No video uploaded yet.</p>
+              )}
+              <button
+                type="button"
+                onClick={() => videoInputRef.current?.click()}
+                disabled={uploading === 'video'}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-primary hover:border-primary disabled:opacity-60"
+              >
+                {uploading === 'video' ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                {form.video?.url ? 'Replace video' : 'Upload video'}
               </button>
+              <input
+                ref={videoInputRef}
+                type="file"
+                accept="video/mp4,video/webm,video/ogg"
+                className="hidden"
+                onChange={(e) => handleVideoFile(e.target.files?.[0])}
+              />
             </div>
           ) : (
-            <p className="mt-1 text-xs text-muted">No video uploaded yet.</p>
+            <div className="mt-3">
+              <input
+                type="url"
+                value={form.video?.url || ''}
+                onChange={(e) => handleVideoUrlChange(e.target.value)}
+                placeholder={form.video.source === 'youtube' ? 'https://youtube.com/watch?v=…' : form.video.source === 'vimeo' ? 'https://vimeo.com/…' : 'https://…'}
+                className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+              {form.video?.url && !parseVideoUrl(form.video.url).provider && (
+                <p className="mt-1.5 text-xs font-semibold text-red-600">Doesn&apos;t look like a valid video URL yet.</p>
+              )}
+              {form.video?.url && parseVideoUrl(form.video.url).provider && (
+                <div className="mt-3">
+                  <p className="mb-1.5 text-xs text-primary">Recognized as {parseVideoUrl(form.video.url).provider}. Live preview:</p>
+                  {(() => {
+                    const { provider, embedUrl } = parseVideoUrl(form.video.url);
+                    if (provider === 'youtube' || provider === 'vimeo') {
+                      return (
+                        <div className="aspect-video w-full max-w-sm overflow-hidden rounded-lg bg-ink">
+                          <iframe src={embedUrl} title="Video preview" className="h-full w-full" allowFullScreen />
+                        </div>
+                      );
+                    }
+                    // 'external' — direct file URLs preview as <video>; anything else as an <iframe>.
+                    if (isDirectVideoFile(form.video.url)) {
+                      return (
+                        // eslint-disable-next-line jsx-a11y/media-has-caption -- admin preview only
+                        <video controls className="w-full max-w-sm rounded-lg bg-ink" src={form.video.url}>
+                          Your browser does not support the video tag.
+                        </video>
+                      );
+                    }
+                    return (
+                      <div className="aspect-video w-full max-w-sm overflow-hidden rounded-lg bg-ink">
+                        <iframe src={form.video.url} title="Video preview" className="h-full w-full" allowFullScreen />
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
           )}
-          <button
-            type="button"
-            onClick={() => videoInputRef.current?.click()}
-            disabled={uploading === 'video'}
-            className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-primary hover:border-primary disabled:opacity-60"
-          >
-            {uploading === 'video' ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-            {form.video?.url ? 'Replace video' : 'Upload video'}
-          </button>
-          <input
-            ref={videoInputRef}
-            type="file"
-            accept="video/mp4,video/webm,video/ogg"
-            className="hidden"
-            onChange={(e) => handleVideoFile(e.target.files?.[0])}
-          />
         </div>
       )}
 
@@ -319,12 +408,13 @@ export default function LessonEditorPanel({ courseId, sectionId, lesson, onSaved
       {form.lessonType === 'text' && (
         <div className="mt-4">
           <label className="block text-xs font-semibold text-ink">Body</label>
-          <textarea
-            rows={5}
-            value={form.body}
-            onChange={(e) => update('body', e.target.value)}
-            className="mt-1 w-full resize-none rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
+          <div className="mt-1">
+            <LessonRichTextEditor
+              value={form.body}
+              onChange={(html) => update('body', html)}
+              onUploadImage={handleBodyImageUpload}
+            />
+          </div>
         </div>
       )}
 
@@ -363,12 +453,12 @@ export default function LessonEditorPanel({ courseId, sectionId, lesson, onSaved
           className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-primary hover:border-primary disabled:opacity-60"
         >
           {uploading === 'attachment' ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-          Add attachment (Word/PowerPoint/Excel)
+          Add attachment (PDF/Image/Word/PowerPoint/Excel/ZIP)
         </button>
         <input
           ref={attachmentInputRef}
           type="file"
-          accept=".doc,.docx,.ppt,.pptx,.xls,.xlsx"
+          accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip"
           className="hidden"
           onChange={(e) => handleAttachmentFile(e.target.files?.[0])}
         />

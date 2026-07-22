@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronRight, Lock, Eye, PlayCircle, FileText, Image as ImageIcon, Link2, Type } from 'lucide-react';
+import { ChevronDown, ChevronRight, Lock, Eye, PlayCircle, FileText, Image as ImageIcon, Link2, Type, CheckCircle2 } from 'lucide-react';
 
 const LESSON_ICONS = {
   video: PlayCircle,
@@ -17,8 +17,14 @@ const LESSON_ICONS = {
  * metadata (title, type, duration) is always visible — only the `locked`
  * flag (set server-side by lib/courseAccess.js's annotateLessonAccess())
  * decides whether the row links to the lesson viewer or shows a lock icon.
+ *
+ * `progress` (optional, Sprint 19.5) — `{ completedLessons: string[],
+ * currentLesson: string|null }` for the current VerifiedLead, from
+ * GET /api/courses/[slug]/progress. Undefined for an unverified visitor
+ * (default, unchanged behavior everywhere this component is used without it).
  */
-export default function CourseCurriculumAccordion({ courseSlug, sections }) {
+export default function CourseCurriculumAccordion({ courseSlug, sections, progress }) {
+  const completedSet = new Set(progress?.completedLessons || []);
   const [openSections, setOpenSections] = useState(() => {
     const initial = {};
     (sections || []).forEach((s) => {
@@ -57,9 +63,15 @@ export default function CourseCurriculumAccordion({ courseSlug, sections }) {
                 {(section.lessons || []).map((lesson) => {
                   const Icon = LESSON_ICONS[lesson.lessonType] || Type;
                   const isLocked = lesson.locked;
+                  const isCompleted = completedSet.has(lesson._id);
+                  const isCurrent = progress?.currentLesson === lesson._id;
                   const content = (
                     <>
-                      <Icon size={16} className="shrink-0 text-primary" aria-hidden="true" />
+                      {isCompleted ? (
+                        <CheckCircle2 size={16} className="shrink-0 text-primary" aria-hidden="true" />
+                      ) : (
+                        <Icon size={16} className="shrink-0 text-primary" aria-hidden="true" />
+                      )}
                       <span className="flex-1 text-sm text-ink">{lesson.title}</span>
                       {lesson.estimatedDuration > 0 && (
                         <span className="text-xs text-muted">{lesson.estimatedDuration} min</span>
@@ -82,7 +94,7 @@ export default function CourseCurriculumAccordion({ courseSlug, sections }) {
                       ) : (
                         <Link
                           href={`/courses/${courseSlug}/lessons/${lesson._id}`}
-                          className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-sage/40"
+                          className={`flex items-center gap-3 px-5 py-3 transition-colors hover:bg-sage/40 ${isCurrent ? 'bg-sage/40' : ''}`}
                         >
                           {content}
                         </Link>

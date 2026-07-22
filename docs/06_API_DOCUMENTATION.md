@@ -275,8 +275,15 @@ Singleton — no `[id]` routes, since there's exactly one document.
 |---|---|---|---|
 | `/api/admin/courses/[id]/sections/[sectionId]/lessons` | GET | Any session | Every lesson in the section, ordered. Returns `{ lessons }`. |
 | `/api/admin/courses/[id]/sections/[sectionId]/lessons` | POST | Admin/editor | Body: `title` required (minimal create — media/content fields are set afterward via PUT, same two-step "create then attach media" flow as every upload-bearing module). Returns `{ lesson }`, 201. |
-| `/api/admin/courses/[id]/sections/[sectionId]/lessons/[lessonId]` | GET \| PUT \| DELETE | Admin/editor (GET: any session) | PUT accepts `video`/`pdf`/`image`/`externalUrl`/`body`/`attachments` plus the reorder-swap `displayOrder`. |
-| `/api/admin/courses/[id]/sections/[sectionId]/lessons/[lessonId]/upload` | POST | Admin/editor | multipart `file`; query `?mediaType=video\|pdf\|image\|attachment` (not a form field — the request body is read exactly once by the underlying `saveProtected*` helper). Always writes to **private** storage (`private-uploads/lessons-<kind>/`) via `lib/privateUpload.js`, regardless of the lesson's current `accessLevel`. Returns `{ url, filename }`, 201 — `url` is a private storage key, not a browsable path. |
+| `/api/admin/courses/[id]/sections/[sectionId]/lessons/[lessonId]` | GET \| PUT \| DELETE | Admin/editor (GET: any session) | PUT accepts `video` (`{source, url, filename, captions}` — Sprint 19.5; server validates `url` via `lib/videoEmbed.js`'s `isValidVideoUrl()` when `source !== 'upload'`)/`pdf`/`image`/`externalUrl`/`body`/`attachments`/`bodyImages` (Sprint 19.5) plus the reorder-swap `displayOrder`. |
+| `/api/admin/courses/[id]/sections/[sectionId]/lessons/[lessonId]/upload` | POST | Admin/editor | multipart `file`; query `?mediaType=video\|pdf\|image\|bodyImage\|attachment` (not a form field — the request body is read exactly once by the underlying `saveProtected*` helper). `bodyImage` (Sprint 19.5) writes to `lessons-body-images/` for inline rich-text images; `attachment` now accepts image/PDF/document/ZIP (`saveProtectedAttachment()`, Sprint 19.5 — previously office documents only). Always writes to **private** storage (`private-uploads/lessons-<kind>/`) via `lib/privateUpload.js`, regardless of the lesson's current `accessLevel`. Returns `{ url, filename }`, 201 — `url` is a private storage key, not a browsable path. |
+
+### Public — Lesson &amp; course progress (Sprint 19.5)
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/lessons/[id]/progress` | POST | Public, requires a `VerifiedLead` | Body: `{ action: 'view'\|'complete'\|'incomplete' }`. Resolves `getCurrentLead(request)`; returns `401 { error: 'verify-required' }` if the visitor has no lead session yet — the client shows the same OTP-verify prompt used for OTP-gated lessons (`components/courses/LessonOtpUnlock.js`, extended with optional heading/description/`onVerified` props). Upserts the lead's `CourseProgress` for the lesson's course; `completionPercent` is always recomputed server-side. Returns `{ progress }`. |
+| `/api/courses/[slug]/progress` | GET | Public | Returns `{ progress: null }` (200, not an error) for a visitor with no `VerifiedLead` — anonymous browsing never breaks. Otherwise returns the lead's `CourseProgress` for that course: `{ completedLessons: [lessonId...], currentLesson, completionPercent, lastViewedAt, completedAt }`. |
 
 ### Public — `app/api/courses/`
 
@@ -289,7 +296,7 @@ Singleton — no `[id]` routes, since there's exactly one document.
 
 | Route | Method | Auth | Notes |
 |---|---|---|---|
-| `/api/lessons/[id]/media` | GET | Public (session-checked) | Query: `fileKind` (`video`\|`pdf`\|`image`\|`attachment-<index>`). The `canAccess()`-gated counterpart to the OTP flow — serves `PUBLIC`/`MEMBER`/`PURCHASED`/`ADMIN`-level lesson media based on the current request's session (admin or `VerifiedLead` lead session), no token involved. Rejects `accessLevel: 'OTP'` lessons for non-admins (400 — those go through `/api/verify/*` instead); admin sessions bypass this for OTP lessons too, so admins can preview any lesson regardless of gate. Draft-course lessons 404 for non-admins even if `previewAvailable`. See [14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md). |
+| `/api/lessons/[id]/media` | GET | Public (session-checked) | Query: `fileKind` (`video`\|`pdf`\|`image`\|`attachment-<index>`\|`body-image-<index>` — the latter added Sprint 19.5 for inline rich-text images). The `canAccess()`-gated counterpart to the OTP flow — serves `PUBLIC`/`MEMBER`/`PURCHASED`/`ADMIN`-level lesson media based on the current request's session (admin or `VerifiedLead` lead session), no token involved. Rejects `accessLevel: 'OTP'` lessons for non-admins (400 — those go through `/api/verify/*` instead); admin sessions bypass this for OTP lessons too, so admins can preview any lesson regardless of gate. Draft-course lessons 404 for non-admins even if `previewAvailable`. See [14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md). |
 
 ## Resource Categories (Sprint 19.3)
 

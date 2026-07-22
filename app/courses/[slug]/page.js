@@ -6,8 +6,12 @@ import StepDivider from '@/components/StepDivider';
 import CourseCard from '@/components/courses/CourseCard';
 import CourseCurriculumAccordion from '@/components/courses/CourseCurriculumAccordion';
 import { getCourseBySlug, getRelatedCourses } from '@/lib/publicCourses';
+import { formatCourseDuration } from '@/lib/courseOptions';
 import { getCurrentActor } from '@/lib/access/actor';
+import { getCurrentLead } from '@/lib/access/leadSession';
 import { annotateCourseAccess } from '@/lib/courseAccess';
+import connectDB from '@/lib/db';
+import CourseProgress from '@/models/CourseProgress';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +44,24 @@ export default async function CourseDetailPage({ params }) {
 
   const firstLesson = annotated.sections.find((s) => s.lessons.length > 0)?.lessons[0];
   const totalLessons = annotated.sections.reduce((sum, s) => sum + s.lessons.length, 0);
+  const totalDurationLabel = formatCourseDuration(course.totalEstimatedDuration);
+
+  // "Resume learning" — only for a VerifiedLead with existing progress on
+  // this course (Sprint 19.5 decision: no anonymous progress tracking).
+  const lead = await getCurrentLead();
+  let resumeLessonId = null;
+  let progressForAccordion = null;
+  if (lead) {
+    await connectDB();
+    const progress = await CourseProgress.findOne({ lead: lead._id, course: course._id }).lean();
+    if (progress) {
+      if (progress.currentLesson) resumeLessonId = String(progress.currentLesson);
+      progressForAccordion = {
+        completedLessons: progress.completedLessons.map((c) => String(c.lesson)),
+        currentLesson: progress.currentLesson ? String(progress.currentLesson) : null,
+      };
+    }
+  }
 
   // Schema.org Course structured data — CRS §... Sprint 19.2's "SEO: Structured
   // Data where appropriate" requirement. See https://schema.org/Course.
@@ -92,6 +114,12 @@ export default async function CourseDetailPage({ params }) {
                   {course.duration}
                 </span>
               )}
+              {!course.duration && totalDurationLabel && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock size={15} aria-hidden="true" />
+                  {totalDurationLabel} total
+                </span>
+              )}
               {course.difficulty && (
                 <span className="inline-flex items-center gap-1.5">
                   <BarChart3 size={15} aria-hidden="true" />
@@ -109,7 +137,9 @@ export default async function CourseDetailPage({ params }) {
 
             {firstLesson && (
               <div className="mt-8">
-                <Button href={`/courses/${course.slug}/lessons/${firstLesson._id}`}>Start learning</Button>
+                <Button href={`/courses/${course.slug}/lessons/${resumeLessonId || firstLesson._id}`}>
+                  {resumeLessonId ? 'Resume learning' : 'Start learning'}
+                </Button>
               </div>
             )}
           </div>
@@ -153,7 +183,7 @@ export default async function CourseDetailPage({ params }) {
               )}
 
               <h2 className="mb-4 font-display text-2xl font-bold text-primary-dark">Curriculum</h2>
-              <CourseCurriculumAccordion courseSlug={course.slug} sections={annotated.sections} />
+              <CourseCurriculumAccordion courseSlug={course.slug} sections={annotated.sections} progress={progressForAccordion} />
 
               {course.learningOutcomes?.length > 0 && (
                 <div className="mt-10">

@@ -5,6 +5,112 @@ as of the 2026-07-07 documentation sprint — everything below Sprint 9 is
 reconstructed from code/CHANGELOG evidence, not from a prior decisions log
 (none existed).
 
+## 2026-07-22 — Sprint 19.5: Courses → LMS — progress tracking requires OTP verification, no anonymous tracking
+
+"Resume learning"/"mark complete"/completion % need to recognize the same
+visitor across page loads. The only visitor-identity mechanism in this
+codebase is `VerifiedLead`, created only via the existing OTP flow (180-day
+`ss_lead` cookie) — there is no anonymous/device-cookie identity for public
+visitors. Two alternatives were raised with the user: gate progress behind
+OTP verification (reuse the existing mechanism exactly as-is), or add a new
+anonymous localStorage-based progress mechanism (zero friction, but a new,
+un-synced identity system this project doesn't otherwise have).
+**What was chosen:** progress requires OTP verification. A visitor can
+freely browse and watch **any** `PUBLIC` lesson without verifying anything
+— nothing about content access changed. But nothing is persisted
+(`CourseProgress`, below) until they verify once, same as any other
+OTP-gated flow.
+**Why:** explicit user decision, for consistency with the Knowledge
+Center/Tools OTP precedent, to avoid a second, un-synced identity system,
+and because the platform's stated goal (One Person → One VerifiedLead → One
+User → One Membership → One Purchase History → future certificates) only
+holds if progress is anchored to the same `VerifiedLead` everything else
+already is.
+**How to apply:** don't add a localStorage/anonymous-cookie progress
+fallback later without an equally explicit decision — the "verify once,
+reuse everywhere" identity model is the one this project has committed to.
+
+## 2026-07-22 — Sprint 19.5: `CourseProgress` is its own collection with a `lead` foreign key, not a `VerifiedLead` array
+
+`docs/14_ACCESS_CONTROL.md`'s own future-extensibility table suggested a
+plain `completedCourses: [ObjectId ref Course]` array on `VerifiedLead` for
+"completed courses" once Courses shipped. This sprint's actual requirement
+is richer than that suggestion: per-lesson completion history, a resume
+pointer (`currentLesson`), last-viewed/completed timestamps, and a
+server-computed completion percentage — not just a bounded "has completed
+course X" flag.
+**What was chosen:** `models/CourseProgress.js`, a new top-level collection
+keyed on `{lead, course}` (unique compound index), not an array field on
+`VerifiedLead`.
+**Why:** per-lesson completion history can grow (one entry per lesson per
+course a lead engages with) — the same shape of problem
+`docs/14_ACCESS_CONTROL.md` already flags for "Assessment history"
+("should be its own collection...with a `lead` foreign key...same
+direction `Booking` already points at `Event`"), and the same direction
+`models/DownloadLog.js` (Sprint 19.3) already took for exactly this reason.
+`completionPercent` is always computed server-side from
+`completedLessons.length` against the course's live lesson count — never
+accepted from the request — same "computed, never trusted from the
+client" precedent as `Product.discountPercentage`.
+**How to apply:** any future per-lead history that can grow unboundedly
+(quiz attempts, live-session attendance, once those ship) should follow
+this same own-collection-with-`lead`-FK shape, not a `VerifiedLead` array —
+reserve the array shape for genuinely small, bounded "does this lead
+currently have X" lookups.
+
+## 2026-07-22 — Sprint 19.5: Tiptap adopted for the Lesson rich text editor, scoped to Courses/Lessons only
+
+`components/admin/blogs/RichTextEditor.js` (hand-rolled `contentEditable` +
+`document.execCommand`, Sprint 12 era) only supports bold/italic/underline/
+headings/lists/blockquote/link — the LMS brief needs tables, callout boxes,
+code blocks, and inline image upload inside lesson content, none of which
+`execCommand` handles robustly (table cell/row/column editing in particular
+has no reliable native browser primitive). Raised with the user as an
+explicit exception to `docs/08_CODING_STANDARDS.md`'s "no new dependency
+for modest needs" convention, the same kind of call already made once for
+`framer-motion` (Sprint 18).
+**What was chosen:** `@tiptap/react` + `starter-kit` + `extension-table`/
+`-row`/`-cell`/`-header` + `extension-image` + `extension-link` +
+`extension-placeholder`, wrapped in `components/admin/courses/LessonRichTextEditor.js`.
+**Why:** user-approved exception — LMS-grade lesson content is real,
+non-trivial editing surface (same judgment call as framer-motion), not a
+modest addition to the existing editor. Kept **modular and
+editor-agnostic**: `LessonRichTextEditor` exposes the identical
+`value`/`onChange` (HTML string) contract as the older `RichTextEditor.js`,
+so `LessonEditorPanel.js` (the only caller) didn't need structural changes
+beyond swapping the `<textarea>`, and content stays portable HTML rendered
+the same `dangerouslySetInnerHTML` way as every other admin-authored
+content field in this app (`Blog.content`, `Course.longDescription`).
+**What was NOT done:** the older Blog `RichTextEditor.js` was **not**
+replaced or refactored to use Tiptap — this is scoped to Lessons only, per
+the user's explicit instruction not to touch working editors elsewhere
+without a separate reason.
+**How to apply:** if a future module needs table/callout/code-block-grade
+rich content, extending `LessonRichTextEditor`'s Tiptap setup (or building
+a sibling wrapper on the same extensions) is the precedent to follow — not
+a third hand-rolled editor, and not silently upgrading Blog's editor as a
+side effect of unrelated work.
+
+## 2026-07-22 — Sprint 19.5: Lesson `video.captions` added now, unused this sprint — architecture-only
+
+The brief asked for the lesson media schema to support future subtitle/
+caption (WebVTT) files without a later schema redesign, while explicitly
+not implementing playback this sprint.
+**What was chosen:** `Lesson.video.captions: [{url, filename, label,
+language}]`, same private-storage-array shape as `attachments`/
+`bodyImages`, default `[]` — no upload route, no admin UI, no player
+wiring added for it.
+**Why:** a plain additive array field costs nothing now (default `[]`,
+zero migration for existing lessons) and means a future captions feature
+is "add an upload button + wire the `<track>` element," not a schema
+change — same "short, bounded, safe-to-add-anytime" reasoning
+`docs/14_ACCESS_CONTROL.md` already applies to `VerifiedLead`'s future
+fields.
+**How to apply:** when captions are actually built, reuse this field as-is
+(upload via a new `mediaType=caption` on the existing lesson upload route,
+same `saveProtectedFile`-style validation restricted to `.vtt`) — don't
+redesign the shape first.
+
 ## 2026-07-22 — Sprint 19.4: Tools CMS + Fall Risk Assessment Calculator, Team tree removal
 
 Continuation of a session that crashed mid-sprint. Phase 1 (models),

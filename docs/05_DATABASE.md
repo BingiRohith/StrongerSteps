@@ -511,14 +511,16 @@ for a deliberate denormalized convenience field).
 | `description` | String | optional, max 1000 |
 | `displayOrder` | Number | manual sort order, scoped to siblings within the same section |
 | `lessonType` | String enum | `video` \| `pdf` \| `image` \| `external_link` \| `text` (see [`lib/courseOptions.js`](../lib/courseOptions.js)) |
-| `estimatedDuration` | Number | minutes, default 0, ≥0 |
+| `estimatedDuration` | Number | minutes, default 0, ≥0 — the structured, per-lesson counterpart to `Course.duration`'s free text; `lib/publicCourses.js`'s `getCourseBySlug()` sums this across every lesson into a derived (not stored) `totalEstimatedDuration`, formatted for display by `lib/courseOptions.js`'s `formatCourseDuration()` |
 | `previewAvailable` | Boolean | default `false` — bypasses the lesson's own `accessLevel` gate entirely (including `OTP`) when viewing, see [14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md) |
 | `accessLevel` | String enum | reuses `lib/access/accessLevels.js`'s `ACCESS_LEVELS` — no lesson-specific enum |
-| `video` / `pdf` | `{ url, filename }` | `url` is always a **private storage key** (`private-uploads/lessons-videos/`, `lessons-pdfs/`), regardless of `accessLevel` — see below |
+| `video` | `{ source, url, filename, captions }` | Sprint 19.5: `source` enum `upload`\|`youtube`\|`vimeo`\|`external` (default `upload`), admin-selected, player adapts (`lib/videoEmbed.js`'s `parseVideoUrl()`). For `upload`, `url` stays the pre-19.5 **private storage key**; for the other three sources `url` is the actual video URL (validated server-side on save). `captions` is a `[{url, filename, label, language}]` array — **architecture placeholder only**, not wired to any upload UI or playback yet, added now so a future WebVTT subtitle feature is a plain additive UI/route change, not a schema redesign |
+| `pdf` | `{ url, filename }` | `url` is always a **private storage key** (`private-uploads/lessons-pdfs/`), regardless of `accessLevel` — see below |
 | `image` | `{ url, alt }` | same private-storage convention |
 | `externalUrl` | String | for `lessonType: 'external_link'` |
-| `body` | String | rich HTML, for `lessonType: 'text'` |
-| `attachments` | `[{ url, filename, label }]` | covers the brief's "Attachments" **and** "Downloadable Resources" as one field — both describe the identical technical concept, unlike `Course`'s three learning-content lists (see [13_DECISIONS.md](13_DECISIONS.md)) |
+| `body` | String | rich HTML from the Tiptap-based lesson editor (Sprint 19.5; previously stored/rendered as plain text — see [13_DECISIONS.md](13_DECISIONS.md)), for `lessonType: 'text'` |
+| `attachments` | `[{ url, filename, label }]` | covers the brief's "Attachments" **and** "Downloadable Resources" as one field — both describe the identical technical concept, unlike `Course`'s three learning-content lists (see [13_DECISIONS.md](13_DECISIONS.md)). Sprint 19.5: accepts image/PDF/document/ZIP via `lib/privateUpload.js`'s `saveProtectedAttachment()` (previously office documents only) |
+| `bodyImages` | `[{ url, filename, alt }]` | Sprint 19.5 — inline images inserted into `body` by the rich text editor, same private-storage shape as `attachments`; referenced from the rendered HTML via `fileKind=body-image-<index>` (mirrors `attachment-<index>`) |
 
 **Media storage, always private.** Unlike every other module's uploads
 (public `public/uploads/`), Lesson media is written to
@@ -534,7 +536,37 @@ already established for Infographics — see
 - `PUBLIC`/`MEMBER`/`PURCHASED`/`ADMIN` → the new
   `GET /api/lessons/[id]/media` route, gated by `canAccess()`.
 
+Sprint 19.5 added `private-uploads/lessons-body-images/` (inline body
+images) to the existing `lessons-videos/`/`lessons-pdfs/`/`lessons-images/`/
+`lessons-attachments/` subdirs — same pattern, same gated-route resolution
+via `lib/verification/resourceRegistry.js`'s `lesson` entry.
+
 Indexes: `{section, displayOrder}`, `{course}`.
+
+## CourseProgress — [`models/CourseProgress.js`](../models/CourseProgress.js)
+
+Sprint 19.5. Per-`(lead, course)` learning progress: resume pointer,
+completed lessons, completion %. Its own top-level collection with a `lead`
+foreign key — **not** an array on `VerifiedLead` — per
+[14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md)'s rule that an unbounded/
+growing per-lead history belongs in its own collection (same direction
+`DownloadLog` already took toward `Booking`→`Event`), and per the confirmed
+Sprint 19.5 decision that progress is only ever tracked for a
+`VerifiedLead` — never for an unverified/anonymous visitor.
+
+| Field | Type | Notes |
+|---|---|---|
+| `lead` | ObjectId ref → `VerifiedLead` | required |
+| `course` | ObjectId ref → `Course` | required |
+| `completedLessons` | `[{ lesson: ObjectId ref Lesson, completedAt }]` | |
+| `currentLesson` | ObjectId ref → `Lesson` | nullable — the "resume learning" pointer |
+| `completionPercent` | Number | **always server-computed** from `completedLessons.length / totalLessonsInCourse`, never accepted from the request — same "computed, never trusted" precedent as `Product.discountPercentage` |
+| `lastViewedAt` / `startedAt` / `completedAt` | Date | `startedAt` defaults to creation time; `completedAt` set once `completionPercent` reaches 100 |
+
+Indexes: `{lead, course}` unique (one progress record per lead per course).
+Written by `POST /api/lessons/[id]/progress` (`action: 'view'\|'complete'\|
+'incomplete'`); read by `GET /api/courses/[slug]/progress` and directly by
+the course detail/lesson viewer pages (resume link, completion checkmarks).
 
 ## ResourceCategory — [`models/ResourceCategory.js`](../models/ResourceCategory.js)
 

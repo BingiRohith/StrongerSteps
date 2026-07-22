@@ -5,6 +5,9 @@ import { requireAuth } from '@/lib/auth';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
 import { LESSON_TYPE_VALUES } from '@/lib/courseOptions';
 import { isValidAccessLevel } from '@/lib/access/accessLevels';
+import { isValidVideoUrl } from '@/lib/videoEmbed';
+
+const VIDEO_SOURCE_VALUES = ['upload', 'youtube', 'vimeo', 'external'];
 
 export const dynamic = 'force-dynamic';
 
@@ -72,7 +75,20 @@ export const PUT = withErrorHandling(async (request, { params }) => {
     lesson.accessLevel = body.accessLevel;
   }
   if (body.video !== undefined) {
-    lesson.video = { url: body.video?.url || '', filename: body.video?.filename || '' };
+    const source = VIDEO_SOURCE_VALUES.includes(body.video?.source) ? body.video.source : 'upload';
+    const url = body.video?.url || '';
+    // 'upload' urls are private storage keys written by the upload route,
+    // not visitor-facing URLs — only youtube/vimeo/external need the
+    // http(s)-URL-shape check here.
+    if (source !== 'upload' && url && !isValidVideoUrl(url)) {
+      return fail('Enter a valid YouTube, Vimeo, or direct video URL', 400);
+    }
+    lesson.video = {
+      source,
+      url,
+      filename: body.video?.filename || '',
+      captions: Array.isArray(body.video?.captions) ? body.video.captions : lesson.video?.captions || [],
+    };
   }
   if (body.pdf !== undefined) {
     lesson.pdf = { url: body.pdf?.url || '', filename: body.pdf?.filename || '' };
@@ -84,6 +100,9 @@ export const PUT = withErrorHandling(async (request, { params }) => {
   if (body.body !== undefined) lesson.body = body.body;
   if (body.attachments !== undefined) {
     lesson.attachments = Array.isArray(body.attachments) ? body.attachments : [];
+  }
+  if (body.bodyImages !== undefined) {
+    lesson.bodyImages = Array.isArray(body.bodyImages) ? body.bodyImages : [];
   }
 
   await lesson.save();

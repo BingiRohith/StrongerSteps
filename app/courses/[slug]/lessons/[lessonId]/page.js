@@ -4,11 +4,21 @@ import { ArrowLeft, Lock, ExternalLink, FileText, Download, CreditCard, Shopping
 import { Button } from '@/components/ui';
 import CourseCurriculumAccordion from '@/components/courses/CourseCurriculumAccordion';
 import LessonOtpUnlock from '@/components/courses/LessonOtpUnlock';
+import LessonProgressControls from '@/components/courses/LessonProgressControls';
 import { getPublicLessonById, getCourseBySlug } from '@/lib/publicCourses';
 import { getCurrentActor } from '@/lib/access/actor';
+import { getCurrentLead } from '@/lib/access/leadSession';
 import { annotateLessonAccess, annotateCourseAccess } from '@/lib/courseAccess';
+import { parseVideoUrl, isDirectVideoFile } from '@/lib/videoEmbed';
+import connectDB from '@/lib/db';
+import CourseProgress from '@/models/CourseProgress';
 
 export const dynamic = 'force-dynamic';
+
+/** Flattens a course's sections into one ordered lesson-id list for prev/next navigation. */
+function flattenLessonIds(sections) {
+  return (sections || []).flatMap((s) => (s.lessons || []).map((l) => l._id));
+}
 
 export async function generateMetadata({ params }) {
   const result = await getPublicLessonById(params.lessonId);
@@ -31,6 +41,28 @@ export default async function LessonViewerPage({ params }) {
   const actor = await getCurrentActor();
   const lesson = annotateLessonAccess(result.lesson, actor);
   const course = annotateCourseAccess(await getCourseBySlug(params.slug), actor);
+
+  const orderedLessonIds = flattenLessonIds(course?.sections);
+  const currentIndex = orderedLessonIds.indexOf(params.lessonId);
+  const prevLessonId = currentIndex > 0 ? orderedLessonIds[currentIndex - 1] : null;
+  const nextLessonId = currentIndex >= 0 && currentIndex < orderedLessonIds.length - 1
+    ? orderedLessonIds[currentIndex + 1]
+    : null;
+
+  // Progress is only ever tracked for a VerifiedLead (Sprint 19.5 decision)
+  // — an anonymous visitor sees the page with no progress state at all.
+  const lead = await getCurrentLead();
+  let progress = null;
+  if (lead) {
+    await connectDB();
+    const doc = await CourseProgress.findOne({ lead: lead._id, course: result.course._id }).lean();
+    if (doc) {
+      progress = {
+        completedLessons: doc.completedLessons.map((c) => String(c.lesson)),
+        currentLesson: doc.currentLesson ? String(doc.currentLesson) : null,
+      };
+    }
+  }
 
   return (
     <section className="bg-bg">
@@ -55,13 +87,23 @@ export default async function LessonViewerPage({ params }) {
                 <UnlockedLessonContent lesson={lesson} lessonId={params.lessonId} />
               )}
             </div>
+
+            {!lesson.locked && (
+              <LessonProgressControls
+                lessonId={params.lessonId}
+                hasLead={Boolean(lead)}
+                initialCompleted={progress?.completedLessons?.includes(params.lessonId) || false}
+                prevHref={prevLessonId ? `/courses/${params.slug}/lessons/${prevLessonId}` : null}
+                nextHref={nextLessonId ? `/courses/${params.slug}/lessons/${nextLessonId}` : null}
+              />
+            )}
           </div>
 
           <aside className="lg:sticky lg:top-8 lg:h-fit">
             <h2 className="mb-3 font-display text-sm font-bold uppercase tracking-wide text-primary-dark">
               Course content
             </h2>
-            <CourseCurriculumAccordion courseSlug={params.slug} sections={course?.sections} />
+            <CourseCurriculumAccordion courseSlug={params.slug} sections={course?.sections} progress={progress} />
           </aside>
         </div>
       </div>
@@ -108,13 +150,40 @@ function LockedLessonPanel({ lesson }) {
 }
 
 function UnlockedLessonContent({ lesson, lessonId }) {
+  const videoSource = lesson.video?.source || 'upload';
+
   return (
     <div>
-      {lesson.lessonType === 'video' && lesson.video?.url && (
-        // eslint-disable-next-line jsx-a11y/media-has-caption -- captions not part of this sprint's scope
+      {lesson.lessonType === 'video' && lesson.video?.url && videoSource === 'upload' && (
+        // eslint-disable-next-line jsx-a11y/media-has-caption -- caption/subtitle architecture is in place (Lesson.video.captions) but not wired to playback this sprint
         <video controls className="w-full rounded-xl2 bg-ink" src={`/api/lessons/${lessonId}/media?fileKind=video`}>
           Your browser does not support the video tag.
         </video>
+      )}
+
+      {lesson.lessonType === 'video' && lesson.video?.url && (videoSource === 'youtube' || videoSource === 'vimeo') && (
+        <div className="aspect-video w-full overflow-hidden rounded-xl2 bg-ink">
+          <iframe
+            src={parseVideoUrl(lesson.video.url).embedUrl}
+            title={lesson.title}
+            className="h-full w-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      )}
+
+      {lesson.lessonType === 'video' && lesson.video?.url && videoSource === 'external' && (
+        isDirectVideoFile(lesson.video.url) ? (
+          // eslint-disable-next-line jsx-a11y/media-has-caption -- caption/subtitle architecture is in place (Lesson.video.captions) but not wired to playback this sprint
+          <video controls className="w-full rounded-xl2 bg-ink" src={lesson.video.url}>
+            Your browser does not support the video tag.
+          </video>
+        ) : (
+          <div className="aspect-video w-full overflow-hidden rounded-xl2 bg-ink">
+            <iframe src={lesson.video.url} title={lesson.title} className="h-full w-full" allowFullScreen />
+          </div>
+        )
       )}
 
       {lesson.lessonType === 'pdf' && lesson.pdf?.url && (
@@ -151,7 +220,11 @@ function UnlockedLessonContent({ lesson, lessonId }) {
       )}
 
       {lesson.lessonType === 'text' && lesson.body && (
-        <p className="whitespace-pre-line text-base leading-relaxed text-ink">{lesson.body}</p>
+        // eslint-disable-next-line react/no-danger -- admin-authored HTML from the lesson rich text editor, same trust model as Course.longDescription/Blog.content elsewhere in this app
+        <div
+          className="prose-editor max-w-none text-base leading-relaxed text-ink [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-line [&_td]:p-2 [&_th]:border [&_th]:border-line [&_th]:bg-sage/40 [&_th]:p-2 [&_pre]:rounded-lg [&_pre]:bg-ink [&_pre]:p-3 [&_pre]:text-white [&_blockquote]:border-l-4 [&_blockquote]:border-accent [&_blockquote]:pl-3 [&_blockquote]:italic [&_h2]:font-display [&_h2]:text-xl [&_h2]:font-bold [&_h3]:font-display [&_h3]:text-lg [&_h3]:font-bold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_a]:text-primary [&_a]:underline [&_img]:rounded-lg [&_.callout]:my-3 [&_.callout]:rounded-lg [&_.callout]:border [&_.callout]:p-3 [&_.callout-info]:border-primary/40 [&_.callout-info]:bg-sage/40 [&_.callout-warning]:border-amber-400 [&_.callout-warning]:bg-amber-50 [&_.callout-tip]:border-primary [&_.callout-tip]:bg-primary/5"
+          dangerouslySetInnerHTML={{ __html: lesson.body }}
+        />
       )}
 
       {lesson.attachments?.length > 0 && (

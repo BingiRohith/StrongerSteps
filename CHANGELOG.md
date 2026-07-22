@@ -1,5 +1,103 @@
 # Changelog
 
+## Sprint 19.5: Courses → Learning Management System — 2026-07-22
+
+Scope: extend Sprint 19.2's existing Course→Section→Lesson CMS into a
+Udemy/Coursera-style LMS — multi-source video, richer lesson content,
+progress tracking/resume-learning, and a real course player — without
+rebuilding any of the working Sprint 19.2 foundation (models, admin CRUD,
+access control, upload system, curriculum manager). Two product decisions
+were confirmed with the user before implementation (see
+`docs/13_DECISIONS.md`): progress tracking requires OTP verification (no
+anonymous/localStorage tracking), and Tiptap is an approved, scoped
+exception to the "no new dependency" convention for the lesson rich text
+editor.
+
+### Added — Models
+- **`models/CourseProgress.js`** — new top-level collection, `lead` (ref
+  `VerifiedLead`) + `course` FK, unique compound index. Tracks
+  `completedLessons[]`, `currentLesson` (resume pointer),
+  `completionPercent` (always server-computed), `lastViewedAt`/`startedAt`/
+  `completedAt`. Follows the same "own collection with a lead FK" pattern
+  as `DownloadLog`, not a `VerifiedLead` array — see `docs/13_DECISIONS.md`.
+- **`models/Lesson.js`** (additive) — `video.source` enum
+  (`upload`\|`youtube`\|`vimeo`\|`external`, default `upload`);
+  `video.captions[]` (WebVTT architecture placeholder, unused this sprint);
+  `bodyImages[]` (inline rich-text images, same shape as `attachments`).
+
+### Added — Lib
+- **`lib/videoEmbed.js`** — pure `parseVideoUrl()`/`isDirectVideoFile()`/
+  `isValidVideoUrl()` for YouTube/Vimeo/external URL parsing, unit-tested.
+- **`lib/privateUpload.js`** — new `saveProtectedAttachment()` (combined
+  image/PDF/document/ZIP allowlist for Lesson attachments).
+- **`lib/verification/resourceRegistry.js`** — `lesson` entry's
+  `getFile`/`subdirFor` extended with a `body-image-<index>` `fileKind`.
+- **`lib/publicCourses.js`** — `getCourseBySlug()` now also returns a
+  derived (not stored) `totalEstimatedDuration` (summed `Lesson.estimatedDuration`).
+- **`lib/courseOptions.js`** — new `formatCourseDuration()` helper.
+
+### Added — API
+- **`POST /api/lessons/[id]/progress`** — `{ action: 'view'\|'complete'\|
+  'incomplete' }`, requires a `VerifiedLead` (401 `verify-required`
+  otherwise). Upserts `CourseProgress`, recomputes `completionPercent`
+  server-side.
+- **`GET /api/courses/[slug]/progress`** — returns `{ progress: null }`
+  (never an error) for an unverified visitor, else the lead's
+  `CourseProgress` for that course.
+- Lesson upload route gained `mediaType=bodyImage`; `mediaType=attachment`
+  now uses the broader `saveProtectedAttachment()`.
+- Lesson PUT route validates non-`upload` `video.url` via
+  `isValidVideoUrl()` before saving.
+
+### Changed — Admin CMS
+- **New `components/admin/courses/LessonRichTextEditor.js`** — Tiptap
+  wrapper (starter-kit + table/row/cell/header + image + link +
+  placeholder extensions). Same `value`/`onChange` HTML contract as the
+  older `RichTextEditor.js`; toolbar adds tables, info/warning/tip
+  callouts, code blocks, and inline image upload (wired to the new
+  `bodyImage` upload endpoint).
+- **`components/admin/courses/LessonEditorPanel.js`** — video block gained
+  a source selector (Upload/YouTube/Vimeo/External) with a live
+  `parseVideoUrl()` preview; body block now uses `LessonRichTextEditor`;
+  attachment file picker widened to accept images/PDF/ZIP as well as
+  Office documents.
+- `CurriculumManager.js`, Course/Section CRUD, and category management were
+  **not modified** — already correct, reused as-is.
+
+### Changed — Public site
+- **`app/courses/[slug]/lessons/[lessonId]/page.js`** — video rendering now
+  branches on `video.source` (upload `<video>`, YouTube/Vimeo `<iframe>`,
+  external file-or-iframe); lesson `body` now renders as real HTML
+  (`dangerouslySetInnerHTML`, same trust model as `Course.longDescription`/
+  `Blog.content`) instead of plain text; added previous/next lesson
+  navigation and a Mark Complete control
+  (`components/courses/LessonProgressControls.js`, new) that prompts an
+  OTP verification (reusing `LessonOtpUnlock.js`, extended with optional
+  `heading`/`description`/`onVerified` props) if the visitor has no
+  `VerifiedLead` session yet.
+- **`app/courses/[slug]/page.js`** — shows "Resume learning" (linking to
+  the lead's `currentLesson`) instead of "Start learning" when progress
+  exists; shows the derived total course duration when no free-text
+  `duration` is set.
+- **`components/courses/CourseCurriculumAccordion.js`** — new optional
+  `progress` prop shows completion checkmarks and highlights the current
+  lesson; `undefined` (default) preserves prior behavior everywhere else
+  it's used.
+
+### Testing
+- New `tests/lib/videoEmbed.test.js` (YouTube/Vimeo/external/malformed URL
+  parsing). 141/141 tests (up from 128), clean production build
+  (`npm run build`) after fixing one real Tiptap import warning
+  (`@tiptap/extension-table` has no default export — switched to a named
+  import).
+
+### Not built this sprint (future-ready by architecture, per the brief's own "Future ___" markers)
+Quiz/Live Session/Assignment/Certificate lesson types, Membership/Razorpay
+payment gating, subtitle/caption playback, and a learner dashboard.
+`CourseProgress` is where a future certificate-issuance step would read
+completion from; `Lesson.video.captions` and `Lesson.lessonType`'s enum are
+both plain, additive extension points already in place.
+
 ## Sprint 19.4: Tools CMS, Fall Risk Assessment Calculator & Team Redesign — 2026-07-22
 
 Scope: two client-approved deviations from the then-current CRS (both
