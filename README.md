@@ -71,7 +71,7 @@ After logging in you land on `/admin/dashboard`, with sections for:
 
 - **Blogs** (`/admin/blogs`) — write, edit, publish/unpublish, delete articles
 - **Infographics** (`/admin/infographics`) — add, edit, publish/unpublish, delete infographics (thumbnail image, full image, optional PDF)
-- Team / Categories — placeholders for future sprints
+- Team, Products, Memberships, Programs, Recipes, Courses, Resources, and Tools each have their own full admin CRUD module by this point — see [`docs/07_ADMIN_MODULES.md`](docs/07_ADMIN_MODULES.md) for details
 
 Published Blogs appear at `/knowledge-center#blogs`; published Infographics
 appear at `/knowledge-center#infographics`, both fetched live from MongoDB.

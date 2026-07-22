@@ -3,7 +3,14 @@
 Project: Stronger Steps
 Version: 1.0
 Status: VERIFIED
-Last Updated: 07 July 2026
+Last Updated: 22 July 2026
+
+Sprint 19.4 amendment: §11 (Team Page) below was superseded by a newer
+client instruction — the Organization Tree is replaced with a flat member
+card grid (no tree/org-chart/connector-line UI). A new Tools CMS (§12a) was
+also added; the original spec did not mention a Tools module in any phase.
+Both were flagged as CRS deviations before coding and approved to proceed —
+see `docs/13_DECISIONS.md`.
 
 ---
 
@@ -468,6 +475,19 @@ QR Check-in
 
 # 11. TEAM PAGE
 
+Superseded (Sprint 19.4). The Organization Tree below was replaced with a
+flat, responsive member card grid — no tree diagrams, org charts,
+parent-child layouts, or connector lines. Desktop: multi-column grid.
+Tablet: 2 columns. Mobile: 1 column. Each card shows Photo, Name,
+Designation, Qualifications, Biography, Experience, Specialization, Social
+Links, and Contact.
+
+Team Members continue using the existing CMS. Admin can Add, Edit, Delete,
+upload Images, and set Designation, Department, Display Order, Publish/
+Unpublish, and Feature — same as before, minus the tree-position editor.
+
+Original (superseded) spec, kept for history:
+
 Current list layout replaced.
 
 Use an organizational tree.
@@ -535,6 +555,28 @@ Preview
 Future
 
 Recipes integration.
+
+---
+
+# 12a. TOOLS (Sprint 19.4 addition)
+
+Not present in the original spec — added this sprint as a new production
+CMS module, same admin-managed pattern as Courses/Resources.
+
+Production Tools CMS supporting unlimited future tools. CRUD, Publish/
+Unpublish, Categories, Search, Filters, Ordering, Featured, Preview, SEO
+fields, Slugs.
+
+First tool: Fall Risk Assessment Calculator — CMS-driven Sections,
+Questions (Radio, Checkbox, Yes/No, Numeric), dynamic scoring, dynamic
+thresholds, dynamic recommendations. No hardcoded values.
+
+Reuses existing VerifiedLead, OTP, Verification Modal, and Access Control —
+no new auth or OTP system.
+
+Public: Tools Listing, Tool Details, Assessment, Results, Search, Filters,
+Responsive. Reachable from the Knowledge Center's Tools section, not a new
+top-level header nav item (same precedent as Courses/Resources).
 
 ---
 

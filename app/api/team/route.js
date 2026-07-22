@@ -1,5 +1,5 @@
 import { ok, withErrorHandling } from '@/lib/apiResponse';
-import { getPublishedTeamMembers, getTeamTreeData } from '@/lib/publicTeam';
+import { getPublishedTeamMembers } from '@/lib/publicTeam';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,21 +9,17 @@ export const dynamic = 'force-dynamic';
  * stay small. Deliberately separate from app/api/admin/team/route.js, which
  * stays untouched and keeps requiring auth + returning drafts.
  *
- * Returns the flat `teamMembers` list (unchanged shape, Sprint 9 — kept for
- * backward compatibility, `search` filters it) alongside the Sprint 14
- * `treeMembers`/`matchedIds` pair the illustrated Organization Tree
- * component renders (`treeMembers` is always the *full* published roster —
- * `search` only flags `matchedIds` for highlighting, never removes a member
- * from the illustration).
+ * Sprint 19.4 — returns only the flat `teamMembers` list (unchanged shape,
+ * Sprint 9). The Sprint 14 `treeMembers`/`matchedIds` pair existed only to
+ * feed the illustrated Organization Tree, removed this sprint in favor of a
+ * flat card grid (components/team/TeamGrid.js) — dropped rather than kept
+ * as dead weight.
  */
 export const GET = withErrorHandling(async (request) => {
   const { searchParams } = new URL(request.url);
   const search = searchParams.get('search') || '';
 
-  const [teamMembers, { members: treeMembers, matchedIds }] = await Promise.all([
-    getPublishedTeamMembers({ search }),
-    getTeamTreeData({ search }),
-  ]);
+  const teamMembers = await getPublishedTeamMembers({ search });
 
-  return ok({ teamMembers, treeMembers, matchedIds });
+  return ok({ teamMembers });
 });

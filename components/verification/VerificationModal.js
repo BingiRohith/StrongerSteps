@@ -22,8 +22,16 @@ import { X, Mail, Phone, Loader2, ShieldCheck, AlertCircle, CheckCircle2 } from 
  * lifetime (see lib/verification/verificationService.js). Existing
  * callers (InfographicViewer.js) don't pass it, so their behavior is
  * unchanged.
+ *
+ * `skipRedirect` (optional, Sprint 19.4): when true, skips the
+ * auto-navigation to app/api/verify/download entirely — for a resourceType
+ * like `tool` there is no file to stream (see
+ * lib/verification/resourceRegistry.js's `tool` entry), just a
+ * `downloadToken` the caller submits elsewhere (see
+ * app/api/tools/[slug]/attempt/route.js). Defaults to false so every
+ * existing caller keeps navigating exactly as before.
  */
-export default function VerificationModal({ resourceType, resourceId, fileKind, onClose, onVerified }) {
+export default function VerificationModal({ resourceType, resourceId, fileKind, onClose, onVerified, skipRedirect = false }) {
   const [step, setStep] = useState('choose-method');
   const [method, setMethod] = useState('');
   const [contact, setContact] = useState('');
@@ -85,8 +93,10 @@ export default function VerificationModal({ resourceType, resourceId, fileKind, 
       }
       setStep('done');
       onVerified?.(data.downloadToken);
-      const downloadUrl = `/api/verify/download?token=${encodeURIComponent(data.downloadToken)}&fileKind=${encodeURIComponent(fileKind)}`;
-      window.location.href = downloadUrl;
+      if (!skipRedirect) {
+        const downloadUrl = `/api/verify/download?token=${encodeURIComponent(data.downloadToken)}&fileKind=${encodeURIComponent(fileKind)}`;
+        window.location.href = downloadUrl;
+      }
     } catch (err) {
       setError('Could not verify the code. Please try again.');
     } finally {
@@ -100,7 +110,7 @@ export default function VerificationModal({ resourceType, resourceId, fileKind, 
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Verify to download"
+      aria-label={skipRedirect ? 'Verify to continue' : 'Verify to download'}
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -109,7 +119,9 @@ export default function VerificationModal({ resourceType, resourceId, fileKind, 
         <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-4">
           <div className="flex items-center gap-2">
             <ShieldCheck size={18} className="text-primary" aria-hidden="true" />
-            <h3 className="font-display text-base font-bold text-primary-dark">Verify to download</h3>
+            <h3 className="font-display text-base font-bold text-primary-dark">
+              {skipRedirect ? 'Verify to continue' : 'Verify to download'}
+            </h3>
           </div>
           <button
             type="button"
@@ -132,7 +144,7 @@ export default function VerificationModal({ resourceType, resourceId, fileKind, 
           {step === 'choose-method' && (
             <div>
               <p className="mb-4 text-sm text-muted">
-                For your security, verify with your email or mobile number before downloading.
+                For your security, verify with your email or mobile number before {skipRedirect ? 'continuing' : 'downloading'}.
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <button
@@ -225,7 +237,7 @@ export default function VerificationModal({ resourceType, resourceId, fileKind, 
                   className="flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-60"
                 >
                   {loading && <Loader2 size={16} className="animate-spin" />}
-                  Verify & download
+                  {skipRedirect ? 'Verify & continue' : 'Verify & download'}
                 </button>
               </div>
             </form>
@@ -234,7 +246,9 @@ export default function VerificationModal({ resourceType, resourceId, fileKind, 
           {step === 'done' && (
             <div className="flex flex-col items-center gap-3 py-4 text-center">
               <CheckCircle2 size={32} className="text-primary" aria-hidden="true" />
-              <p className="font-display text-sm font-semibold text-primary-dark">Verified — your download is starting</p>
+              <p className="font-display text-sm font-semibold text-primary-dark">
+                {skipRedirect ? 'Verified' : 'Verified — your download is starting'}
+              </p>
             </div>
           )}
         </div>

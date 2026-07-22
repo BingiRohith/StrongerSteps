@@ -1,23 +1,9 @@
-import {
-  BookOpen,
-  GraduationCap,
-  Image as ImageIcon,
-  Wrench,
-  FolderOpen,
-  ShieldAlert,
-  Activity,
-  Brain,
-  Scale,
-  Dumbbell,
-  Footprints,
-  Armchair,
-  Quote,
-} from 'lucide-react';
+import { BookOpen, GraduationCap, Image as ImageIcon, Wrench, FolderOpen, Quote } from 'lucide-react';
 import Link from 'next/link';
 import { Eyebrow, SectionHeading } from '@/components/ui';
-import ComingSoonCard from '@/components/ComingSoonCard';
 import CourseCard from '@/components/courses/CourseCard';
 import ResourceCard from '@/components/resources/ResourceCard';
+import ToolCard from '@/components/tools/ToolCard';
 import BlogGrid from '@/components/blog/BlogGrid';
 import InfographicsGrid from '@/components/infographics/InfographicsGrid';
 import StepDivider from '@/components/StepDivider';
@@ -25,6 +11,7 @@ import { getPublishedBlogs, getBlogCategories } from '@/lib/publicBlogs';
 import { getPublishedInfographics, getInfographicCategories } from '@/lib/publicInfographics';
 import { getPublishedCourses } from '@/lib/publicCourses';
 import { getFeaturedResources } from '@/lib/publicResources';
+import { getFeaturedTools } from '@/lib/publicTools';
 
 // This page now reads published blogs live from MongoDB (see the Blogs
 // section below), so it can't be statically cached at build time — same
@@ -47,55 +34,6 @@ const SUB_NAV = [
   { href: '#resources', label: 'Resources', icon: FolderOpen },
 ];
 
-const TOOLS = [
-  {
-    icon: ShieldAlert,
-    title: 'Fall Risk Predictor Calculator',
-    description: 'Estimates your personal fall likelihood based on balance, medications, previous falls, vision, and mobility. The single most important tool we offer.',
-    badge: 'Priority Tool',
-  },
-  {
-    icon: Scale,
-    title: 'BMI Calculator',
-    description: 'Calculate your Body Mass Index and understand what it means for your health specifically after 50.',
-  },
-  {
-    icon: Activity,
-    title: 'HOMA-IR Calculator',
-    description: 'Measures insulin resistance — a key indicator of metabolic health and diabetes risk in older adults.',
-  },
-  {
-    icon: Brain,
-    title: 'ASCVD Risk Score',
-    description: 'Estimates your 10-year risk of a cardiovascular event, helping you and your doctor make better prevention decisions.',
-  },
-  {
-    icon: Dumbbell,
-    title: 'Beers Criteria Risk Calculator',
-    description: 'Screens your current medications against the Beers Criteria — a clinically validated list of drugs that may be unsafe for adults 65+.',
-  },
-  {
-    icon: Footprints,
-    title: 'G8 Geriatric Screening Tool',
-    description: 'An 8-question screening tool used to assess overall health status in older adults — fast, validated, and clinically proven.',
-  },
-  {
-    icon: Armchair,
-    title: 'Vulnerable Elders Survey (VES)',
-    description: 'A standardised survey to identify older adults at risk of functional decline and health deterioration.',
-  },
-  {
-    icon: Brain,
-    title: 'Digital Geriatric Depression Scale',
-    description: 'A validated screening questionnaire for depression in older adults — private, fast, and clinically meaningful.',
-  },
-  {
-    icon: Activity,
-    title: 'Dementia Risk Calculator',
-    description: 'Estimates your risk of developing dementia based on age, lifestyle, and medical factors — with guidance on what to do next.',
-  },
-];
-
 export default async function KnowledgeCenterPage() {
   const [
     { blogs, pagination },
@@ -104,6 +42,7 @@ export default async function KnowledgeCenterPage() {
     infographicCategories,
     { courses },
     featuredResources,
+    featuredTools,
   ] = await Promise.all([
     getPublishedBlogs({ page: 1, limit: 9 }),
     getBlogCategories(),
@@ -111,6 +50,7 @@ export default async function KnowledgeCenterPage() {
     getInfographicCategories(),
     getPublishedCourses({ page: 1, limit: 6, sort: 'newest' }),
     getFeaturedResources(6),
+    getFeaturedTools(6),
   ]);
 
   return (
@@ -227,26 +167,37 @@ export default async function KnowledgeCenterPage() {
 
       <StepDivider from="#E6EEE4" to="#FBF7EF" flip />
 
-      {/* Tools */}
+      {/* Tools — Sprint 19.4: real Tool model, replacing the hardcoded
+          TOOLS placeholder array. This section stays the entry point per
+          the same "don't split across two pages" precedent Sprint
+          19.2/19.3 established for Courses/Resources (docs/13_DECISIONS.md)
+          — a dedicated /tools listing + detail/assessment page, linked
+          from here rather than a new top-level header nav item. */}
       <section id="tools" className="bg-bg">
         <div className="mx-auto max-w-content px-6 py-16 md:py-20">
-          <SectionHeading
-            eyebrow="Tools — what sets us apart"
-            title="Free assessments you can take in minutes"
-            description="Simple, doctor-informed tools that help you understand your own risk factors — no appointment needed."
-          />
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {TOOLS.map((tool) => (
-              <ComingSoonCard
-                key={tool.title}
-                badgeLabel={tool.badge || 'Coming Soon'}
-                tone={tool.badge ? 'primary' : 'accent'}
-                icon={tool.icon}
-                title={tool.title}
-                description={tool.description}
-              />
-            ))}
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <SectionHeading
+              eyebrow="Tools — what sets us apart"
+              title="Free assessments you can take in minutes"
+              description="Simple, doctor-informed tools that help you understand your own risk factors — no appointment needed."
+            />
+            <Link
+              href="/tools"
+              className="mb-10 inline-flex items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm font-semibold text-primary-dark hover:border-primary hover:text-primary md:mb-14"
+            >
+              View all tools
+            </Link>
           </div>
+
+          {featuredTools.length > 0 ? (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {featuredTools.map((tool) => (
+                <ToolCard key={tool._id} tool={tool} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted">Tools are on their way — check back soon.</p>
+          )}
         </div>
       </section>
 

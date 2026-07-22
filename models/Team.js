@@ -3,26 +3,36 @@ import mongoose from 'mongoose';
 const { Schema, models, model } = mongoose;
 
 /**
- * Team collection — feeds the About page's illustrated Organization Tree
- * (Sprint 14 rev. 2; originally a flat "Meet the founders" / "Our Team"
- * grid, Sprint 9; a plain connector-line org chart in the first Sprint 14
- * pass, rejected by the client for not matching their reference — see
- * `docs/13_DECISIONS.md`). Mirrors the shape/conventions of `models/Blog.js`
- * and `models/Infographic.js` (draft/published lifecycle, photo sub-document
+ * Team collection — originally fed the About page's illustrated
+ * Organization Tree (Sprint 14 rev. 2; before that a flat "Meet the
+ * founders" / "Our Team" grid, Sprint 9; a plain connector-line org chart
+ * in the first Sprint 14 pass, rejected by the client for not matching
+ * their reference — see `docs/13_DECISIONS.md`). As of Sprint 19.4 the
+ * public page renders a flat responsive card grid again
+ * (`components/team/TeamGrid.js`) instead of the tree — a client decision
+ * documented in this project's memory system, not yet reflected in
+ * `docs/03_CLIENT_REQUIREMENTS.md` §11 (pending the Sprint 19.4
+ * documentation phase).
+ *
+ * `parentMember`/`xPosition`/`yPosition` are kept, **unused**, rather than
+ * migrated away: Sprint 19.4 only removed the tree *presentation* layer
+ * (`components/team/OrgTree.js` and friends, deleted), so there was no
+ * reason to touch data that existing documents already carry. Nothing
+ * reads or writes these three fields anymore (no admin form field, no API
+ * body handling) — they're inert legacy columns, safe to ignore or drop in
+ * a future sprint.
+ *
+ * Mirrors the shape/conventions of `models/Blog.js` and
+ * `models/Infographic.js` (draft/published lifecycle, photo sub-document
  * like coverImage, `featured` flag like Blog) so the admin CRUD and upload
  * flow feel consistent with the rest of the admin panel. No slug/detail
- * page — team members don't have an individual public page.
- *
- * `parentMember` (self-ref) still models the reporting relationship (used to
- * draw a connector line between a node and its parent's `xPosition`/
- * `yPosition`), but visual placement on the tree illustration is now
- * independent of it: `xPosition`/`yPosition` (0-100, percentage of the
- * illustration's width/height — `0,0` top-left, `100,100` bottom-right) are
- * admin-set directly via a drag-and-drop position editor
- * (`components/admin/team/TreePositionEditor.js`), not derived from the
- * hierarchy. `status` (draft/published) doubles as this feature's "Active/
- * Inactive" toggle — reused rather than adding a duplicate boolean.
- * `designation` doubles as the tree node's "Position" label.
+ * page — team members don't have an individual public page. `status`
+ * (draft/published) doubles as this feature's "Active/Inactive" toggle —
+ * reused rather than adding a duplicate boolean. `designation` doubles as
+ * the card's "Position" label. `specialization`/`contact` (Sprint 19.4)
+ * are additive fields for the new card layout — same trimmed-array
+ * convention as `qualifications` for the former, a plain optional
+ * email/phone sub-document for the latter.
  */
 const TeamSchema = new Schema(
   {
@@ -43,6 +53,16 @@ const TeamSchema = new Schema(
       default: [],
       set: (quals) =>
         Array.isArray(quals) ? quals.map((q) => q.trim()).filter(Boolean) : [],
+    },
+    specialization: {
+      type: [String],
+      default: [],
+      set: (specs) =>
+        Array.isArray(specs) ? specs.map((s) => s.trim()).filter(Boolean) : [],
+    },
+    contact: {
+      email: { type: String, trim: true, lowercase: true, maxlength: 150, default: '' },
+      phone: { type: String, trim: true, maxlength: 30, default: '' },
     },
     department: {
       type: String,
@@ -139,6 +159,8 @@ TeamSchema.methods.toSafeObject = function toSafeObject() {
     xPosition: this.xPosition,
     yPosition: this.yPosition,
     qualifications: this.qualifications,
+    specialization: this.specialization,
+    contact: this.contact,
     experience: this.experience,
     bio: this.bio,
     photo: this.photo,

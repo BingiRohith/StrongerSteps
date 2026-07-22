@@ -115,15 +115,24 @@ Public, reusable, provider-agnostic — not Knowledge-Center-specific. See
 
 ## Team
 
+**Sprint 19.4:** the illustrated Organization Tree (Sprint 14/14 rev. 2) was
+removed in favor of a flat responsive card grid
+(`components/team/TeamGrid.js`) per client instruction — no tree diagrams,
+org charts, parent-child layouts, or connector lines. `parentMember`/
+`xPosition`/`yPosition` remain on `models/Team.js` (existing documents keep
+the data) but are no longer read or written by any route, form, or admin UI
+— inert legacy columns. `specialization` and `contact` (email/phone) were
+added for the new card layout.
+
 ### Admin — `app/api/admin/team/`
 
 | Route | Method | Auth | Notes |
 |---|---|---|---|
-| `/api/admin/team` | GET | Any session | Query: `status`, `search`. No pagination. Returns `{ teamMembers }`, each populated with `author` and (Sprint 14) `parentMember` (`name designation`), including `xPosition`/`yPosition` (Sprint 14 rev. 2). |
-| `/api/admin/team` | POST | Admin/editor | Body: `name`, `designation` required; `department`, `parentMember`, `xPosition`, `yPosition` optional (Sprint 14). `parentMember` is validated — must be a real, existing Team id, checked against a circular-reference walk (`lib/teamHierarchy.js`) before save. `xPosition`/`yPosition` clamped to 0-100 (`clampPosition()`), default 50. Returns `{ teamMember }`, 201. |
-| `/api/admin/team/[id]` | GET | Any session | Single, populated `author` + `parentMember`. |
-| `/api/admin/team/[id]` | PUT | Admin/editor | Partial update, now including `department`/`parentMember`/`xPosition`/`yPosition` (same validation as POST). Used by: the admin list's Move Up/Down controls to swap `displayOrder` between two **sibling** members (same `parentMember`); and the `/admin/team/tree` drag-and-drop position editor, which sends just `{ xPosition, yPosition }` on every drag release. |
-| `/api/admin/team/[id]` | DELETE | Admin/editor | `{ deleted: true }`. Does not cascade to children — an orphaned child's `parentMember` no longer resolves, so its connector line on the tree simply isn't drawn. |
+| `/api/admin/team` | GET | Any session | Query: `status`, `search`. No pagination. Returns `{ teamMembers }`, each populated with `author`. |
+| `/api/admin/team` | POST | Admin/editor | Body: `name`, `designation` required; `department`, `qualifications`, `specialization`, `contact` (email/phone), `experience`, `bio`, `photo`, `social` optional. Returns `{ teamMember }`, 201. |
+| `/api/admin/team/[id]` | GET | Any session | Single, populated `author`. |
+| `/api/admin/team/[id]` | PUT | Admin/editor | Partial update. Used by the admin list's flat Move Up/Down controls, which swap `displayOrder` with the adjacent member in the whole (no longer per-parent) list. |
+| `/api/admin/team/[id]` | DELETE | Admin/editor | `{ deleted: true }`. |
 | `/api/admin/team/[id]/status` | PATCH | Admin/editor | Publish toggle. |
 | `/api/admin/team/upload` | POST | Admin/editor | multipart `file`. JPEG/PNG/WebP/GIF, max 5MB. Returns `{ url }`, 201. |
 
@@ -131,7 +140,7 @@ Public, reusable, provider-agnostic — not Knowledge-Center-specific. See
 
 | Route | Method | Auth | Notes |
 |---|---|---|---|
-| `/api/team` | GET | Public | Query: `search` (matches Name/Department/Position). No pagination. Published-only. Returns `{ teamMembers, treeMembers, matchedIds }` — `teamMembers` is the original flat list (unchanged, kept for backward compatibility, `search` filters it); `treeMembers`/`matchedIds` (Sprint 14 rev. 2) are the *full* published roster (with `xPosition`/`yPosition`/`parentMember`) and the ids of any search matches, consumed by `components/team/OrgTree.js`'s illustrated tree. `treeMembers` is always returned in full — `search` never removes a member from the illustration, only flags matches for highlighting. |
+| `/api/team` | GET | Public | Query: `search` (matches Name/Department/Position). No pagination. Published-only. Returns `{ teamMembers }` — the flat, `search`-filtered roster rendered by `components/team/TeamGrid.js`. |
 
 ## Homepage (Sprint 15)
 
@@ -329,6 +338,59 @@ Singleton — no `[id]` routes, since there's exactly one document.
 | Route | Method | Auth | Notes |
 |---|---|---|---|
 | `/api/resource-files/[fileId]` | GET | Public (session-checked) | Query: `action` (`view`\|`download`, default `download`). The `canAccess()`-gated counterpart to the OTP flow — serves `PUBLIC`/`MEMBER`/`PURCHASED`/`ADMIN`-level file content based on the current request's session, no token involved. A **flat** route (not nested under `/api/resources/[id]/`) — nesting it there collided with the public `/api/resources/[slug]` route at build time, since Next.js requires every dynamic segment at one path level to share a param name; see [13_DECISIONS.md](13_DECISIONS.md). Rejects `accessLevel: 'OTP'` files for non-admins (400 — those go through `/api/verify/*` instead); admin sessions bypass this. `action=download` additionally requires `file.downloadable !== false` and writes a best-effort `DownloadLog` entry. |
+
+## Tool Categories (Sprint 19.4)
+
+### Admin — `app/api/admin/tool-categories/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/tool-categories` | GET | Any session | Query: `isActive` (`'true'`\|`'false'`), `search`. No pagination. Returns `{ categories }`. |
+| `/api/admin/tool-categories` | POST | Admin/editor | Body: `name` required; `slug`, `description`, `icon`, `displayOrder`, `isActive` optional. Returns `{ category }`, 201. |
+| `/api/admin/tool-categories/[id]` | GET \| PUT \| DELETE | Any session (GET) / Admin/editor (PUT/DELETE) | Same shape as Resource Categories — DELETE blocks with 409 if any `Tool` still references the category. |
+| `/api/admin/tool-categories/[id]/status` | PATCH | Admin/editor | Body: `{ isActive: boolean }`. |
+| `/api/admin/tool-categories/upload` | POST | Admin/editor | multipart `file`, via `lib/localUpload.js`. Returns `{ url }`, 201. |
+
+## Tools (Sprint 19.4)
+
+Production Tools CMS — unlimited future tools, first one is the Fall Risk
+Assessment Calculator (seeded via `scripts/seedFallRiskTool.mjs`). Reuses
+the identity/access-control/OTP architecture end to end (`lib/access/*`,
+`lib/verification/*`) — no new auth or OTP system. A Tool's
+sections/questions are always publicly viewable; only *submitting* the
+assessment for a scored result is gated by `accessLevel`. See
+[13_DECISIONS.md](13_DECISIONS.md) for why a Tool's OTP gate protects a
+computed result rather than a file.
+
+### Admin — `app/api/admin/tools/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/tools` | GET | Any session | Query: `status`, `category` (id), `search`. No pagination. Returns `{ tools }`. |
+| `/api/admin/tools` | POST | Admin/editor | Body: `title`, `category` (valid `ToolCategory` id) required. `toolType` (`assessment`\|`calculator`) and `accessLevel` validated against their closed sets. Returns `{ tool }`, 201. |
+| `/api/admin/tools/[id]` | GET \| PUT | Any session (GET) / Admin/editor (PUT) | Partial update; also used by the list's reorder controls. |
+| `/api/admin/tools/[id]` | DELETE | Admin/editor | Cascade-deletes the tool's Sections, Questions, and Result Bands. |
+| `/api/admin/tools/[id]/status` | PATCH | Admin/editor | Publish toggle. |
+| `/api/admin/tools/upload` | POST | Admin/editor | multipart `file`, via `lib/localUpload.js` (public storage — thumbnail/banner). Returns `{ url }`, 201. |
+
+### Admin — Sections/Questions/Result Bands, nested under a tool
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/tools/[id]/sections` | GET \| POST | Any session (GET) / Admin/editor (POST) | Body: `title` required; `description`, `displayOrder` optional. |
+| `/api/admin/tools/[id]/sections/[sectionId]` | PUT \| DELETE | Admin/editor | DELETE cascades to that section's questions. |
+| `/api/admin/tools/[id]/sections/[sectionId]/questions` | GET \| POST | Any session (GET) / Admin/editor (POST) | Body: `questionText`, `questionType` (`radio`\|`checkbox`\|`yesno`\|`numeric`) required; `options[]` (`label`/`value`/`score`) for radio/checkbox/yesno, `numericConfig` (`min`/`max`/`step`/`unit`/`scoreBands[]`) for numeric. Every score/threshold is admin-authored data — the scoring engine (`lib/toolScoring.js`) has no hardcoded values. |
+| `/api/admin/tools/[id]/sections/[sectionId]/questions/[questionId]` | PUT \| DELETE | Admin/editor | Same body shape as POST. |
+| `/api/admin/tools/[id]/result-bands` | GET \| POST | Any session (GET) / Admin/editor (POST) | Body: `minScore`, `maxScore`, `label` required; `description`, `recommendations[]`, `displayOrder` optional. One model covers both "Scoring Rules" and "Recommendation Builder" — a score range, its risk label, and its recommendations are one concept, not two CRUD systems. |
+| `/api/admin/tools/[id]/result-bands/[bandId]` | PUT \| DELETE | Admin/editor | Same body shape as POST. |
+
+### Public — `app/api/tools/`
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/tools` | GET | Public | Query: `category` (`ToolCategory` slug), `tag`, `toolType`, `search`, `accessLevel`, `featured` (`'true'`), `sort` (`title-asc`\|`newest`\|`featured`), `page` (default 1), `limit` (default 12, max 48). Published-only. Returns `{ tools, pagination }`. |
+| `/api/tools/[slug]` | GET | Public | Published-only. Returns `{ tool }` with its full `sections[].questions[]` attached — always fully visible, unlike Resource files/Lesson media. No result bands here; those are only revealed after scoring. |
+| `/api/tools/[slug]/attempt` | POST | Public / gated by `accessLevel` | Body: `{ answers: [{questionId, value}], downloadToken? }`. Computes a scored result server-side (`lib/toolScoring.js`) and returns `{ totalScore, band }`. `PUBLIC` tools: no gate. `OTP` tools: requires `downloadToken` from the existing `/api/verify/*` OTP flow (401 if missing/invalid/expired) — the same short-lived signed token every other OTP-gated resource type uses, just consumed here instead of streaming a file. `MEMBER`/`PURCHASED`/`ADMIN` tools: session-based `canAccess()` check (403 if not allowed), mirroring `/api/lessons/[id]/media`. |
 
 ## Bookings — `app/api/bookings/`
 

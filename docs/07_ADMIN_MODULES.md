@@ -114,38 +114,22 @@ of reusing an existing one.
 
 ## Team — `/admin/team`
 
-**Status: full CRUD, production-capable.** Sprint 14 added org-hierarchy
-management on top of the existing CRUD — no second Team module, same
-`/admin/team` routes/components extended in place. A client-requested
-revision (Sprint 14 rev. 2 — see `docs/13_DECISIONS.md`) replaced the
-initial auto-laid-out design with an illustrated tree + manual drag
-placement.
+**Status: full CRUD, production-capable.** Sprint 14/14 rev. 2 added an
+org-hierarchy/illustrated-tree layer on top of the existing CRUD; Sprint
+19.4 removed it per client instruction (the public page is a flat card
+grid now — no tree/org-chart/connector-line UI) — see
+`docs/13_DECISIONS.md`. `/admin/team/tree` and its `TreePositionEditor.js`
+are deleted; the Parent `<select>` is gone from `TeamForm.js`.
 
-- List (`TeamListClient.js`): standard list pattern, plus (Sprint 14) each
-  row shows its Department and "Parent: X" / "Root of tree" line (wording
-  changed from "Reports to X" in Sprint 18 — this is an Organization Tree,
-  not a reporting hierarchy; the underlying `parentMember` field and its
-  behavior are unchanged), and Move Up/Move Down buttons that reorder within
-  **siblings only** (members sharing the same parent, or other roots) — not
-  the whole mixed-hierarchy list — via the existing PUT endpoint's
-  `displayOrder` swap, same pattern `MembershipListClient.js`/
-  `EventsListClient.js` already use. Also links to the new "Tree layout"
-  position editor below.
-- Create/Edit (`TeamForm.js`): name, designation, qualifications, experience,
-  bio, photo upload, LinkedIn/Twitter links, display order, featured toggle,
-  Save as Draft / Publish, plus (Sprint 14) a Department text input and a
-  Parent `<select>` (labeled "Parent" as of Sprint 18, was "Parent member
-  (reports to)") — populated from a client-side fetch of the full admin team
-  list, with the member itself and its own descendants excluded from the
-  option list so a circular assignment can't even be selected (the API
-  validates independently regardless, via `lib/teamHierarchy.js`).
-- **Tree layout (`/admin/team/tree`, `TreePositionEditor.js`) — Sprint 14
-  rev. 2.** Shows every member (all statuses) as a draggable marker over
-  the same `TeamTreeIllustration.js` the public About page renders. Drag a
-  marker and release it anywhere on the tree to set that member's
-  `xPosition`/`yPosition` — saves automatically via the existing team PUT
-  endpoint, no separate save step. Draft members show with a dashed photo
-  border so admins can tell what's not yet public.
+- List (`TeamListClient.js`): standard list pattern, showing each row's
+  Department. Move Up/Move Down buttons reorder a flat, global
+  `displayOrder` (previously scoped to "siblings sharing a parent" —
+  no longer meaningful now that the tree is gone) via the existing PUT
+  endpoint's `displayOrder` swap.
+- Create/Edit (`TeamForm.js`): name, designation, department,
+  qualifications, specialization (Sprint 19.4), experience, bio, photo
+  upload, contact email/phone (Sprint 19.4), LinkedIn/Twitter links,
+  display order, featured toggle, Save as Draft / Publish.
 
 ## Membership — `/admin/membership`
 
@@ -238,6 +222,39 @@ Products/Membership/Programs.
   (new — multi-image upload with per-image alt text and remove, unlike the
   single-image `ImageUploadField.js`), optional SEO title/meta description,
   featured toggle, display order, Save as Draft / Publish actions.
+
+## Tool Categories — `/admin/tool-categories` (Sprint 19.4)
+
+**Status: full CRUD, production-capable.** Mirrors Resource Categories/
+Course Categories exactly (name → auto-slug, description, icon upload,
+display order, active/inactive toggle, Delete blocked with 409 if any
+`Tool` still references it).
+
+## Tools — `/admin/tools` (Sprint 19.4)
+
+**Status: full CRUD, production-capable.** New Tools CMS supporting
+unlimited future tools — first one is the Fall Risk Assessment Calculator
+(seeded via `npm run seed:fall-risk-tool`).
+
+- List (`ToolsListClient.js`): Draft/Published status tabs, dynamic
+  category filter (fetched live), reorder + featured-toggle, same pattern
+  as Resources/Courses.
+- Create/Edit (`ToolForm.js`): title → auto-slug, category select, tags,
+  tool type (Assessment/Calculator), disclaimer, estimated minutes,
+  thumbnail/banner upload, access level, SEO title/meta description, Save
+  as Draft / Publish.
+- **Builder (`/admin/tools/[id]/builder`, `ToolBuilder.js` +
+  `QuestionEditorPanel.js`)** — add/edit/delete/reorder Sections, and
+  within each section add/edit/delete/reorder Questions (radio/checkbox/
+  yes-no/numeric), including per-option scores and, for numeric questions,
+  min/max/step/unit and score bands.
+- **Scoring (`/admin/tools/[id]/scoring`, `ToolResultBandsManager.js`)** —
+  add/edit/delete/reorder Result Bands: a score range, a label, a
+  description, and a list of recommendations per band — one screen covers
+  both "Scoring Rules" and "Recommendation Builder" from the brief.
+- **Preview (`/admin/tools/[id]/preview`)** — renders the tool exactly as
+  the public assessment form would, for reviewing content before
+  publishing.
 
 ## Categories — `/admin/categories`
 

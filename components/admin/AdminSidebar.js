@@ -18,6 +18,7 @@ import {
   Ticket,
   GraduationCap,
   Library,
+  Wrench,
   X,
 } from 'lucide-react';
 
@@ -38,6 +39,8 @@ export const NAV_ITEMS = [
   { href: '/admin/course-categories', label: 'Course Categories', icon: Tags },
   { href: '/admin/resources', label: 'Resources', icon: Library },
   { href: '/admin/resource-categories', label: 'Resource Categories', icon: Tags },
+  { href: '/admin/tools', label: 'Tools', icon: Wrench },
+  { href: '/admin/tool-categories', label: 'Tool Categories', icon: Tags },
   { href: '/admin/categories', label: 'Categories', icon: FolderTree },
 ];
 

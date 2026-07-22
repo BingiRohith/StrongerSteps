@@ -2,7 +2,6 @@ import connectDB from '@/lib/db';
 import Team from '@/models/Team';
 import { requireAuth } from '@/lib/auth';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
-import { resolveParentMember, clampPosition } from '@/lib/teamHierarchy';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,8 +9,12 @@ export const dynamic = 'force-dynamic';
  * GET /api/admin/team
  * Query params: status ('draft'|'published'), search (text). No pagination —
  * team rosters stay small, so the full (filtered) list is returned at once.
- * Mirrors app/api/admin/infographics/route.js. `parentMember` is populated
- * (Sprint 14) so the admin list can show each member's reporting line.
+ * Mirrors app/api/admin/infographics/route.js.
+ *
+ * Sprint 19.4 — no longer populates `parentMember` here; the admin list no
+ * longer shows a reporting line (see components/admin/team/TeamListClient.js).
+ * `parentMember`/`xPosition`/`yPosition` remain on the schema but are
+ * neither read nor written by this route anymore.
  */
 export const GET = withErrorHandling(async (request) => {
   const user = await requireAuth(request);
@@ -29,7 +32,6 @@ export const GET = withErrorHandling(async (request) => {
 
   const teamMembers = await Team.find(query)
     .populate('author', 'name')
-    .populate('parentMember', 'name designation')
     .sort({ displayOrder: 1, name: 1 })
     .lean();
 
@@ -51,21 +53,16 @@ export const POST = withErrorHandling(async (request) => {
   if (!body?.name?.trim()) return fail('Name is required', 400);
   if (!body?.designation?.trim()) return fail('Designation is required', 400);
 
-  let parentMember;
-  try {
-    parentMember = await resolveParentMember(Team, body.parentMember);
-  } catch (err) {
-    return fail(err.message, err.status || 400);
-  }
-
   const teamMember = await Team.create({
     name: body.name,
     designation: body.designation,
     department: body.department || '',
-    parentMember,
-    xPosition: body.xPosition !== undefined ? clampPosition(body.xPosition) : 50,
-    yPosition: body.yPosition !== undefined ? clampPosition(body.yPosition) : 50,
     qualifications: Array.isArray(body.qualifications) ? body.qualifications : [],
+    specialization: Array.isArray(body.specialization) ? body.specialization : [],
+    contact: {
+      email: body.contact?.email || '',
+      phone: body.contact?.phone || '',
+    },
     experience: body.experience || '',
     bio: body.bio || '',
     photo: {

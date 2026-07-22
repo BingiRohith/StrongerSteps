@@ -5,6 +5,61 @@ as of the 2026-07-07 documentation sprint — everything below Sprint 9 is
 reconstructed from code/CHANGELOG evidence, not from a prior decisions log
 (none existed).
 
+## 2026-07-22 — Sprint 19.4: Tools CMS + Fall Risk Assessment Calculator, Team tree removal
+
+Continuation of a session that crashed mid-sprint. Phase 1 (models),
+Phase 2 (public/admin APIs, assessment engine), and most of Phase 3 (admin
+CMS) were already built and committed to the working tree before this
+session picked the work back up; this session's job was auditing what
+existed, fixing one real gap, and building the missing Phase 4 (public UI +
+Team redesign) and Phase 5 (docs).
+
+**Access-control gap found and fixed:** `app/api/tools/[slug]/attempt/route.js`
+only checked `accessLevel === 'OTP'` — a Tool set to `MEMBER`/`PURCHASED`/
+`ADMIN` in the admin panel had no gate at all, so anyone could POST answers
+and get a scored result regardless of access level. Fixed by adding the
+same session-based `canAccess()` check `app/api/lessons/[id]/media/route.js`
+already uses for those three levels, leaving the OTP token path untouched.
+
+**`VerificationModal.js` extended, not duplicated, for the Tool assessment
+flow:** the existing modal always navigates to `/api/verify/download` after
+a successful OTP check — fine for a file, but a Tool's OTP gate protects a
+*computed result*, not a file (`getFile`/`subdirFor` are unused no-ops in
+`lib/verification/resourceRegistry.js`'s `tool` entry). Rather than forking
+a second modal component, added one optional `skipRedirect` prop (default
+`false`, so every existing caller — `ResourceDownloadsSection.js`,
+`InfographicViewer.js` — is unaffected) that skips the navigation and lets
+`ToolAssessmentForm.js` auto-resubmit the assessment with the freshly issued
+token instead. Copy inside the modal (heading/body/button text) is
+conditional on the same prop so it doesn't say "download" for a Tool.
+
+**Team Organization Tree removed, not just hidden:** per client instruction
+(newer than the CRS — see `docs/03_CLIENT_REQUIREMENTS.md`'s Sprint 19.4
+amendment and the project memory system), the illustrated org tree
+(`components/team/OrgTree.js`, `MobileOrgTree.js`, `TeamTreeIllustration.js`,
+the `/admin/team/tree` position editor, `lib/teamHierarchy.js`) is deleted
+outright rather than left as dead, unreachable code — this project's
+convention (see Sprint 19.1B/19.2 entries below) is to remove code once
+nothing references it, not accumulate unused modules "just in case." The
+underlying `parentMember`/`xPosition`/`yPosition` fields on `models/Team.js`
+were left in place, unused, since the layout was presentation-only —
+migrating or dropping them would touch existing data for no behavioral
+gain. The public `/api/team` route's `treeMembers`/`matchedIds` fields were
+dropped the same way once `components/team/TeamGrid.js` no longer needed
+them.
+
+**Fall Risk Assessment Calculator content is seed data, not code:** the
+brief's "no hardcoded values" requirement means the actual clinical
+content (4 sections, 9 questions across every `questionType`, 3 scored
+result bands with recommendations) had to exist as `Tool`/`ToolSection`/
+`ToolQuestion`/`ToolResultBand` documents, not as constants in a UI
+component. Wrote `scripts/seedFallRiskTool.mjs` (same idempotent,
+schema-duplicated-for-plain-Node-ESM pattern as `scripts/seedTeam.mjs`/
+`scripts/seedProducts.mjs`) covering commonly-cited fall-risk factors (fall
+history, balance/gait, medications, vision, home hazards, fear of falling)
+rather than inventing a proprietary clinical scale — the disclaimer field
+makes clear this is educational, not a diagnostic instrument.
+
 ## 2026-07-21 — Sprint 19.3: gated file route moved to a flat `/api/resource-files/[fileId]`, not nested under `/api/resources/[id]/`
 
 The first implementation attempt put the `canAccess()`-gated file-serving

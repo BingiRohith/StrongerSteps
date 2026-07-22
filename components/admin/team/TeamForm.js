@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Loader2, Save, Send, Star } from 'lucide-react';
 import ImageUploadField from '@/components/admin/infographics/ImageUploadField';
@@ -9,8 +9,9 @@ const EMPTY_TEAM_MEMBER = {
   name: '',
   designation: '',
   department: '',
-  parentMember: '',
   qualifications: [],
+  specialization: [],
+  contact: { email: '', phone: '' },
   experience: '',
   bio: '',
   photo: { url: '', alt: '' },
@@ -20,37 +21,6 @@ const EMPTY_TEAM_MEMBER = {
   status: 'draft',
 };
 
-/**
- * Every id `rootId` reports to transitively, computed from the flat admin
- * list's `parentMember` refs — used to keep the Parent Member <select> from
- * offering the member itself or any of its own descendants (which would
- * create a circular reporting loop; the API validates this too, but hiding
- * the option in the UI is a better experience than a submit-time error).
- */
-function getDescendantIds(members, rootId) {
-  const childrenByParent = new Map();
-  members.forEach((m) => {
-    const parentId = m.parentMember?._id || m.parentMember || null;
-    if (!parentId) return;
-    const key = String(parentId);
-    if (!childrenByParent.has(key)) childrenByParent.set(key, []);
-    childrenByParent.get(key).push(String(m._id));
-  });
-
-  const descendants = new Set();
-  const stack = [String(rootId)];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    (childrenByParent.get(current) || []).forEach((childId) => {
-      if (!descendants.has(childId)) {
-        descendants.add(childId);
-        stack.push(childId);
-      }
-    });
-  }
-  return descendants;
-}
-
 export default function TeamForm({ teamMemberId, initialData }) {
   const router = useRouter();
   const isEdit = Boolean(teamMemberId);
@@ -58,37 +28,19 @@ export default function TeamForm({ teamMemberId, initialData }) {
   const [form, setForm] = useState(() => ({
     ...EMPTY_TEAM_MEMBER,
     ...initialData,
-    parentMember: initialData?.parentMember?._id || initialData?.parentMember || '',
+    contact: { ...EMPTY_TEAM_MEMBER.contact, ...initialData?.contact },
     photo: { ...EMPTY_TEAM_MEMBER.photo, ...initialData?.photo },
     social: { ...EMPTY_TEAM_MEMBER.social, ...initialData?.social },
   }));
   const [qualificationsText, setQualificationsText] = useState(
     () => (initialData?.qualifications || []).join(', ')
   );
+  const [specializationText, setSpecializationText] = useState(
+    () => (initialData?.specialization || []).join(', ')
+  );
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(null); // 'draft' | 'published' | null
   const [submitError, setSubmitError] = useState('');
-  const [allMembers, setAllMembers] = useState([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/admin/team')
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled && data.success) setAllMembers(data.teamMembers);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const parentOptions = useMemo(() => {
-    const excluded = teamMemberId
-      ? new Set([String(teamMemberId), ...getDescendantIds(allMembers, teamMemberId)])
-      : new Set();
-    return allMembers.filter((m) => !excluded.has(String(m._id)));
-  }, [allMembers, teamMemberId]);
 
   function update(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -99,6 +51,14 @@ export default function TeamForm({ teamMemberId, initialData }) {
     update(
       'qualifications',
       text.split(',').map((q) => q.trim()).filter(Boolean)
+    );
+  }
+
+  function handleSpecializationChange(text) {
+    setSpecializationText(text);
+    update(
+      'specialization',
+      text.split(',').map((s) => s.trim()).filter(Boolean)
     );
   }
 
@@ -192,25 +152,7 @@ export default function TeamForm({ teamMemberId, initialData }) {
             placeholder="Clinical Care"
             className="mt-1.5 w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
-          <p className="mt-1 text-xs text-muted">Powers the org tree&apos;s branch grouping</p>
-
-          <label className="mt-4 block text-sm font-semibold text-ink" htmlFor="parentMember">
-            Parent
-          </label>
-          <select
-            id="parentMember"
-            value={form.parentMember || ''}
-            onChange={(e) => update('parentMember', e.target.value)}
-            className="mt-1.5 w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-          >
-            <option value="">— None (root of the org tree) —</option>
-            {parentOptions.map((m) => (
-              <option key={m._id} value={m._id}>
-                {m.name}{m.designation ? ` — ${m.designation}` : ''}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1 text-xs text-muted">Sets this member&apos;s position in the Organization Tree</p>
+          <p className="mt-1 text-xs text-muted">Shown as a badge on the member&apos;s card</p>
 
           <label className="mt-4 block text-sm font-semibold text-ink" htmlFor="qualifications">
             Qualifications
@@ -221,6 +163,19 @@ export default function TeamForm({ teamMemberId, initialData }) {
             value={qualificationsText}
             onChange={(e) => handleQualificationsChange(e.target.value)}
             placeholder="MS ENT, Diploma in Geriatric Medicine"
+            className="mt-1.5 w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+          />
+          <p className="mt-1 text-xs text-muted">Comma-separated</p>
+
+          <label className="mt-4 block text-sm font-semibold text-ink" htmlFor="specialization">
+            Specialization
+          </label>
+          <input
+            id="specialization"
+            type="text"
+            value={specializationText}
+            onChange={(e) => handleSpecializationChange(e.target.value)}
+            placeholder="Geriatric Medicine, Palliative Rehabilitation"
             className="mt-1.5 w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
           <p className="mt-1 text-xs text-muted">Comma-separated</p>
@@ -256,6 +211,35 @@ export default function TeamForm({ teamMemberId, initialData }) {
             )}
             <p className="text-xs text-muted">{form.bio?.length || 0}/1000</p>
           </div>
+        </div>
+
+        <div className="rounded-xl2 border border-line bg-surface p-5 sm:p-6">
+          <h3 className="font-display text-sm font-bold text-primary-dark">Contact</h3>
+          <p className="mt-0.5 text-xs text-muted">Optional — shown as mailto:/tel: links on the card.</p>
+
+          <label className="mt-4 block text-sm font-semibold text-ink" htmlFor="contactEmail">
+            Email
+          </label>
+          <input
+            id="contactEmail"
+            type="email"
+            value={form.contact.email}
+            onChange={(e) => update('contact', { ...form.contact, email: e.target.value })}
+            placeholder="doctor@strongersteps.in"
+            className="mt-1.5 w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+          />
+
+          <label className="mt-4 block text-sm font-semibold text-ink" htmlFor="contactPhone">
+            Phone
+          </label>
+          <input
+            id="contactPhone"
+            type="text"
+            value={form.contact.phone}
+            onChange={(e) => update('contact', { ...form.contact, phone: e.target.value })}
+            placeholder="+91 98765 43210"
+            className="mt-1.5 w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+          />
         </div>
 
         <div className="rounded-xl2 border border-line bg-surface p-5 sm:p-6">

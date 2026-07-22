@@ -14,7 +14,6 @@ import {
   Star,
   ArrowUp,
   ArrowDown,
-  Move,
 } from 'lucide-react';
 import StatusBadge from '@/components/admin/blogs/StatusBadge';
 
@@ -23,15 +22,6 @@ const STATUS_TABS = [
   { value: 'published', label: 'Published' },
   { value: 'draft', label: 'Drafts' },
 ];
-
-/** Siblings = members sharing the same parent (or all root members), ordered by displayOrder — "Reorder Children" swaps displayOrder within this subset only. */
-function getSiblingIds(teamMembers, teamMember) {
-  const parentId = teamMember.parentMember?._id || teamMember.parentMember || null;
-  return teamMembers
-    .filter((m) => (m.parentMember?._id || m.parentMember || null) === parentId)
-    .sort((a, b) => a.displayOrder - b.displayOrder)
-    .map((m) => m._id);
-}
 
 export default function TeamListClient() {
   const [teamMembers, setTeamMembers] = useState([]);
@@ -116,16 +106,15 @@ export default function TeamListClient() {
     return null;
   }
 
-  // Reorder Children (CRS §11 / Sprint 14): swap displayOrder with the
-  // adjacent sibling only — i.e. another member reporting to the same
-  // parent (or another root member) — not the whole, mixed-hierarchy list.
-  async function moveSibling(teamMember, direction) {
-    const siblingIds = getSiblingIds(teamMembers, teamMember);
-    const index = siblingIds.indexOf(teamMember._id);
+  // Sprint 19.4 — flat, global displayOrder reorder (the tree's per-parent
+  // sibling grouping no longer applies now that the org tree is gone; same
+  // move() pattern components/admin/resources/ResourcesListClient.js uses).
+  async function move(teamMember, direction) {
+    const sorted = [...teamMembers].sort((a, b) => a.displayOrder - b.displayOrder);
+    const index = sorted.findIndex((m) => m._id === teamMember._id);
     const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= siblingIds.length) return;
-    const neighbor = teamMembers.find((m) => m._id === siblingIds[targetIndex]);
-    if (!neighbor) return;
+    if (targetIndex < 0 || targetIndex >= sorted.length) return;
+    const neighbor = sorted[targetIndex];
 
     setBusyId(teamMember._id);
     try {
@@ -177,13 +166,6 @@ export default function TeamListClient() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            href="/admin/team/tree"
-            className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-primary px-5 py-2.5 font-display text-sm font-semibold text-primary transition-colors duration-200 hover:bg-primary hover:text-white"
-          >
-            <Move size={16} />
-            Tree layout
-          </Link>
           <Link
             href="/admin/team/new"
             className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 font-display text-sm font-semibold text-white transition-colors duration-200 hover:bg-primary-dark"
@@ -255,7 +237,9 @@ export default function TeamListClient() {
           </div>
         ) : (
           <ul className="divide-y divide-line">
-            {teamMembers.map((teamMember) => (
+            {[...teamMembers]
+              .sort((a, b) => a.displayOrder - b.displayOrder)
+              .map((teamMember, index, sorted) => (
               <li
                 key={teamMember._id}
                 className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:gap-4 sm:px-6"
@@ -279,11 +263,6 @@ export default function TeamListClient() {
                       <StatusBadge status={teamMember.status} />
                       {teamMember.designation && <span>{teamMember.designation}</span>}
                       {teamMember.department && <span>{teamMember.department}</span>}
-                      <span>
-                        {teamMember.parentMember?.name
-                          ? `Parent: ${teamMember.parentMember.name}`
-                          : 'Root of tree'}
-                      </span>
                       <span>Order {teamMember.displayOrder}</span>
                     </div>
                   </div>
@@ -292,18 +271,18 @@ export default function TeamListClient() {
                 <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-auto">
                   <button
                     type="button"
-                    onClick={() => moveSibling(teamMember, -1)}
-                    disabled={busyId === teamMember._id}
-                    title="Move up (within siblings)"
+                    onClick={() => move(teamMember, -1)}
+                    disabled={busyId === teamMember._id || index === 0}
+                    title="Move up"
                     className="rounded-lg p-2 text-primary-dark hover:bg-sage disabled:opacity-50"
                   >
                     <ArrowUp size={16} />
                   </button>
                   <button
                     type="button"
-                    onClick={() => moveSibling(teamMember, 1)}
-                    disabled={busyId === teamMember._id}
-                    title="Move down (within siblings)"
+                    onClick={() => move(teamMember, 1)}
+                    disabled={busyId === teamMember._id || index === sorted.length - 1}
+                    title="Move down"
                     className="rounded-lg p-2 text-primary-dark hover:bg-sage disabled:opacity-50"
                   >
                     <ArrowDown size={16} />

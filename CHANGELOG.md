@@ -1,5 +1,156 @@
 # Changelog
 
+## Sprint 19.4: Tools CMS, Fall Risk Assessment Calculator & Team Redesign — 2026-07-22
+
+Scope: two client-approved deviations from the then-current CRS (both
+flagged before coding — see `docs/13_DECISIONS.md`): a brand-new,
+production-ready **Tools CMS** supporting unlimited future tools (CRUD,
+Publish/Unpublish, Categories, Search, Filters, Ordering, Featured,
+Preview, SEO, Slugs), its first real tool being a CMS-driven **Fall Risk
+Assessment Calculator** (sections/questions/dynamic scoring/dynamic
+thresholds/dynamic recommendations, no hardcoded values), and **removal of
+the Team Organization Tree** (Sprint 14/14 rev. 2) in favor of a flat
+responsive card grid. This continues a session that crashed mid-sprint —
+Phase 1 (models), Phase 2 (APIs/assessment engine), and most of Phase 3
+(admin CMS) were already built before this session resumed; this session
+audited that work, fixed one real access-control gap, and built the
+missing Phase 4 (public UI + Team redesign) and Phase 5 (docs).
+
+### Added — Models
+- **`models/ToolCategory.js`** — mirrors `ResourceCategory`/`CourseCategory`
+  exactly (name/slug/description/icon/displayOrder/isActive).
+- **`models/Tool.js`** — built on `lib/sharedContentFields.js` (third real
+  consumer after `Course`/`Resource`). Adds `longDescription`, `banner`,
+  `category` (ref `ToolCategory`), `tags`, `toolType` (`assessment`\|
+  `calculator`, closed/extensible set in `lib/toolOptions.js`),
+  `disclaimer`, `estimatedMinutes`. `accessLevel` gates *submitting* the
+  assessment for a result, not viewing the blank form.
+- **`models/ToolSection.js`** — separate top-level collection (`tool` FK),
+  mirrors `Section`.
+- **`models/ToolQuestion.js`** — separate top-level collection, carries
+  both `section` and a denormalized `tool` ref (mirrors `Lesson.course`).
+  `questionType` (`radio`\|`checkbox`\|`yesno`\|`numeric`); `options[]`
+  (`label`/`value`/`score`) for the first three, `numericConfig`
+  (`min`/`max`/`step`/`unit`/`scoreBands[]`) for numeric. Every score and
+  threshold is admin-authored data.
+- **`models/ToolResultBand.js`** — one model deliberately covers both
+  "Scoring Rules" and "Recommendation Builder" (a score range + label +
+  recommendations is one concept, not two CRUD systems). Matched against a
+  computed `totalScore` via `[minScore, maxScore]`.
+
+### Added — Libraries
+- **`lib/toolOptions.js`** — closed option sets (`TOOL_TYPES`,
+  `QUESTION_TYPES`) + label helpers, same single-source-of-truth pattern as
+  `lib/resourceOptions.js`/`lib/courseOptions.js`.
+- **`lib/toolScoring.js`** — the scoring engine. `scoreAnswer(question,
+  value)` scores one answer against its question's `options[]`/
+  `numericConfig.scoreBands[]`; `computeToolScore({questions, answers,
+  resultBands})` sums every answer and matches the total against a result
+  band. Pure and testable — no DB/request access, same shape as
+  `lib/access/canAccess.js`.
+- **`lib/publicTools.js`** — read-only query helpers for the public `/tools`
+  pages and `GET /api/tools`, mirrors `lib/publicResources.js`. Unlike
+  Resources (which redacts individual file content), a Tool's sections/
+  questions are always fully visible — the gate is on submitting, not
+  viewing.
+
+### Added — Admin APIs & UI
+- `app/api/admin/tool-categories/*`, `app/api/admin/tools/*` (including
+  nested `sections`, `sections/[id]/questions`, `result-bands` routes) —
+  full CRUD, mirroring the Resource Categories/Resources pattern.
+- `/admin/tool-categories`, `/admin/tools` (list/new/edit/preview), plus a
+  dedicated Section/Question Builder (`ToolBuilder.js`,
+  `QuestionEditorPanel.js`) and Scoring/Recommendation manager
+  (`ToolResultBandsManager.js`).
+
+### Added — Public APIs & UI
+- `GET /api/tools` (category/tag/toolType/search/accessLevel/featured/sort/
+  pagination), `GET /api/tools/[slug]` (full tool + sections/questions,
+  no result bands), `POST /api/tools/[slug]/attempt` (scores submitted
+  answers, returns `{totalScore, band}`).
+- `/tools` listing page (`ToolsPageClient.js`, `ToolCard.js`,
+  `FeaturedTools.js` — mirrors the Resources listing exactly) and
+  `/tools/[slug]` detail + assessment page
+  (`ToolAssessmentForm.js`) rendering every section/question by type
+  (radio/checkbox/yesno pill-style single/multi-select, numeric input with
+  unit), submitting to the attempt route, and showing the scored result
+  band + dynamic recommendations. OTP-gated tools open
+  `VerificationModal` inline (no page navigation) on a 401; `MEMBER`/
+  `PURCHASED`/`ADMIN` tools show a locked panel on a 403 (same copy pattern
+  as `LessonOtpUnlock`/`LockedLessonPanel`).
+- Knowledge Center's Tools section rewired from a hardcoded
+  `ComingSoonCard` placeholder array to real featured tools + a "View all
+  tools" link to `/tools` — same precedent Sprint 19.2/19.3 set for
+  Courses/Resources (no new header nav item). `components/ComingSoonCard.js`
+  deleted once orphaned.
+
+### Added — Seed data
+- **`scripts/seedFallRiskTool.mjs`** — creates the "Health Assessments"
+  category and the full Fall Risk Assessment Calculator (4 sections, 9
+  questions covering every `questionType`, 3 result bands with
+  recommendations). Idempotent. The clinical content itself (which factors,
+  what they score, what the recommendations say) lives entirely in this
+  seed data, not in any component or scoring code.
+
+### Changed — Team
+- **Organization Tree removed.** `components/team/OrgTree.js`,
+  `MobileOrgTree.js`, `TeamTreeIllustration.js`, `lib/teamHierarchy.js`, and
+  the `/admin/team/tree` drag-and-drop position editor are deleted.
+  `app/about/page.js` now renders `components/team/TeamGrid.js` — a flat,
+  responsive (desktop grid / tablet 2-col / mobile 1-col) card grid with
+  photo, name, designation, qualifications, bio, experience,
+  specialization, social links, and contact — fed by
+  `getPublishedTeamMembers()` instead of `getTeamTreeData()`.
+- `models/Team.js` gained `specialization` ([String]) and `contact`
+  (`{email, phone}`) for the new card layout. `parentMember`/`xPosition`/
+  `yPosition` remain on the schema, unused, since the tree was
+  presentation-only — no migration needed.
+- `GET /api/team` no longer returns `treeMembers`/`matchedIds` (dead once
+  `OrgTree.js` was deleted) — just the flat, `search`-filtered
+  `teamMembers` list.
+- Admin `TeamForm`/`TeamListClient`: parent-member assignment and the
+  "Tree layout" link removed; reorder is now a flat, global Move Up/Down
+  instead of per-parent-sibling.
+
+### Fixed
+- **`POST /api/tools/[slug]/attempt` only checked `accessLevel === 'OTP'`**
+  — a Tool set to `MEMBER`/`PURCHASED`/`ADMIN` had no gate at all, so
+  anyone could submit answers and get a scored result regardless of access
+  level. Now uses the same session-based `canAccess()` check
+  `/api/lessons/[id]/media` already established for those three levels;
+  the OTP token path is unchanged.
+
+### Changed — Shared
+- **`components/verification/VerificationModal.js`** gained one optional
+  `skipRedirect` prop (default `false`). A Tool's OTP gate protects a
+  computed result, not a file (`getFile`/`subdirFor` are no-ops in its
+  `resourceRegistry.js` entry), so navigating to
+  `/api/verify/download` afterward — the existing behavior every other
+  caller relies on — doesn't apply. `skipRedirect: true` skips that
+  navigation and lets the caller (`ToolAssessmentForm.js`) resubmit with
+  the freshly issued token instead; the modal's copy (heading/body/button)
+  is conditional on the same prop. Existing callers
+  (`ResourceDownloadsSection.js`, `InfographicViewer.js`) don't pass it, so
+  their behavior is byte-for-byte unchanged.
+- `lib/verification/resourceRegistry.js` gained a `tool` entry
+  (`isAccessible` only — `getFile`/`subdirFor` are structurally required
+  but unused, since there's nothing to stream).
+
+### Testing
+- New `tests/models/toolModels.test.js` (Tool/ToolCategory/ToolSection/
+  ToolQuestion/ToolResultBand validation) and `tests/models/teamModel.test.js`
+  (Team validation, including the now-inert `parentMember`/`xPosition`/
+  `yPosition` defaults) and `tests/lib/toolScoring.test.js` (scoring engine
+  — radio/checkbox/yesno/numeric scoring, band matching). 128/128 tests
+  (up from 98), clean build.
+- Verified end-to-end against a live MongoDB in a real browser session:
+  seeded the Fall Risk Assessment Calculator, completed the assessment,
+  triggered the OTP modal, read the mock-provider OTP from server logs,
+  verified, and confirmed the auto-resubmitted score (hand-checked against
+  the seeded scoring data) and recommendations rendered correctly. Also
+  confirmed the Team card grid renders correctly at mobile width with no
+  tree/connector-line UI remaining.
+
 ## Sprint 19.3: Digital Resource Library & Knowledge Center — 2026-07-21
 
 Scope: a complete, production-ready Digital Resource Library — admin CMS,

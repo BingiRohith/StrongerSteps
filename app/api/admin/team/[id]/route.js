@@ -3,7 +3,6 @@ import connectDB from '@/lib/db';
 import Team from '@/models/Team';
 import { requireAuth } from '@/lib/auth';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
-import { resolveParentMember, clampPosition } from '@/lib/teamHierarchy';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,9 +17,7 @@ export const GET = withErrorHandling(async (request, { params }) => {
   if (!isValidId(params.id)) return fail('Invalid team member id', 400);
 
   await connectDB();
-  const teamMember = await Team.findById(params.id)
-    .populate('author', 'name')
-    .populate('parentMember', 'name designation');
+  const teamMember = await Team.findById(params.id).populate('author', 'name');
   if (!teamMember) return fail('Team member not found', 404);
 
   return ok({ teamMember });
@@ -51,19 +48,17 @@ export const PUT = withErrorHandling(async (request, { params }) => {
     teamMember.designation = body.designation;
   }
   if (body.department !== undefined) teamMember.department = body.department || '';
-  if (body.parentMember !== undefined) {
-    try {
-      teamMember.parentMember = await resolveParentMember(Team, body.parentMember, {
-        memberId: params.id,
-      });
-    } catch (err) {
-      return fail(err.message, err.status || 400);
-    }
-  }
-  if (body.xPosition !== undefined) teamMember.xPosition = clampPosition(body.xPosition);
-  if (body.yPosition !== undefined) teamMember.yPosition = clampPosition(body.yPosition);
   if (body.qualifications !== undefined) {
     teamMember.qualifications = Array.isArray(body.qualifications) ? body.qualifications : [];
+  }
+  if (body.specialization !== undefined) {
+    teamMember.specialization = Array.isArray(body.specialization) ? body.specialization : [];
+  }
+  if (body.contact !== undefined) {
+    teamMember.contact = {
+      email: body.contact?.email || '',
+      phone: body.contact?.phone || '',
+    };
   }
   if (body.experience !== undefined) teamMember.experience = body.experience;
   if (body.bio !== undefined) teamMember.bio = body.bio;

@@ -11,6 +11,7 @@
     "seed:team": "node scripts/seedTeam.mjs",
     "seed:products": "node scripts/seedProducts.mjs",
     "seed:membership": "node scripts/seedMembership.mjs",
+    "seed:fall-risk-tool": "node scripts/seedFallRiskTool.mjs",
     "migrate:protected-infographics": "node scripts/migrateProtectedInfographics.mjs",
     "migrate:product-categories": "node scripts/migrateProductCategories.mjs",
     "test": "node --import ./tests/register-loader.mjs --test"

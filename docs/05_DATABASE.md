@@ -138,30 +138,35 @@ looser relationship to `RecipeCategory`.
 
 ## Team — [`models/Team.js`](../models/Team.js)
 
-Feeds the About page's illustrated Organization Tree (Sprint 14 rev. 2; a
-plain connector-line org chart in the first Sprint 14 pass, a flat roster
-grid before that — see `docs/13_DECISIONS.md`). No slug/detail page.
+Feeds the About page's flat, responsive card grid
+(`components/team/TeamGrid.js`, Sprint 19.4). Before Sprint 19.4 this fed an
+illustrated Organization Tree (Sprint 14 rev. 2; a plain connector-line org
+chart in the first Sprint 14 pass, a flat roster grid before that — see
+`docs/13_DECISIONS.md`), removed per client instruction: no tree diagrams,
+org charts, parent-child layouts, or connector lines. No slug/detail page.
 
 | Field | Type | Notes |
 |---|---|---|
 | `name` | String | required, max 100 |
-| `designation` | String | required, max 150 — also doubles as the org tree node's "Position" label (Sprint 14 reuses it rather than adding a duplicate field) |
-| `department` | String | max 150, default `''` — Sprint 14, shown on each tree node's card and searchable via Name/Department/Position search |
-| `parentMember` | ObjectId ref → `Team` (self-ref) | default `null`. Validated server-side against cycles (`lib/teamHierarchy.js`'s `assertNoCycle()`) on every create/update — a member can never become its own ancestor. Sprint 14 rev. 2: no longer drives visual layout (see `xPosition`/`yPosition`) — only draws the connector *line* between a node and its parent on the tree illustration |
-| `xPosition` / `yPosition` | Number | 0-100, default `50` (canvas center) — Sprint 14 rev. 2. Percentage position on `components/team/TeamTreeIllustration.js`'s canvas, set by an admin dragging the member's marker in `/admin/team/tree` (`TreePositionEditor.js`), not derived from anything. Clamped server-side (`lib/teamHierarchy.js`'s `clampPosition()`) |
+| `designation` | String | required, max 150 — doubles as the card's "Position" label |
+| `department` | String | max 150, default `''` — shown as a badge on the card and searchable via Name/Department/Position search |
+| `parentMember` | ObjectId ref → `Team` (self-ref) | default `null`. **Inert since Sprint 19.4** — no longer read or written by any route/form/admin UI (Sprint 14's org-tree connector line is gone); kept only because existing documents already carry it, safe to drop in a future sprint |
+| `xPosition` / `yPosition` | Number | 0-100, default `50`. **Inert since Sprint 19.4** — same reasoning as `parentMember`; the tree canvas they positioned a marker on (`TeamTreeIllustration.js`) was deleted |
 | `qualifications` | [String] | trimmed, filtered |
+| `specialization` | [String] | trimmed, filtered — Sprint 19.4, shown as tag pills on the card |
+| `contact` | `{ email, phone }` | Sprint 19.4, optional — rendered as mailto:/tel: links on the card |
 | `experience` | String | max 100 |
 | `bio` | String | max 1000 |
 | `photo` | `{ url, alt }` | |
 | `social` | `{ linkedin, twitter }` | |
-| `displayOrder` | Number | manual sort order — **scoped to siblings** (same `parentMember`) for the admin list's reorder controls |
+| `displayOrder` | Number | manual sort order — flat/global since Sprint 19.4 (previously scoped to siblings sharing a `parentMember`) |
 | `featured` | Boolean | |
 | `status` / `publishedAt` | | same lifecycle pattern |
 | `author` | ObjectId ref → `User` | |
 
 Indexes: `{status, displayOrder}`, `{status, parentMember, displayOrder}`
-(Sprint 14), text index on `name`/`designation`/`department`/
-`qualifications`/`bio`.
+(Sprint 14, now unused by any query but harmless to keep), text index on
+`name`/`designation`/`department`/`qualifications`/`bio`.
 
 ## Membership — [`models/Membership.js`](../models/Membership.js)
 
@@ -640,6 +645,108 @@ Written best-effort (never blocks the response) from
 `action=download` branch. Indexes: `{resourceType, resourceId,
 downloadedAt}`, `{lead, downloadedAt}`.
 
+## ToolCategory — [`models/ToolCategory.js`](../models/ToolCategory.js)
+
+Sprint 19.4. Mirrors `ResourceCategory`/`CourseCategory` exactly (same
+Create/Edit/Delete/Activate-Deactivate/Reorder admin pattern).
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | String | required, unique, max 100 |
+| `slug` | String | unique, auto-generated |
+| `description` | String | max 300 |
+| `icon` | `{ url, alt }` | |
+| `displayOrder` | Number | |
+| `isActive` | Boolean | default `true` |
+
+Index: `{isActive, displayOrder}`.
+
+## Tool — [`models/Tool.js`](../models/Tool.js)
+
+Sprint 19.4. Top tier of the Tool → ToolSection → ToolQuestion hierarchy,
+built on `lib/sharedContentFields.js` (same foundation as `Course`/
+`Resource`). First tool built on this model: the Fall Risk Assessment
+Calculator (`toolType: 'assessment'`). `accessLevel` gates whether
+*submitting* the assessment for a result requires OTP verification (or
+membership/purchase) — the blank sections/questions are always publicly
+viewable. No scoring logic lives on this model — that's entirely
+data-driven from `ToolQuestion`/`ToolResultBand` (see
+`lib/toolScoring.js`).
+
+| Field | Type | Notes |
+|---|---|---|
+| ...`sharedContentFields()` | | `title`, `slug`, `description`, `thumbnail`, `seo`, `accessLevel`, `status`, `publishedAt`, `featured`, `displayOrder`, `createdBy`, `updatedBy` — same shared pattern as `Course`/`Resource` |
+| `longDescription` | String | |
+| `banner` | `{ url, alt }` | |
+| `category` | ObjectId ref → `ToolCategory` | required |
+| `tags` | [String] | trimmed, lowercased, deduped |
+| `toolType` | String enum | `assessment` \| `calculator` (closed, extensible set — `lib/toolOptions.js`) |
+| `disclaimer` | String | max 1000, shown above the public assessment form |
+| `estimatedMinutes` | Number | default `0`, non-negative |
+
+Indexes: `{status, category, displayOrder}`, `{status, featured}`,
+`{status, publishedAt}`, text index on `title`/`description`/`tags`.
+
+## ToolSection — [`models/ToolSection.js`](../models/ToolSection.js)
+
+Sprint 19.4. Middle tier — a separate top-level collection rather than an
+embedded array on `Tool` (this project's established hierarchy convention,
+mirrors `Section`). A section's visibility follows its parent tool's
+status; no `accessLevel` of its own.
+
+| Field | Type | Notes |
+|---|---|---|
+| `tool` | ObjectId ref → `Tool` | required |
+| `title` | String | required, max 200 |
+| `description` | String | max 1000 |
+| `displayOrder` | Number | scoped to siblings within the same tool |
+
+Index: `{tool, displayOrder}`.
+
+## ToolQuestion — [`models/ToolQuestion.js`](../models/ToolQuestion.js)
+
+Sprint 19.4. Leaf tier. Carries both `section` (direct parent) and a
+denormalized `tool` ref (same reasoning as `Lesson.course`) so scoring and
+the assessment-submit route can fetch every question for a tool in one
+query. `options[]` (radio/checkbox/yesno) and `numericConfig.scoreBands[]`
+(numeric) are entirely admin-authored — no hardcoded scores/thresholds
+anywhere in the assessment engine.
+
+| Field | Type | Notes |
+|---|---|---|
+| `section` | ObjectId ref → `ToolSection` | required |
+| `tool` | ObjectId ref → `Tool` | required, denormalized |
+| `questionText` | String | required, max 300 |
+| `helpText` | String | max 500 |
+| `questionType` | String enum | `radio` \| `checkbox` \| `yesno` \| `numeric` |
+| `displayOrder` | Number | scoped to siblings within the same section |
+| `required` | Boolean | default `true` |
+| `options[]` | `{ label, value, score }` | radio/checkbox/yesno only |
+| `numericConfig` | `{ min, max, step, unit, scoreBands[] }` | numeric only; `scoreBands[]` is `{ min, max, score }` |
+
+Indexes: `{section, displayOrder}`, `{tool}`.
+
+## ToolResultBand — [`models/ToolResultBand.js`](../models/ToolResultBand.js)
+
+Sprint 19.4. One model deliberately covers both "Scoring Rules" and
+"Recommendation Builder" — a score range, its risk label, and its
+recommendations are one concept, not two CRUD systems. `label`/
+`description`/`recommendations` are free text authored per tool, not a
+hardcoded Low/Moderate/High enum, so a future tool with a different number
+of risk tiers needs zero code changes. See `lib/toolScoring.js` for how a
+computed `totalScore` is matched to a band via `[minScore, maxScore]`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `tool` | ObjectId ref → `Tool` | required |
+| `minScore` / `maxScore` | Number | required |
+| `label` | String | required, max 100 |
+| `description` | String | max 1000 |
+| `recommendations` | [String] | trimmed, filtered |
+| `displayOrder` | Number | |
+
+Index: `{tool, minScore}`.
+
 ## Relationships summary
 
 ```
@@ -667,6 +774,12 @@ ResourceCategory 1---* Resource (category — Sprint 19.3)
 Resource 1---* ResourceFile (resource — Sprint 19.3)
 User 1---* Resource (createdBy/updatedBy — Sprint 19.3, sharedContentFields())
 VerifiedLead 1---* DownloadLog (lead, nullable — Sprint 19.3)
+ToolCategory 1---* Tool (category — Sprint 19.4)
+Tool 1---* ToolSection (tool — Sprint 19.4)
+ToolSection 1---* ToolQuestion (section — Sprint 19.4)
+Tool 1---* ToolQuestion (tool, denormalized — Sprint 19.4)
+Tool 1---* ToolResultBand (tool — Sprint 19.4)
+User 1---* Tool (createdBy/updatedBy — Sprint 19.4, sharedContentFields())
 ```
 
 Infographic's `category` field is **not** relational — free text, not a
@@ -680,6 +793,7 @@ each against its own dedicated `<Module>Category` model (`ProductCategory`,
 - `npm run seed:team` → [`scripts/seedTeam.mjs`](../scripts/seedTeam.mjs)
 - `npm run seed:products` → [`scripts/seedProducts.mjs`](../scripts/seedProducts.mjs) — idempotent, also backfills pricing fields onto pre-existing docs
 - `npm run seed:membership` → [`scripts/seedMembership.mjs`](../scripts/seedMembership.mjs) — idempotent, migrates the 3 plans that used to be hardcoded on `/join`
+- `npm run seed:fall-risk-tool` → [`scripts/seedFallRiskTool.mjs`](../scripts/seedFallRiskTool.mjs) — Sprint 19.4, idempotent (skips if the tool's slug already exists). Creates the "Health Assessments" `ToolCategory` and the full Fall Risk Assessment Calculator (4 sections, 9 questions across every `questionType`, 3 result bands) — the CMS's first real content, proving the engine end to end.
 - No seed script for Events/Bookings (Sprint 12) — the old static `/programs` content (workshops with no real date/price/seat data) doesn't map onto the new `Event` schema, so nothing is migrated. The calendar ships with a friendly "no events yet" empty state instead.
 - `npm run migrate:protected-infographics` → [`scripts/migrateProtectedInfographics.mjs`](../scripts/migrateProtectedInfographics.mjs) — Sprint 12.5, one-time, idempotent. Moves any already-uploaded Infographic `fullImage`/`pdf` files from `public/uploads/` to the new `private-uploads/` directory and rewrites the affected documents' `url` fields to the new private storage key. **Must be run once after deploying Sprint 12.5** or pre-existing infographics' protected files won't resolve.
 - `npm run migrate:product-categories` → [`scripts/migrateProductCategories.mjs`](../scripts/migrateProductCategories.mjs) — Sprint 18, one-time, idempotent (safe to re-run). Creates the 3 `ProductCategory` documents matching the old enum values, then converts every existing `Product.category` string to the matching new ObjectId. **Must be run once after deploying Sprint 18** on any environment with existing Product data, or those products' `category` field will still hold a legacy string that no longer matches the schema's `ObjectId ref`.
