@@ -6,6 +6,7 @@ import { LESSON_TYPES } from '@/lib/courseOptions';
 import { ACCESS_LEVELS } from '@/lib/access/accessLevels';
 import { parseVideoUrl, isDirectVideoFile } from '@/lib/videoEmbed';
 import LessonRichTextEditor from './LessonRichTextEditor';
+import MediaPickerDialog from '@/components/admin/media/MediaPickerDialog';
 
 const VIDEO_SOURCES = [
   { value: 'upload', label: 'Upload file (MP4/WebM/Ogg)' },
@@ -43,6 +44,7 @@ export default function LessonEditorPanel({ courseId, sectionId, lesson, onSaved
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState('');
+  const [pickerTarget, setPickerTarget] = useState(null);
 
   const videoInputRef = useRef(null);
   const pdfInputRef = useRef(null);
@@ -80,11 +82,11 @@ export default function LessonEditorPanel({ courseId, sectionId, lesson, onSaved
   async function handleVideoFile(file) {
     if (!file) return;
     const result = await uploadMedia(file, 'video');
-    if (result) update('video', { ...form.video, source: 'upload', url: result.url, filename: result.filename });
+    if (result) update('video', { ...form.video, source: 'upload', url: result.url, filename: result.filename, mediaId: null });
   }
 
   function handleVideoSourceChange(source) {
-    update('video', { ...form.video, source, url: '', filename: '' });
+    update('video', { ...form.video, source, url: '', filename: '', mediaId: null });
   }
 
   function handleVideoUrlChange(url) {
@@ -102,7 +104,7 @@ export default function LessonEditorPanel({ courseId, sectionId, lesson, onSaved
   async function handlePdfFile(file) {
     if (!file) return;
     const result = await uploadMedia(file, 'pdf');
-    if (result) update('pdf', { url: result.url, filename: result.filename });
+    if (result) update('pdf', { url: result.url, filename: result.filename, mediaId: null });
   }
 
   async function handleImageFile(file) {
@@ -117,7 +119,7 @@ export default function LessonEditorPanel({ courseId, sectionId, lesson, onSaved
     if (result) {
       update('attachments', [
         ...form.attachments,
-        { url: result.url, filename: result.filename, label: result.filename },
+        { url: result.url, filename: result.filename, label: result.filename, mediaId: null },
       ]);
     }
   }
@@ -255,7 +257,7 @@ export default function LessonEditorPanel({ courseId, sectionId, lesson, onSaved
                     <a href={mediaPreviewUrl('video')} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
                       <ExternalLink size={12} /> {form.video.filename || 'View video'}
                     </a>
-                    <button type="button" onClick={() => update('video', { ...form.video, url: '', filename: '' })} className="text-red-600 hover:underline">
+                    <button type="button" onClick={() => update('video', { ...form.video, url: '', filename: '', mediaId: null })} className="text-red-600 hover:underline">
                       Remove
                     </button>
                   </div>
@@ -276,6 +278,9 @@ export default function LessonEditorPanel({ courseId, sectionId, lesson, onSaved
               >
                 {uploading === 'video' ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
                 {form.video?.url ? 'Replace video' : 'Upload video'}
+              </button>
+              <button type="button" onClick={() => setPickerTarget('video')} className="ml-2 mt-2 inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-primary hover:border-primary">
+                Choose from Media Library
               </button>
               <input
                 ref={videoInputRef}
@@ -339,7 +344,7 @@ export default function LessonEditorPanel({ courseId, sectionId, lesson, onSaved
               <a href={mediaPreviewUrl('pdf')} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
                 <ExternalLink size={12} /> {form.pdf.filename || 'View PDF'}
               </a>
-              <button type="button" onClick={() => update('pdf', { url: '', filename: '' })} className="text-red-600 hover:underline">
+              <button type="button" onClick={() => update('pdf', { url: '', filename: '', mediaId: null })} className="text-red-600 hover:underline">
                 Remove
               </button>
             </div>
@@ -354,6 +359,9 @@ export default function LessonEditorPanel({ courseId, sectionId, lesson, onSaved
           >
             {uploading === 'pdf' ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
             {form.pdf?.url ? 'Replace PDF' : 'Upload PDF'}
+          </button>
+          <button type="button" onClick={() => setPickerTarget('pdf')} className="ml-2 mt-2 inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-primary hover:border-primary">
+            Choose from Media Library
           </button>
           <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => handlePdfFile(e.target.files?.[0])} />
         </div>
@@ -455,6 +463,9 @@ export default function LessonEditorPanel({ courseId, sectionId, lesson, onSaved
           {uploading === 'attachment' ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
           Add attachment (PDF/Image/Word/PowerPoint/Excel/ZIP)
         </button>
+        <button type="button" onClick={() => setPickerTarget('attachment')} className="ml-2 mt-2 inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-primary hover:border-primary">
+          Choose from Media Library
+        </button>
         <input
           ref={attachmentInputRef}
           type="file"
@@ -483,6 +494,18 @@ export default function LessonEditorPanel({ courseId, sectionId, lesson, onSaved
           Save lesson
         </button>
       </div>
+
+      <MediaPickerDialog
+        open={Boolean(pickerTarget)}
+        onClose={() => setPickerTarget(null)}
+        kinds={pickerTarget === 'video' ? ['video'] : pickerTarget === 'pdf' ? ['pdf'] : ['pdf', 'document', 'video']}
+        onSelect={(media) => {
+          const selected = { url: media.url, filename: media.originalName || media.filename, mediaId: media.id };
+          if (pickerTarget === 'video') update('video', { ...form.video, source: 'upload', ...selected });
+          if (pickerTarget === 'pdf') update('pdf', selected);
+          if (pickerTarget === 'attachment') update('attachments', [...form.attachments, { ...selected, label: selected.filename }]);
+        }}
+      />
     </div>
   );
 }

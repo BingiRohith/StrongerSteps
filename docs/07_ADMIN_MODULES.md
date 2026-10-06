@@ -53,7 +53,9 @@ Central browser for CRS §15/§18. Images remain public reusable assets; new
 PDFs, Office documents, and videos are catalogued in `Media` but saved in
 private storage and previewable only by an authenticated admin. Resource File
 editing can select a matching shared non-image asset while preserving the
-file's own access level. Existing module uploads are listed as **Existing
+file's own access level. Sprint 23 extends that picker to Lesson video
+(`video`), PDF (`pdf`), and downloadable attachment (`pdf`/`document`/`video`)
+controls; direct Lesson uploads remain available. Existing module uploads are listed as **Existing
 upload (preserved)** without changing their files or records. A managed asset
 may be deleted only after the
 server checks every content collection and confirms it has no live URL

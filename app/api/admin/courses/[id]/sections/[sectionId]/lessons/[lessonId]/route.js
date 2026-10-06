@@ -7,6 +7,7 @@ import { LESSON_TYPE_VALUES } from '@/lib/courseOptions';
 import { isValidAccessLevel } from '@/lib/access/accessLevels';
 import { isValidVideoUrl } from '@/lib/videoEmbed';
 import { sanitizeRichHtml } from '@/lib/sanitizeRichHtml';
+import Media from '@/models/Media';
 
 const VIDEO_SOURCE_VALUES = ['upload', 'youtube', 'vimeo', 'external'];
 
@@ -18,6 +19,17 @@ function isValidId(id) {
 
 function scopedQuery(params) {
   return { _id: params.lessonId, section: params.sectionId, course: params.id };
+}
+
+async function resolveLibraryMedia(mediaId, compatibleKinds) {
+  if (!mongoose.Types.ObjectId.isValid(mediaId)) return { error: 'Invalid Media Library asset' };
+  const media = await Media.findOne({ _id: mediaId, storage: 'private', kind: { $in: compatibleKinds } }).lean();
+  if (!media) return { error: 'Choose a compatible private Media Library asset' };
+  return {
+    mediaId: media._id,
+    url: media.url,
+    filename: media.originalName || media.filename,
+  };
 }
 
 export const GET = withErrorHandling(async (request, { params }) => {
@@ -79,23 +91,41 @@ export const PUT = withErrorHandling(async (request, { params }) => {
   }
   if (body.video !== undefined) {
     const source = VIDEO_SOURCE_VALUES.includes(body.video?.source) ? body.video.source : 'upload';
-    const url = body.video?.url || '';
+    let url = body.video?.url || '';
+    let filename = body.video?.filename || '';
+    let mediaId = null;
     // 'upload' urls are private storage keys written by the upload route,
     // not visitor-facing URLs — only youtube/vimeo/external need the
     // http(s)-URL-shape check here.
     if (source !== 'upload' && url && !isValidVideoUrl(url)) {
       return fail('Enter a valid YouTube, Vimeo, or direct video URL', 400);
     }
+    if (source !== 'upload' && body.video?.mediaId) {
+      return fail('Media Library videos must use the uploaded-file source', 400);
+    }
+    if (source === 'upload' && body.video?.mediaId) {
+      const media = await resolveLibraryMedia(body.video.mediaId, ['video']);
+      if (media.error) return fail(media.error, 400);
+      ({ url, filename, mediaId } = media);
+    }
     lesson.video = {
       source,
       url,
-      filename: body.video?.filename || '',
-      mediaId: body.video?.mediaId || null,
+      filename,
+      mediaId,
       captions: Array.isArray(body.video?.captions) ? body.video.captions : lesson.video?.captions || [],
     };
   }
   if (body.pdf !== undefined) {
-    lesson.pdf = { url: body.pdf?.url || '', filename: body.pdf?.filename || '', mediaId: body.pdf?.mediaId || null };
+    let url = body.pdf?.url || '';
+    let filename = body.pdf?.filename || '';
+    let mediaId = null;
+    if (body.pdf?.mediaId) {
+      const media = await resolveLibraryMedia(body.pdf.mediaId, ['pdf']);
+      if (media.error) return fail(media.error, 400);
+      ({ url, filename, mediaId } = media);
+    }
+    lesson.pdf = { url, filename, mediaId };
   }
   if (body.image !== undefined) {
     lesson.image = { url: body.image?.url || '', alt: body.image?.alt || '' };
@@ -103,7 +133,18 @@ export const PUT = withErrorHandling(async (request, { params }) => {
   if (body.externalUrl !== undefined) lesson.externalUrl = body.externalUrl;
   if (body.body !== undefined) lesson.body = sanitizeRichHtml(body.body);
   if (body.attachments !== undefined) {
-    lesson.attachments = Array.isArray(body.attachments) ? body.attachments : [];
+    if (!Array.isArray(body.attachments)) return fail('Attachments must be an array', 400);
+    const attachments = await Promise.all(body.attachments.map(async (attachment) => {
+      if (!attachment?.mediaId) {
+        return { url: attachment?.url || '', filename: attachment?.filename || '', label: attachment?.label || '', mediaId: null };
+      }
+      const media = await resolveLibraryMedia(attachment.mediaId, ['pdf', 'document', 'video']);
+      if (media.error) return media;
+      return { ...media, label: attachment.label || media.filename };
+    }));
+    const invalidAttachment = attachments.find((attachment) => attachment.error);
+    if (invalidAttachment) return fail(invalidAttachment.error, 400);
+    lesson.attachments = attachments;
   }
   if (body.bodyImages !== undefined) {
     lesson.bodyImages = Array.isArray(body.bodyImages) ? body.bodyImages : [];

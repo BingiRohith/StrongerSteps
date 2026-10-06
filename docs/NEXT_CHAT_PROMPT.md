@@ -9,7 +9,7 @@ Workspace/repository:
 - Branch: main
 
 SPRINT GOAL:
-[Describe one approved sprint outcome. Recommended next candidate: scope CRS §19 role management (Admin/Editor/Super Admin), or complete the shared-media picker flow for Lesson editing.]
+[Describe one approved sprint outcome. Recommended next candidate: scope CRS §19 role management (Admin/Editor/Super Admin), or plan durable object storage plus resumable uploads for protected media.]
 
 Before editing, read docs/01_PROJECT_HANDOVER.md, docs/CURRENT_HANDOVER.md, docs/15_SPRINT_CONTINUATION_WORKFLOW.md, docs/02_ROADMAP.md, and relevant technical docs. Inspect git status/latest commit and actual code. Use the existing .env.local without printing values; never expose secrets. Preserve Atlas and existing uploads: no reset, reseed, migration, or deletion without explicit authorization.
 

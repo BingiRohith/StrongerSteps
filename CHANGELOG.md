@@ -1,5 +1,13 @@
 # Changelog
 
+## Sprint 23: Secure Lesson Media Library Reuse — 2026-10-06
+
+Lesson editing now offers **Choose from Media Library** for uploaded video lessons (MP4/WebM/Ogg), PDF lessons, and compatible downloadable attachments (PDF, Office document, or video). Existing direct Lesson uploads remain unchanged. Selecting a shared asset stores the existing additive `mediaId` alongside canonical private storage metadata; replacing/removing it or switching to another video source clears that reference.
+
+The Lesson update API validates every new `mediaId` server-side: it must exist, be privately stored, and match the field's allowed media kind. The regular Lesson media route continues to enforce the Lesson's `PUBLIC`/`MEMBER`/`PURCHASED`/`ADMIN` decision before it resolves shared bytes. The OTP download route now performs the same shared-file resolution only after token and parent-Lesson validation, preserving the existing OTP rule. Media deletion usage tracking now scans Lessons, so a referenced library asset cannot be removed.
+
+Database impact: no migration or existing record/file write. `Lesson.video`, `Lesson.pdf`, and `Lesson.attachments` already have additive optional `mediaId` fields; new references are written only when an admin deliberately saves a Library selection. No Atlas reset, reseed, deletion, or upload move occurred.
+
 ## Sprint 22: Secure Document, PDF & Video Media Library — 2026-10-06
 
 Extended the existing reusable Media Library without moving, rewriting, or migrating any existing upload or Atlas record. JPEG/PNG/WebP/GIF behavior is unchanged. New PDFs, Office documents, and MP4/WebM/Ogg video uploads are catalogued as private `Media` assets under `private-uploads/media/`; they can be browsed and previewed only by an authenticated admin. The upload service uses a fixed MIME allowlist and size limit (200 MB for shared non-image assets), never a permissive catch-all file upload.

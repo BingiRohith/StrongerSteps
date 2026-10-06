@@ -1,9 +1,10 @@
 # 06. API Documentation
 
-## Sprint 22 Media Library additions
+## Sprint 22–23 Media Library additions
 
 - `POST /api/admin/media` accepts the existing images plus PDFs, Word, PowerPoint, Excel, and MP4/WebM/Ogg files. It requires admin/editor authentication; non-images are stored privately.
 - `GET /api/admin/media/:id?content=1` provides an authenticated inline preview. `GET /api/admin/media/:id` remains the usage inspection endpoint; `DELETE` remains admin-only and returns 409 when any saved reference exists.
+- Lesson `PUT` accepts a Library reference only for an uploaded video (`video`), PDF lesson (`pdf`), or attachment (`pdf`, `document`, `video`). It resolves canonical private metadata itself and rejects incompatible/public/missing assets.
 
 All responses follow the shape from [`lib/apiResponse.js`](../lib/apiResponse.js):
 `{ success: true, ...data }` or `{ success: false, error, ...extra }`.
@@ -30,7 +31,7 @@ unhandled errors → 500.
 | Route | Method | Auth | Notes |
 |---|---|---|---|
 | `/api/admin/media` | GET | Any session | Browse library records plus read-only legacy public uploads. Optional `search` matches filename/original name/alt text. |
-| `/api/admin/media` | POST | Admin/editor | multipart `file`: JPEG/PNG/WebP/GIF, max 8MB. Saves under `public/uploads/media/`, creates a `Media` catalogue row, returns `{ media }`, 201. |
+| `/api/admin/media` | POST | Admin/editor | multipart image (max 8MB) or PDF/Office/video (max 200MB). Images save under `public/uploads/media/`; non-images use private Media storage. Creates a `Media` catalogue row, returns `{ media }`, 201. |
 | `/api/admin/media/[id]` | GET | Any session | Returns `{ usage }`, a live list of saved content records currently using that library URL. |
 | `/api/admin/media/[id]` | DELETE | Admin only | Re-runs the live usage scan and returns 409 with `{ usage }` if referenced; otherwise removes the library row and file. Legacy uploads have no delete API. |
 
@@ -292,7 +293,7 @@ Singleton — no `[id]` routes, since there's exactly one document.
 |---|---|---|---|
 | `/api/admin/courses/[id]/sections/[sectionId]/lessons` | GET | Any session | Every lesson in the section, ordered. Returns `{ lessons }`. |
 | `/api/admin/courses/[id]/sections/[sectionId]/lessons` | POST | Admin/editor | Body: `title` required (minimal create — media/content fields are set afterward via PUT, same two-step "create then attach media" flow as every upload-bearing module). Returns `{ lesson }`, 201. |
-| `/api/admin/courses/[id]/sections/[sectionId]/lessons/[lessonId]` | GET \| PUT \| DELETE | Admin/editor (GET: any session) | PUT accepts `video` (`{source, url, filename, captions}` — Sprint 19.5; server validates `url` via `lib/videoEmbed.js`'s `isValidVideoUrl()` when `source !== 'upload'`)/`pdf`/`image`/`externalUrl`/`body`/`attachments`/`bodyImages` (Sprint 19.5) plus the reorder-swap `displayOrder`. |
+| `/api/admin/courses/[id]/sections/[sectionId]/lessons/[lessonId]` | GET \| PUT \| DELETE | Admin/editor (GET: any session) | PUT accepts `video`/`pdf`/`image`/`externalUrl`/`body`/`attachments`/`bodyImages` plus `displayOrder`. It validates external video URLs and any Library `mediaId` against the compatible private asset type, then writes canonical metadata. |
 | `/api/admin/courses/[id]/sections/[sectionId]/lessons/[lessonId]/upload` | POST | Admin/editor | multipart `file`; query `?mediaType=video\|pdf\|image\|bodyImage\|attachment` (not a form field — the request body is read exactly once by the underlying `saveProtected*` helper). `bodyImage` (Sprint 19.5) writes to `lessons-body-images/` for inline rich-text images; `attachment` now accepts image/PDF/document/ZIP (`saveProtectedAttachment()`, Sprint 19.5 — previously office documents only). Always writes to **private** storage (`private-uploads/lessons-<kind>/`) via `lib/privateUpload.js`, regardless of the lesson's current `accessLevel`. Returns `{ url, filename }`, 201 — `url` is a private storage key, not a browsable path. |
 
 ### Public — Lesson &amp; course progress (Sprint 19.5)

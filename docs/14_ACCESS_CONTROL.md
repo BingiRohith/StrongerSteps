@@ -2,7 +2,7 @@
 
 ## Sprint 22 — Shared non-image media
 
-Media Library PDFs, Office documents, and videos are private storage objects: the library preview path requires an authenticated admin. When a Resource File or Lesson references a library asset, its own established access check (including OTP handling) runs before bytes are resolved. A Media row is never an access grant, and no shared non-image asset has a static public URL.
+Media Library PDFs, Office documents, and videos are private storage objects: the library preview path requires an authenticated admin. When a Resource File or Lesson references a library asset, its own established access check runs before bytes are resolved. For Lessons that includes `canAccess()` for PUBLIC/MEMBER/PURCHASED/ADMIN and the verified OTP-token route for OTP downloads. A Media row is never an access grant, and no shared non-image asset has a static public URL.
 
 Sprint 19.1B. This is the single source of truth for authorization across
 the platform — every future protected resource (Courses, Resources, Tools,

@@ -1,5 +1,6 @@
 # 10. Sprint History
 
+| 23 | Secure Lesson Media Library reuse | 2026-10-06 | Added compatible Media Library pickers to Lesson video, PDF, and attachment editing while retaining direct uploads. Server validation canonicalizes only private compatible assets; shared references are served only after every existing Lesson access rule, including OTP download tokens. Media deletion now detects Lesson usage. No existing Atlas record or upload was changed. |
 | 22 | Secure document, PDF & video Media Library | 2026-10-06 | Extended the image library with private catalogued PDFs, Office documents, and videos; authenticated admin preview, reference-safe deletion, and Resource File picker reuse. Shared references retain each Resource File's existing access gate. No existing upload or Atlas record changed. 143/143 tests, clean production build, zero production audit vulnerabilities. |
 
 Condensed index. Full detail (every file touched, what was verified, what

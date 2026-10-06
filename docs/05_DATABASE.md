@@ -30,10 +30,12 @@ reference to its URL. The file is then removed from `public/uploads/media/`.
 Legacy files are browseable but intentionally not deletable through this
 module, avoiding accidental removal of unmanaged content.
 
-Sprint 22 adds optional `mediaId` references to a ResourceFile's `file` and
-the reusable Lesson media subobjects. These are additive and coexist with
-their existing storage keys; no existing document needs migration. The parent
-ResourceFile/Lesson remains the access-control authority.
+Sprints 22–23 add optional `mediaId` references to a ResourceFile's `file`
+and Lesson `video`, `pdf`, and `attachments` subobjects. These are additive
+and coexist with their existing storage keys; no existing document needs
+migration. Sprint 23 validates a referenced asset's private storage and
+compatible kind before saving it. The parent ResourceFile/Lesson remains the
+access-control authority.
 
 ## User — [`models/User.js`](../models/User.js)
 
@@ -542,11 +544,11 @@ for a deliberate denormalized convenience field).
 | `previewAvailable` | Boolean | default `false` — bypasses the lesson's own `accessLevel` gate entirely (including `OTP`) when viewing, see [14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md) |
 | `accessLevel` | String enum | reuses `lib/access/accessLevels.js`'s `ACCESS_LEVELS` — no lesson-specific enum |
 | `video` | `{ source, url, filename, captions }` | Sprint 19.5: `source` enum `upload`\|`youtube`\|`vimeo`\|`external` (default `upload`), admin-selected, player adapts (`lib/videoEmbed.js`'s `parseVideoUrl()`). For `upload`, `url` stays the pre-19.5 **private storage key**; for the other three sources `url` is the actual video URL (validated server-side on save). `captions` is a `[{url, filename, label, language}]` array — **architecture placeholder only**, not wired to any upload UI or playback yet, added now so a future WebVTT subtitle feature is a plain additive UI/route change, not a schema redesign |
-| `pdf` | `{ url, filename }` | `url` is always a **private storage key** (`private-uploads/lessons-pdfs/`), regardless of `accessLevel` — see below |
+| `pdf` | `{ url, filename, mediaId? }` | `url` is a private storage key (either `private-uploads/lessons-pdfs/` or a validated shared library key); `mediaId` is additive — see below |
 | `image` | `{ url, alt }` | same private-storage convention |
 | `externalUrl` | String | for `lessonType: 'external_link'` |
 | `body` | String | rich HTML from the Tiptap-based lesson editor (Sprint 19.5; previously stored/rendered as plain text — see [13_DECISIONS.md](13_DECISIONS.md)), for `lessonType: 'text'` |
-| `attachments` | `[{ url, filename, label }]` | covers the brief's "Attachments" **and** "Downloadable Resources" as one field — both describe the identical technical concept, unlike `Course`'s three learning-content lists (see [13_DECISIONS.md](13_DECISIONS.md)). Sprint 19.5: accepts image/PDF/document/ZIP via `lib/privateUpload.js`'s `saveProtectedAttachment()` (previously office documents only) |
+| `attachments` | `[{ url, filename, label, mediaId? }]` | covers the brief's "Attachments" **and** "Downloadable Resources" as one field. Direct upload accepts image/PDF/document/ZIP; a reusable reference is limited to a validated private PDF/document/video asset. |
 | `bodyImages` | `[{ url, filename, alt }]` | Sprint 19.5 — inline images inserted into `body` by the rich text editor, same private-storage shape as `attachments`; referenced from the rendered HTML via `fileKind=body-image-<index>` (mirrors `attachment-<index>`) |
 
 **Media storage, always private.** Unlike every other module's uploads
