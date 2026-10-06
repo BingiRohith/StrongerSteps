@@ -20,7 +20,7 @@ written to the mock-provider log.
 
 ## Verified state
 
-- `npm test`: 151 tests passed.
+- `npm test`: 154 tests passed.
 - `npm run build`: passed on Next.js 15.5.24.
 - `npm audit --omit=dev`: could not reach npm's advisory endpoint in this
   restricted environment; rerun with normal npm network access.
@@ -40,10 +40,10 @@ was performed.
 
 ## Remaining limitations
 
-- `NOTIFICATION_EMAIL_PROVIDER` and `NOTIFICATION_SMS_PROVIDER` currently
-  fall back to the safe no-op mock; real email/SMS adapter implementations,
-  retry scheduling, and delivery-management UI are deliberately not part of
-  Sprint 24.
+- `NOTIFICATION_EMAIL_PROVIDER=resend` and `NOTIFICATION_SMS_PROVIDER=twilio`
+  are supported when their deployment-only credentials are supplied. The safe
+  no-op mock remains the default; durable retry scheduling and a delivery
+  management UI are still separate work.
 - Non-blocking in-process delivery is best effort. A durable background queue
   should be designed before relying on delivery guarantees in multi-instance
   or serverless production.

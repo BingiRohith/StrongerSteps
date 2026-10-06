@@ -6,6 +6,8 @@
 
 `NotificationDelivery` is an additive audit collection, not a recipient profile or message archive: it links Booking/Event to type, channel, provider, safe provider reference, generic failure code, timestamps, and outcome only. Email/mobile values and rendered content stay out of logs and audit records.
 
+The first real adapters are `resend` for email and `twilio` for SMS. Both use native HTTP `fetch` rather than a provider SDK, returning only safe success references. Missing provider configuration makes no outbound request and produces a generic, auditable failure outcome.
+
 ## Shared non-image Media Library (Sprint 22)
 
 `Media` remains an additive catalogue. Images use the existing public media path; PDFs, Office documents, and videos are stored in `private-uploads/media/`. `GET /api/admin/media/:id?content=1` is admin-authenticated for library preview. Resource Files and Lesson video/PDF/attachment objects may keep a `mediaId` beside their legacy storage key. Lesson editing validates the selected asset's private storage and compatible kind server-side. Both the session-gated Lesson route and OTP-download route check parent authorization before resolving that shared id; the library itself never grants public access.

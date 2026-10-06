@@ -53,7 +53,9 @@ campaigns, WhatsApp, reminders, preferences, or CRM work. Public booking
 creation and actual admin transitions to Confirmed/Cancelled now queue
 minimal email/SMS delivery attempts after the database write succeeds. The
 provider-neutral foundation is mock-safe by default and leaves payment and
-member-pricing work out of scope.
+member-pricing work out of scope. The follow-up adds selected Resend/Twilio
+transport adapters, while durable retry processing and provider-account setup
+remain separate work.
 
 Like Sprint 12.5, the Sprint 15 brief's "CLIENT UI REFINEMENTS" (header
 redesign; removal of the final CTA banner) are approved client revisions

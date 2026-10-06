@@ -1,5 +1,9 @@
 # Changelog
 
+## Sprint 24 follow-up: Resend and Twilio adapters — 2026-10-06
+
+Added first-party HTTP adapters for Resend email and Twilio SMS, reusing the shared notification/OTP provider contract with no new dependency. Selecting `resend` or `twilio` without the corresponding deployment-only credentials makes no network request and records the safe `provider-not-configured` delivery outcome. Both adapters return only their non-sensitive provider correlation reference on success and never log credentials, recipients, message bodies, or OTPs.
+
 ## Sprint 24: Communication Foundation — 2026-10-06
 
 Added provider-neutral, post-write booking notifications for public booking creation and actual admin transitions to `confirmed` or `cancelled`. Both concise email and SMS messages include only the attendee name, event title/date/time, booking status, and booking reference. The request returns immediately after its booking/status write; best-effort delivery cannot change that successful result.

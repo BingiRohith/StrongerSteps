@@ -9,7 +9,7 @@ Workspace/repository:
 - Branch: main
 
 SPRINT GOAL:
-[Describe one approved, narrow outcome. Recommended next candidate: design and implement one real email/SMS notification provider adapter with a durable delivery/retry approach, or scope CRS §19 role management. Do not combine them.]
+[Describe one approved, narrow outcome. Recommended next candidate: design a durable notification delivery/retry approach around the existing Resend/Twilio adapters, or scope CRS §19 role management. Do not combine them.]
 
 Before editing, read docs/01_PROJECT_HANDOVER.md, docs/CURRENT_HANDOVER.md, docs/15_SPRINT_CONTINUATION_WORKFLOW.md, docs/02_ROADMAP.md, docs/03_CLIENT_REQUIREMENTS.md §17, and the relevant architecture/database/API/admin/security/deployment documents. Inspect git status/latest commit and actual booking, notification, provider, OTP, and access-control code. Use the existing .env.local without printing values; never expose secrets, OTPs, recipients, or provider credentials. Preserve Atlas and existing uploads: no reset, reseed, migration, deletion, live notification, or production-like booking/status write without explicit authorization.
 
