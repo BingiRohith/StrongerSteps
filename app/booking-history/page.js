@@ -3,7 +3,7 @@ import BookingHistoryClient from '@/components/bookings/BookingHistoryClient';
 
 export const metadata = {
   title: 'Booking History',
-  description: 'Look up your Stronger Steps event bookings by mobile number.',
+  description: 'Look up a Stronger Steps event booking with its reference and mobile number.',
   alternates: { canonical: '/booking-history' },
   openGraph: { title: 'Booking History | Stronger Steps', url: '/booking-history' },
 };
@@ -17,8 +17,8 @@ export default function BookingHistoryPage() {
           Find your bookings
         </h1>
         <p className="mt-4 max-w-2xl text-lg text-muted">
-          Enter the mobile number you booked with to see your booking reference, event details, and status. Add a
-          specific reference to look up a single booking.
+          Enter the booking reference from your confirmation and the mobile number you booked with to see its event
+          details and current status.
         </p>
 
         <div className="mt-12">

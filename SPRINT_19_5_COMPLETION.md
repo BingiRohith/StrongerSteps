@@ -194,18 +194,9 @@ Two things came out of that:
 - `docs/10_SPRINT_HISTORY.md` — condensed Sprint 19.5 row.
 - `CHANGELOG.md` — full detailed entry.
 
-## 10. Recommendations for Sprint 19.6 (Zoho CRM Integration)
+## 10. Next steps
 
-- `VerifiedLead` is already the platform's single identity anchor
-  (email/mobile, membership, purchases, and now course progress) — a Zoho
-  sync should key off `VerifiedLead._id`/email/mobile, not invent a
-  parallel identity concept.
-- `CourseProgress` (completion %, completed lessons, timestamps) is
-  already shaped to feed a CRM "engagement" or "course completion" signal
-  with no further schema work — a Zoho sync job can read it directly.
-- Consider whether Zoho should be pushed to on every `CourseProgress`
-  write (real-time) or on a scheduled batch — this sprint deliberately
-  didn't add any outbound-webhook/queue infrastructure, so that choice is
-  still fully open.
-- The disk-space constraint noted above should be resolved before Sprint
-  19.6 begins, independent of any code changes.
+- Restore the local development environment and open the existing project.
+- Complete the outstanding Sprint 19.5 manual testing checklist above.
+- Decide the next development scope after verifying the current application.
+- CRM integration is outside the current scope.

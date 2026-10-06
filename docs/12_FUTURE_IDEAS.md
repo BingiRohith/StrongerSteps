@@ -25,10 +25,6 @@ Treat these as the client's actual long-range plan, not brainstorming — see
   (`admin/upload`, `admin/infographics/upload`, `admin/team/upload`) onto
   the shared `lib/localUpload.js` helper that `admin/products/upload`
   already uses — pure cleanup, no behavior change intended.
-- **Categories management UI** — the API (`/api/admin/categories`) already
-  supports list + create; the CRS (§15) expects Categories to be part of
-  what the client manages from Admin, so this should be prioritized
-  alongside other CRS work rather than treated as pure nice-to-have.
 - **`app/api/bookings/route.js`'s seat-decrement rollback isn't
   transactional** (Sprint 12). If `Booking.create()` fails after the
   atomic `availableSeats` decrement, the route issues a separate `$inc`

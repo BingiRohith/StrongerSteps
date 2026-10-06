@@ -1,21 +1,45 @@
+import Link from 'next/link';
 import { getCurrentUser } from '@/lib/auth';
 import connectDB from '@/lib/db';
 import Event from '@/models/Event';
 import Booking from '@/models/Booking';
-import { Newspaper, Image as ImageIcon, Users, Package, CreditCard, Calendar, Ticket, FolderTree, Home } from 'lucide-react';
+import {
+  Newspaper,
+  Image as ImageIcon,
+  Users,
+  Package,
+  CreditCard,
+  Calendar,
+  Ticket,
+  Home,
+  Tags,
+  Soup,
+  GraduationCap,
+  Library,
+  Wrench,
+} from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 const CARDS = [
-  { label: 'Homepage', icon: Home, href: '/admin/homepage' },
-  { label: 'Blogs', icon: Newspaper, href: '/admin/blogs' },
-  { label: 'Infographics', icon: ImageIcon, href: '/admin/infographics' },
-  { label: 'Team', icon: Users, href: '/admin/team' },
-  { label: 'Products', icon: Package, href: '/admin/products' },
-  { label: 'Membership', icon: CreditCard, href: '/admin/membership' },
-  { label: 'Programs', icon: Calendar, href: '/admin/events' },
-  { label: 'Bookings', icon: Ticket, href: '/admin/bookings' },
-  { label: 'Categories', icon: FolderTree, href: '/admin/categories' },
+  { label: 'Homepage', description: 'Edit hero, cards and sections', icon: Home, href: '/admin/homepage' },
+  { label: 'Blogs', description: 'Write, publish and organize articles', icon: Newspaper, href: '/admin/blogs' },
+  { label: 'Blog Categories', description: 'Organize articles by topic', icon: Tags, href: '/admin/categories' },
+  { label: 'Infographics', description: 'Manage previews and protected downloads', icon: ImageIcon, href: '/admin/infographics' },
+  { label: 'Team', description: 'Manage the public team directory', icon: Users, href: '/admin/team' },
+  { label: 'Products', description: 'Manage products, pricing and availability', icon: Package, href: '/admin/products' },
+  { label: 'Product Categories', description: 'Organize the product catalogue', icon: Tags, href: '/admin/product-categories' },
+  { label: 'Membership', description: 'Manage membership plans and benefits', icon: CreditCard, href: '/admin/membership' },
+  { label: 'Programs', description: 'Manage events, dates and capacity', icon: Calendar, href: '/admin/events' },
+  { label: 'Bookings', description: 'Review bookings and update their status', icon: Ticket, href: '/admin/bookings' },
+  { label: 'Recipes', description: 'Publish recipes and nutrition information', icon: Soup, href: '/admin/recipes' },
+  { label: 'Recipe Categories', description: 'Organize the recipe library', icon: Tags, href: '/admin/recipe-categories' },
+  { label: 'Courses', description: 'Build courses, sections and lessons', icon: GraduationCap, href: '/admin/courses' },
+  { label: 'Course Categories', description: 'Organize the course catalogue', icon: Tags, href: '/admin/course-categories' },
+  { label: 'Resources', description: 'Manage protected files and downloads', icon: Library, href: '/admin/resources' },
+  { label: 'Resource Categories', description: 'Organize the resource library', icon: Tags, href: '/admin/resource-categories' },
+  { label: 'Tools', description: 'Build assessments and scoring rules', icon: Wrench, href: '/admin/tools' },
+  { label: 'Tool Categories', description: 'Organize assessments and calculators', icon: Tags, href: '/admin/tool-categories' },
 ];
 
 const STAT_LABELS = {
@@ -74,8 +98,8 @@ export default async function AdminDashboardPage() {
           {user?.name || 'Admin'}
         </h2>
         <p className="mt-2 max-w-xl text-sm text-muted">
-          This is the Stronger Steps admin panel. Content tools for blogs, infographics, the team
-          directory, and categories will land here in upcoming sprints.
+          Manage the Stronger Steps website, learning content, memberships, programmes,
+          bookings, resources and assessment tools from one place.
         </p>
       </div>
 
@@ -92,8 +116,8 @@ export default async function AdminDashboardPage() {
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {CARDS.map(({ label, icon: Icon, href }) => (
-          <a
+        {CARDS.map(({ label, description, icon: Icon, href }) => (
+          <Link
             key={href}
             href={href}
             className="group rounded-xl2 border border-line bg-surface p-5 transition-colors duration-150 hover:border-primary"
@@ -102,16 +126,8 @@ export default async function AdminDashboardPage() {
               <Icon size={18} />
             </span>
             <p className="mt-4 font-display text-sm font-semibold text-ink">{label}</p>
-            <p className="mt-1 text-xs text-muted">
-              {label === 'Programs'
-                ? 'Manage events'
-                : label === 'Bookings'
-                ? 'View, filter & cancel bookings'
-                : label === 'Homepage'
-                ? 'Edit hero, cards & sections'
-                : 'Not yet available'}
-            </p>
-          </a>
+            <p className="mt-1 text-xs text-muted">{description}</p>
+          </Link>
         ))}
       </div>
     </div>

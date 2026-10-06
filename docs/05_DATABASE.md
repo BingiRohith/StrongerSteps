@@ -28,9 +28,10 @@ Instance methods: `comparePassword(candidate)` (bcrypt compare),
 
 ## Category — [`models/Category.js`](../models/Category.js)
 
-Minimal — only backs the Blog category picker. **Not** a full-featured
-taxonomy system (no reorder/hierarchy). No admin management UI exists yet
-(see [02_ROADMAP.md](02_ROADMAP.md)).
+Lightweight Blog taxonomy with full admin list/search/create/edit/delete
+management. It deliberately has no status, manual order, icon, or hierarchy;
+the public Blog filters use alphabetical order. Deletion is blocked while a
+Blog still references the category because `Blog.category` is required.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -277,8 +278,8 @@ max 3 OTP requests per identifier per 15 minutes), TTL index on `createdAt`
 Sprint 13. A dedicated, full-featured taxonomy for Recipes — unlike
 `Infographic.category` (still free text), the CRS explicitly requires
 admin-managed Create/Edit/Delete/Activate-Deactivate/Reorder here, so it
-needed its own model rather than reusing the minimal `models/Category.js`
-(Blog-only, no management UI). `ProductCategory` (Sprint 18, below) later
+needed its own model rather than reusing the lightweight `models/Category.js`
+(Blog-only, with a smaller management UI). `ProductCategory` (Sprint 18, below) later
 followed this same pattern. See [13_DECISIONS.md](13_DECISIONS.md).
 
 | Field | Type | Notes |

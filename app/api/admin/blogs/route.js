@@ -3,6 +3,7 @@ import Blog from '@/models/Blog';
 import Category from '@/models/Category'; // eslint-disable-line no-unused-vars -- registers the ref before populate
 import { requireAuth } from '@/lib/auth';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
+import { sanitizeRichHtml } from '@/lib/sanitizeRichHtml';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,14 +67,17 @@ export const POST = withErrorHandling(async (request) => {
   const body = await request.json();
 
   if (!body?.title?.trim()) return fail('Title is required', 400);
-  if (!body?.content?.trim()) return fail('Content is required', 400);
+  const safeContent = sanitizeRichHtml(body?.content);
+  if (!safeContent.trim()) return fail('Content is required', 400);
   if (!body?.category) return fail('Category is required', 400);
 
   const blog = await Blog.create({
     title: body.title,
     slug: body.slug || undefined,
     excerpt: body.excerpt || '',
-    content: body.content,
+    // Store only the editor markup we explicitly support. Public rendering
+    // sanitizes again so older records receive the same protection.
+    content: safeContent,
     coverImage: {
       url: body.coverImage?.url || '',
       alt: body.coverImage?.alt || '',

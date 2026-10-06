@@ -256,21 +256,26 @@ unlimited future tools — first one is the Fall Risk Assessment Calculator
   the public assessment form would, for reviewing content before
   publishing.
 
-## Categories — `/admin/categories`
+## Blog Categories — `/admin/categories` (Sprint 20)
 
-**Status: placeholder only.** Renders `PagePlaceholder` with a "Coming in a
-future sprint" message. The only working functionality is the
-list+quick-create API (`/api/admin/categories`) consumed inline by the Blog
-form's category picker — there is no dedicated management page to
-edit/delete/reorder categories. (Not to be confused with Recipe Categories
-above, which got its own full management UI in Sprint 13.)
+**Status: full lightweight CRUD, production-capable.** This module manages
+only the Blog taxonomy; Product, Recipe, Course, Resource, and Tool categories
+each keep their own dedicated model and screen.
+
+- List (`CategoriesListClient.js`): alphabetical records, debounced name/
+  description search, edit action, protected delete confirmation, and clear
+  loading/empty/error states.
+- Create/Edit (`CategoryForm.js`): name, automatic/editable slug, optional
+  description with a 300-character limit. New categories become immediately
+  available in the existing Blog editor category selector.
+- Delete is rejected with 409 while one or more Blogs reference the category,
+  because `Blog.category` is required. Reassign those posts first.
 
 ## Shared admin UI building blocks
 
 - `AdminShell.js` — sidebar + header wrapper, owns mobile-drawer open/close state.
 - `AdminSidebar.js` — nav list (`NAV_ITEMS`), desktop fixed rail + mobile slide-over.
 - `AdminHeader.js` — page title, signed-in user info, logout button.
-- `PagePlaceholder.js` — shared "coming soon" block (used only by Categories today).
 - `StatusBadge.js` (in `components/admin/blogs/`, reused generically by Infographics/Products/Team/Recipes lists) — Draft/Published pill.
 - `ImageUploadField.js` (in `components/admin/infographics/`, reused by Products, Events, Recipes, and Recipe Categories — Events also reuses it a second time within the same form for the host photo) — click-to-upload-with-preview.
 - `TagsInput.js` (in `components/admin/blogs/`, reused as-is by Recipes — no blog-specific logic inside) — add/remove tag chips.

@@ -7,6 +7,7 @@ import BlogCard, { formatBlogDate } from '@/components/blog/BlogCard';
 import BlogPrevNext from '@/components/blog/BlogPrevNext';
 import ShareButtons from '@/components/blog/ShareButtons';
 import { getBlogBySlug, getAdjacentBlogs, getRelatedBlogs } from '@/lib/publicBlogs';
+import { sanitizeRichHtml } from '@/lib/sanitizeRichHtml';
 
 // Reads live from MongoDB on every request — blogs are published/edited from
 // the admin panel at any time, so this page can't be statically cached at
@@ -118,9 +119,11 @@ export default async function BlogDetailPage({ params }) {
       <section className="bg-bg">
         <div className="mx-auto max-w-content px-6 pb-16">
           <div className="grid gap-12 lg:grid-cols-[1fr_260px]">
+            {/* Sanitize at render time so records created before the
+                save-time allow-list receive the same protection. */}
             <article
               className="max-w-none text-base leading-relaxed text-ink [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-accent [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted [&_h2]:mb-3 [&_h2]:mt-8 [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:text-primary-dark [&_h3]:mb-2 [&_h3]:mt-6 [&_h3]:font-display [&_h3]:text-xl [&_h3]:font-bold [&_h3]:text-primary-dark [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-4 [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-6"
-              dangerouslySetInnerHTML={{ __html: blog.content }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(blog.content) }}
             />
 
             <aside className="lg:sticky lg:top-8 lg:h-fit">

@@ -41,8 +41,11 @@ unhandled errors → 500.
 
 | Route | Method | Auth | Notes |
 |---|---|---|---|
-| `/api/admin/categories` | GET | Any session | Alphabetical full list. Powers the Blog form's category `<select>` only — no public route exists. |
-| `/api/admin/categories` | POST | Admin/editor | Body: `{ name, description? }`. Quick-create used by the Blog form's inline "+ new category". |
+| `/api/admin/categories` | GET | Any session | Alphabetical list. Optional `search` matches name or description. Used by both Blog Categories management and the Blog form's category `<select>`; no public route exists. |
+| `/api/admin/categories` | POST | Admin/editor | Body: `{ name, slug?, description? }`. Used by the full create form and the Blog form's inline "+ new category". Returns `{ category }`, 201. |
+| `/api/admin/categories/[id]` | GET | Any session | Returns one category for editing. |
+| `/api/admin/categories/[id]` | PUT | Admin/editor | Partial name/slug/description update. |
+| `/api/admin/categories/[id]` | DELETE | Admin/editor | Blocks with 409 while a Blog still references the category; otherwise returns `{ deleted: true }`. |
 
 ## Infographics
 

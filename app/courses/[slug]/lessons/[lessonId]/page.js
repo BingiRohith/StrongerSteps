@@ -12,6 +12,7 @@ import { annotateLessonAccess, annotateCourseAccess } from '@/lib/courseAccess';
 import { parseVideoUrl, isDirectVideoFile } from '@/lib/videoEmbed';
 import connectDB from '@/lib/db';
 import CourseProgress from '@/models/CourseProgress';
+import { sanitizeRichHtml } from '@/lib/sanitizeRichHtml';
 
 export const dynamic = 'force-dynamic';
 
@@ -220,10 +221,11 @@ function UnlockedLessonContent({ lesson, lessonId }) {
       )}
 
       {lesson.lessonType === 'text' && lesson.body && (
-        // eslint-disable-next-line react/no-danger -- admin-authored HTML from the lesson rich text editor, same trust model as Course.longDescription/Blog.content elsewhere in this app
+        // The allow-list preserves editor formatting while stripping
+        // scripts, event handlers and unsafe URL schemes.
         <div
           className="prose-editor max-w-none text-base leading-relaxed text-ink [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-line [&_td]:p-2 [&_th]:border [&_th]:border-line [&_th]:bg-sage/40 [&_th]:p-2 [&_pre]:rounded-lg [&_pre]:bg-ink [&_pre]:p-3 [&_pre]:text-white [&_blockquote]:border-l-4 [&_blockquote]:border-accent [&_blockquote]:pl-3 [&_blockquote]:italic [&_h2]:font-display [&_h2]:text-xl [&_h2]:font-bold [&_h3]:font-display [&_h3]:text-lg [&_h3]:font-bold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_a]:text-primary [&_a]:underline [&_img]:rounded-lg [&_.callout]:my-3 [&_.callout]:rounded-lg [&_.callout]:border [&_.callout]:p-3 [&_.callout-info]:border-primary/40 [&_.callout-info]:bg-sage/40 [&_.callout-warning]:border-amber-400 [&_.callout-warning]:bg-amber-50 [&_.callout-tip]:border-primary [&_.callout-tip]:bg-primary/5"
-          dangerouslySetInnerHTML={{ __html: lesson.body }}
+          dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(lesson.body) }}
         />
       )}
 

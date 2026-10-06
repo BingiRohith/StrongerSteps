@@ -6,6 +6,7 @@ import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
 import { LESSON_TYPE_VALUES } from '@/lib/courseOptions';
 import { isValidAccessLevel } from '@/lib/access/accessLevels';
 import { isValidVideoUrl } from '@/lib/videoEmbed';
+import { sanitizeRichHtml } from '@/lib/sanitizeRichHtml';
 
 const VIDEO_SOURCE_VALUES = ['upload', 'youtube', 'vimeo', 'external'];
 
@@ -31,7 +32,9 @@ export const GET = withErrorHandling(async (request, { params }) => {
   const lesson = await Lesson.findOne(scopedQuery(params));
   if (!lesson) return fail('Lesson not found', 404);
 
-  return ok({ lesson });
+  const safeLesson = lesson.toObject();
+  safeLesson.body = sanitizeRichHtml(safeLesson.body);
+  return ok({ lesson: safeLesson });
 });
 
 /**
@@ -97,7 +100,7 @@ export const PUT = withErrorHandling(async (request, { params }) => {
     lesson.image = { url: body.image?.url || '', alt: body.image?.alt || '' };
   }
   if (body.externalUrl !== undefined) lesson.externalUrl = body.externalUrl;
-  if (body.body !== undefined) lesson.body = body.body;
+  if (body.body !== undefined) lesson.body = sanitizeRichHtml(body.body);
   if (body.attachments !== undefined) {
     lesson.attachments = Array.isArray(body.attachments) ? body.attachments : [];
   }

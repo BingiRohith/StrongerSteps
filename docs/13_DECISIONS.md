@@ -1020,9 +1020,10 @@ user before making them, per the CRS governance rule.
 
 The CRS explicitly requires full Create/Edit/Delete/Activate-Deactivate/
 Reorder admin management for Recipe Categories — the existing
-`models/Category.js` is deliberately minimal (Blog-only, no management UI,
-see the 2026-07-02 entry below) and was never meant to grow into a
-multi-tenant taxonomy.
+`models/Category.js` is deliberately minimal and Blog-only (and, at the
+time of this decision, had no management UI; Sprint 20 later added a small
+Blog-only CRUD screen without adding Recipe fields). It was never meant to
+grow into a multi-tenant taxonomy.
 **Why:** reusing `Category` would have required either bolting Recipe-only
 fields (`featuredImage`, `displayOrder`, `isActive`) onto a Blog-scoped
 model, or building the first real management UI for it and then

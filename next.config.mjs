@@ -3,6 +3,10 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // sanitize-html is server-only and loads htmlparser2 dynamically. Keep it
+  // as a Node dependency instead of asking webpack to rebundle the parser's
+  // ESM package graph. (Top-level name used by Next 15+.)
+  serverExternalPackages: ['sanitize-html'],
   // NOTE: `output: 'export'` was removed. Static export disables API routes
   // and middleware entirely, so it can't coexist with the backend
   // (MongoDB + auth) added in this sprint. The app now builds as a normal

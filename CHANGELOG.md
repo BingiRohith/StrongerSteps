@@ -1,5 +1,48 @@
 # Changelog
 
+## Sprint 20: Recovery, Security Hardening & Blog Categories — 2026-10-06
+
+Scope: resume the interrupted project against its existing MongoDB Atlas
+data, restore a working local environment, close the highest-risk security
+findings, and finish the final CRS §15 category-management placeholder. No
+database reset or destructive migration was performed.
+
+### Security and dependency hardening
+
+- Booking History now requires both mobile number and booking reference and
+  returns only the fields needed by the result card. It no longer exposes a
+  person's full booking history or private email/mobile/notes from a phone
+  number alone.
+- Added `lib/sanitizeRichHtml.js` using `sanitize-html`; Blog and Lesson HTML
+  is sanitized both when saved and when rendered, covering old records as
+  well as new edits. Tests prove scripts, event handlers, and unsafe URLs are
+  removed while supported editor formatting remains intact.
+- Upgraded Next.js to 15.5.24, aligned every Tiptap package at 3.31.4, and
+  forced Next's nested PostCSS resolution to the audited root version.
+  `npm audit --omit=dev` reports zero vulnerabilities.
+
+### Admin corrections and completed modules
+
+- Dashboard now links to every completed admin module.
+- Curriculum section rows display their saved lesson counts before a section
+  is expanded; counts are aggregated in one database query.
+- Replaced `/admin/categories`'s placeholder with Blog Categories management:
+  alphabetical list, debounced search, create, edit, automatic/editable slug,
+  description, and delete confirmation. Delete returns 409 while any Blog
+  still references the category, preventing dangling required references.
+- Renamed the navigation entry to **Blog Categories** and added a matching
+  dashboard card so it cannot be confused with Product, Recipe, Course,
+  Resource, or Tool categories.
+
+### Verification
+
+- 143/143 automated tests pass.
+- Production build passes on Next.js 15.5.24.
+- Live read-only browser verification against Atlas confirmed existing course
+  lessons and Blog Categories load unchanged, category search works, and the
+  create form auto-generates its slug. The verification form was not
+  submitted, so it did not create or modify database records.
+
 ## Sprint 19.5: Courses → Learning Management System — 2026-07-22
 
 Scope: extend Sprint 19.2's existing Course→Section→Lesson CMS into a

@@ -4,6 +4,7 @@ import Blog from '@/models/Blog';
 import Category from '@/models/Category'; // eslint-disable-line no-unused-vars -- registers the ref before populate
 import { requireAuth } from '@/lib/auth';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
+import { sanitizeRichHtml } from '@/lib/sanitizeRichHtml';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,9 @@ export const GET = withErrorHandling(async (request, { params }) => {
   const blog = await Blog.findById(params.id).populate('category', 'name slug').populate('author', 'name');
   if (!blog) return fail('Blog not found', 404);
 
-  return ok({ blog });
+  const safeBlog = blog.toObject();
+  safeBlog.content = sanitizeRichHtml(safeBlog.content);
+  return ok({ blog: safeBlog });
 });
 
 /**
@@ -47,8 +50,9 @@ export const PUT = withErrorHandling(async (request, { params }) => {
   if (body.slug !== undefined) blog.slug = body.slug;
   if (body.excerpt !== undefined) blog.excerpt = body.excerpt;
   if (body.content !== undefined) {
-    if (!body.content.trim()) return fail('Content is required', 400);
-    blog.content = body.content;
+    const safeContent = sanitizeRichHtml(body.content);
+    if (!safeContent.trim()) return fail('Content is required', 400);
+    blog.content = safeContent;
   }
   if (body.coverImage !== undefined) {
     blog.coverImage = {

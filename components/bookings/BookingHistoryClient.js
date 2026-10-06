@@ -45,12 +45,18 @@ export default function BookingHistoryClient() {
       setErrors({ mobile: 'Enter a valid 10-digit mobile number' });
       return;
     }
+    if (!reference.trim()) {
+      setErrors({ reference: 'Enter the booking reference from your confirmation' });
+      return;
+    }
     setErrors({});
 
     setLoading(true);
     try {
-      const params = new URLSearchParams({ mobile: mobile.trim() });
-      if (reference.trim()) params.set('reference', reference.trim());
+      const params = new URLSearchParams({
+        mobile: mobile.trim(),
+        reference: reference.trim(),
+      });
 
       const res = await fetch(`/api/bookings/lookup?${params.toString()}`);
       const data = await res.json();
@@ -94,16 +100,18 @@ export default function BookingHistoryClient() {
 
         <div>
           <label className="block text-sm font-semibold text-ink" htmlFor="lookup-reference">
-            Booking reference <span className="font-normal text-muted">(optional)</span>
+            Booking reference
           </label>
           <input
             id="lookup-reference"
             type="text"
+            required
             value={reference}
             onChange={(e) => setReference(e.target.value)}
             placeholder="SS-20260715-0001"
             className="mt-1.5 w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
+          {errors.reference && <p className="mt-1 text-xs font-semibold text-red-600">{errors.reference}</p>}
         </div>
 
         <button
