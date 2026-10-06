@@ -16,6 +16,7 @@ import {
   Soup,
   GraduationCap,
   Library,
+  Images,
   Wrench,
 } from 'lucide-react';
 
@@ -37,6 +38,7 @@ const CARDS = [
   { label: 'Courses', description: 'Build courses, sections and lessons', icon: GraduationCap, href: '/admin/courses' },
   { label: 'Course Categories', description: 'Organize the course catalogue', icon: Tags, href: '/admin/course-categories' },
   { label: 'Resources', description: 'Manage protected files and downloads', icon: Library, href: '/admin/resources' },
+  { label: 'Media Library', description: 'Upload, reuse and protect shared images', icon: Images, href: '/admin/media' },
   { label: 'Resource Categories', description: 'Organize the resource library', icon: Tags, href: '/admin/resource-categories' },
   { label: 'Tools', description: 'Build assessments and scoring rules', icon: Wrench, href: '/admin/tools' },
   { label: 'Tool Categories', description: 'Organize assessments and calculators', icon: Tags, href: '/admin/tool-categories' },

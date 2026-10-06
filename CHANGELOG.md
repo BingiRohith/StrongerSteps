@@ -1,5 +1,35 @@
 # Changelog
 
+## Sprint 21: Reusable Media Library — 2026-10-06
+
+Scope: deliver CRS §15/§18's current image-media requirement without moving,
+resetting, or changing existing Atlas content or uploaded files.
+
+- Added `models/Media.js` and `/api/admin/media`: new JPEG/PNG/WebP/GIF
+  uploads (max 8MB) are saved once in `public/uploads/media/` with filename,
+  MIME/size, alt text, uploader, and timestamps. Existing per-module public
+  uploads are discovered read-only and listed alongside the managed library,
+  so no data migration was needed.
+- Added `/admin/media`, dashboard card, and sidebar entry with image grid,
+  search, upload, usage inspection, and deletion controls. Managed deletion
+  performs a fresh scan of all content models immediately before removing a
+  file and returns 409 with the referencing records if it is still in use.
+  Legacy files remain browse-only, the conservative choice for content not
+  catalogued by this sprint.
+- Reworked the shared admin image picker, Blog cover picker, and Recipe
+  gallery to select an existing image or upload through the Media Library.
+  This gives new and edited content a reusable asset flow while preserving
+  every existing module-specific upload endpoint for compatibility.
+
+Database impact: adds the empty `Media` collection only when the first new
+library image is uploaded. No existing collection, file, or record was
+migrated, reset, reseeded, or deleted.
+
+Verification: 143/143 automated tests pass; `npm run build` passes. The
+production audit could not reach npm's audit endpoint from this restricted
+environment and must be rerun with network access. Runtime upload folders,
+logs, and `.env.local` remain ignored by Git.
+
 ## Post-Sprint 20: Continuation & Handover Process — 2026-10-06
 
 - Replaced the stale Sprint 9 handover with an accurate current project handover covering Sprint 20, Next.js 15.5.24, completed modules, security, verification, data safety, and the GitHub repository.

@@ -9,6 +9,26 @@ Every model follows shared conventions — see
 lifecycle, `toSafeObject()`, `pre('validate')` hooks) rather than repeating
 it per-model below.
 
+## Media — [`models/Media.js`](../models/Media.js) (Sprint 21)
+
+Catalogue records for images uploaded through the reusable Admin Media
+Library. This is deliberately additive: old files in module-specific
+`public/uploads/<module>/` folders and the content records that point to them
+remain valid and require no migration.
+
+| Field | Type | Notes |
+|---|---|---|
+| `url` | String | required, unique public `/uploads/media/...` path |
+| `filename` / `originalName` | String | storage filename and original upload name, used for browsing/search |
+| `mimeType` / `size` | String / Number | validated image metadata; 8 MB maximum at upload |
+| `alt` | String | optional, max 150 |
+| `uploadedBy` | ObjectId ref → `User` | required audit field |
+
+The record is deleted only after a live cross-content usage scan finds no
+reference to its URL. The file is then removed from `public/uploads/media/`.
+Legacy files are browseable but intentionally not deletable through this
+module, avoiding accidental removal of unmanaged content.
+
 ## User — [`models/User.js`](../models/User.js)
 
 Auth accounts (admin panel only — not public signup).

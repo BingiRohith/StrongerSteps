@@ -43,7 +43,19 @@ creates it from seed defaults on first load).
   hide the section entirely from the public homepage).
 
 Image uploads across all tabs go through `ImageUploadField.js` (reused
-as-is) → `/api/admin/homepage/upload`.
+as a shared Media Library picker. It can upload a new reusable image or
+select an existing library/legacy upload; the prior homepage upload route is
+preserved for compatibility but is no longer used by this form.
+
+## Media Library — `/admin/media` (Sprint 21)
+
+Central image browser for CRS §15/§18. New uploads are catalogued in the
+`Media` collection and stored in `public/uploads/media/`; every generic image
+field (including Blog covers and recipe galleries) can choose them. Existing
+module uploads are listed as **Existing upload (preserved)** without changing
+their files or records. A managed library image may be deleted only after the
+server checks every content collection and confirms it has no live URL
+reference; legacy files are browse-only for safety.
 
 ## Blogs — `/admin/blogs`
 

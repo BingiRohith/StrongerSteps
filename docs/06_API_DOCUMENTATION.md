@@ -20,6 +20,15 @@ unhandled errors → 500.
 
 ## Blogs
 
+## Media Library — `app/api/admin/media/` (Sprint 21)
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/media` | GET | Any session | Browse library records plus read-only legacy public uploads. Optional `search` matches filename/original name/alt text. |
+| `/api/admin/media` | POST | Admin/editor | multipart `file`: JPEG/PNG/WebP/GIF, max 8MB. Saves under `public/uploads/media/`, creates a `Media` catalogue row, returns `{ media }`, 201. |
+| `/api/admin/media/[id]` | GET | Any session | Returns `{ usage }`, a live list of saved content records currently using that library URL. |
+| `/api/admin/media/[id]` | DELETE | Admin only | Re-runs the live usage scan and returns 409 with `{ usage }` if referenced; otherwise removes the library row and file. Legacy uploads have no delete API. |
+
 ### Admin — `app/api/admin/blogs/`
 
 | Route | Method | Auth | Notes |

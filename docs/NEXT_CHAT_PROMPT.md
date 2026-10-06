@@ -11,7 +11,7 @@ Workspace/repository:
 - Branch: main
 
 SPRINT GOAL:
-[Describe the one sprint outcome here. Recommended next candidate: design and build the reusable Media Library described in CRS §15/§18.]
+[Describe the one sprint outcome here. Recommended next candidate: scope role management (Admin/Editor/Super Admin) for CRS §19, or separately design protected document/video/PDF support for the Media Library.]
 
 Before editing:
 1. Read docs/01_PROJECT_HANDOVER.md, docs/CURRENT_HANDOVER.md,
