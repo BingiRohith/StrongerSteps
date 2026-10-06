@@ -1,14 +1,14 @@
 # Stronger Steps — Website & Admin Dashboard
 
-A Next.js 14 (App Router) website for Stronger Steps, with a built-in admin
-panel for managing content (Blogs and Infographics so far) backed by
-MongoDB.
+A Next.js 15 (App Router) community wellness platform for Stronger Steps,
+with a built-in admin panel and MongoDB-backed content, bookings, courses,
+resources, assessments, products, recipes, memberships, and team profiles.
 
 ---
 
 ## 1. Prerequisites
 
-- **Node.js** 18.18+ or 20+ (Next.js 14 requirement)
+- **Node.js** 18.18+ or 20+ (Next.js requirement)
 - **npm** (comes with Node)
 - **A MongoDB database** — either:
   - [MongoDB Atlas](https://www.mongodb.com/atlas) (free tier is enough for a demo), or
@@ -138,8 +138,7 @@ scripts/createAdmin.mjs   One-time admin account bootstrap script
 middleware.js             Edge-level redirect for signed-out /admin/* visitors
 ```
 
-See `CHANGELOG.md` for a detailed, sprint-by-sprint history of what was
-built and why.
+See `CHANGELOG.md` for a detailed, sprint-by-sprint history of what was built and why. Developers continuing the project in a new chat should start with [`docs/CURRENT_HANDOVER.md`](docs/CURRENT_HANDOVER.md) and follow [`docs/15_SPRINT_CONTINUATION_WORKFLOW.md`](docs/15_SPRINT_CONTINUATION_WORKFLOW.md).
 
 ---
 

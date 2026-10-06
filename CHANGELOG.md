@@ -1,5 +1,12 @@
 # Changelog
 
+## Post-Sprint 20: Continuation & Handover Process — 2026-10-06
+
+- Replaced the stale Sprint 9 handover with an accurate current project handover covering Sprint 20, Next.js 15.5.24, completed modules, security, verification, data safety, and the GitHub repository.
+- Added `docs/15_SPRINT_CONTINUATION_WORKFLOW.md`: every future sprint must document behaviour, reasoning, database impact, tests, remaining work, and the next starting point in the same commit as the implementation.
+- Added the living `docs/CURRENT_HANDOVER.md` and copy-ready `docs/NEXT_CHAT_PROMPT.md`. Both must be refreshed before a sprint is considered complete so work can continue in a fresh chat with less context.
+- Updated the documentation index and root README to direct incoming developers to the new workflow. This update changes documentation and developer process only; it has no application or database impact.
+
 ## Sprint 20: Recovery, Security Hardening & Blog Categories — 2026-10-06
 
 Scope: resume the interrupted project against its existing MongoDB Atlas

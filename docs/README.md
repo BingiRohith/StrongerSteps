@@ -25,6 +25,9 @@ sprint.
 | [12_FUTURE_IDEAS.md](12_FUTURE_IDEAS.md) | Backlog ideas beyond the committed roadmap |
 | [13_DECISIONS.md](13_DECISIONS.md) | Architectural decisions and why, including conflicts found during this sprint |
 | [14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md) | The permission system: access levels, `canAccess()`, OTP/Membership/Purchase integration, VerifiedLead merge strategy |
+| [15_SPRINT_CONTINUATION_WORKFLOW.md](15_SPRINT_CONTINUATION_WORKFLOW.md) | Mandatory documentation, verification, Git, and handover process for every new-chat sprint |
+| [CURRENT_HANDOVER.md](CURRENT_HANDOVER.md) | Latest verified state, data impact, known issues, and exact next starting point |
+| [NEXT_CHAT_PROMPT.md](NEXT_CHAT_PROMPT.md) | Copy-ready prompt template for continuing the next sprint in a fresh chat |
 
 ## Governance: the CRS is the source of truth
 
@@ -41,10 +44,4 @@ sprint.
 
 ## How to keep this current
 
-Every sprint should update at minimum: [10_SPRINT_HISTORY.md](10_SPRINT_HISTORY.md),
-the root `CHANGELOG.md`, and [02_ROADMAP.md](02_ROADMAP.md) (which is now a
-live CRS-vs-implementation gap analysis — keep it in sync as CRS items are
-closed). Update [05_DATABASE.md](05_DATABASE.md) and
-[06_API_DOCUMENTATION.md](06_API_DOCUMENTATION.md) whenever a model or route
-is added/changed — they are hand-written snapshots, not generated, so they
-will drift if forgotten.
+Every sprint must follow [15_SPRINT_CONTINUATION_WORKFLOW.md](15_SPRINT_CONTINUATION_WORKFLOW.md). At minimum it updates [10_SPRINT_HISTORY.md](10_SPRINT_HISTORY.md), the root `CHANGELOG.md`, [02_ROADMAP.md](02_ROADMAP.md), [CURRENT_HANDOVER.md](CURRENT_HANDOVER.md), and [NEXT_CHAT_PROMPT.md](NEXT_CHAT_PROMPT.md), plus every technical reference affected by the implementation.
