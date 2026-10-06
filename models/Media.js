@@ -14,6 +14,10 @@ const MediaSchema = new Schema(
     originalName: { type: String, trim: true, default: '' },
     mimeType: { type: String, required: true },
     size: { type: Number, required: true, min: 0 },
+    kind: { type: String, enum: ['image', 'pdf', 'document', 'video'], default: 'image' },
+    // Non-image library assets live outside public/ and are only streamed
+    // through an authenticated admin or an already-gated content route.
+    storage: { type: String, enum: ['public', 'private'], default: 'public' },
     alt: { type: String, trim: true, maxlength: 150, default: '' },
     uploadedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   },

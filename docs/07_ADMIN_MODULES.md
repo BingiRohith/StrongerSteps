@@ -47,13 +47,15 @@ as a shared Media Library picker. It can upload a new reusable image or
 select an existing library/legacy upload; the prior homepage upload route is
 preserved for compatibility but is no longer used by this form.
 
-## Media Library — `/admin/media` (Sprint 21)
+## Media Library — `/admin/media` (Sprints 21–22)
 
-Central image browser for CRS §15/§18. New uploads are catalogued in the
-`Media` collection and stored in `public/uploads/media/`; every generic image
-field (including Blog covers and recipe galleries) can choose them. Existing
-module uploads are listed as **Existing upload (preserved)** without changing
-their files or records. A managed library image may be deleted only after the
+Central browser for CRS §15/§18. Images remain public reusable assets; new
+PDFs, Office documents, and videos are catalogued in `Media` but saved in
+private storage and previewable only by an authenticated admin. Resource File
+editing can select a matching shared non-image asset while preserving the
+file's own access level. Existing module uploads are listed as **Existing
+upload (preserved)** without changing their files or records. A managed asset
+may be deleted only after the
 server checks every content collection and confirms it has no live URL
 reference; legacy files are browse-only for safety.
 

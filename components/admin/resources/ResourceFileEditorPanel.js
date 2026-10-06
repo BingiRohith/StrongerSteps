@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { Loader2, Upload, ExternalLink, Save, X } from 'lucide-react';
 import { FILE_TYPES, MEDIA_TYPE_BY_FILE_TYPE } from '@/lib/resourceOptions';
 import { ACCESS_LEVELS } from '@/lib/access/accessLevels';
+import MediaPickerDialog from '@/components/admin/media/MediaPickerDialog';
 
 const ACCEPT_BY_MEDIA_TYPE = {
   video: 'video/mp4,video/webm,video/ogg',
@@ -37,6 +38,7 @@ export default function ResourceFileEditorPanel({ resourceId, file, onSaved, onC
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const fileInputRef = useRef(null);
 
@@ -218,6 +220,13 @@ export default function ResourceFileEditorPanel({ resourceId, file, onSaved, onC
             {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
             {form.file?.url ? 'Replace file' : 'Upload file'}
           </button>
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="ml-2 mt-2 inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-primary hover:border-primary"
+          >
+            Choose from Media Library
+          </button>
           <input
             ref={fileInputRef}
             type="file"
@@ -247,6 +256,12 @@ export default function ResourceFileEditorPanel({ resourceId, file, onSaved, onC
           Save file
         </button>
       </div>
+      <MediaPickerDialog
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        kinds={mediaType === 'video' ? ['video'] : mediaType === 'pdf' ? ['pdf'] : mediaType === 'document' ? ['document'] : ['image']}
+        onSelect={(media) => update('file', { url: media.url, filename: media.originalName || media.filename, mimeType: media.mimeType, sizeBytes: media.size || 0, storageProvider: 'media-library', mediaId: media.id })}
+      />
     </div>
   );
 }

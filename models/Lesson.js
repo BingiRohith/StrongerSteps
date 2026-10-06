@@ -102,6 +102,7 @@ const LessonSchema = new Schema(
       },
       url: { type: String, default: '' },
       filename: { type: String, default: '' },
+      mediaId: { type: Schema.Types.ObjectId, ref: 'Media', default: null },
       // Sprint 19.5 — architecture placeholder only, not wired to any
       // upload UI or player yet (deliberately, per this sprint's brief):
       // future WebVTT caption/subtitle files, same private-storage +
@@ -124,6 +125,7 @@ const LessonSchema = new Schema(
     pdf: {
       url: { type: String, default: '' },
       filename: { type: String, default: '' },
+      mediaId: { type: Schema.Types.ObjectId, ref: 'Media', default: null },
     },
     image: {
       url: { type: String, default: '' },
@@ -147,6 +149,7 @@ const LessonSchema = new Schema(
           url: { type: String, default: '' },
           filename: { type: String, default: '' },
           label: { type: String, trim: true, maxlength: 150, default: '' },
+          mediaId: { type: Schema.Types.ObjectId, ref: 'Media', default: null },
           _id: false,
         },
       ],

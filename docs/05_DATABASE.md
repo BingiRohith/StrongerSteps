@@ -9,7 +9,7 @@ Every model follows shared conventions — see
 lifecycle, `toSafeObject()`, `pre('validate')` hooks) rather than repeating
 it per-model below.
 
-## Media — [`models/Media.js`](../models/Media.js) (Sprint 21)
+## Media — [`models/Media.js`](../models/Media.js) (Sprints 21–22)
 
 Catalogue records for images uploaded through the reusable Admin Media
 Library. This is deliberately additive: old files in module-specific
@@ -20,7 +20,8 @@ remain valid and require no migration.
 |---|---|---|
 | `url` | String | required, unique public `/uploads/media/...` path |
 | `filename` / `originalName` | String | storage filename and original upload name, used for browsing/search |
-| `mimeType` / `size` | String / Number | validated image metadata; 8 MB maximum at upload |
+| `mimeType` / `size` | String / Number | validated metadata; images max 8 MB, shared non-images max 200 MB |
+| `kind` / `storage` | enum | `image`/`pdf`/`document`/`video`; images are public, non-images private |
 | `alt` | String | optional, max 150 |
 | `uploadedBy` | ObjectId ref → `User` | required audit field |
 
@@ -28,6 +29,11 @@ The record is deleted only after a live cross-content usage scan finds no
 reference to its URL. The file is then removed from `public/uploads/media/`.
 Legacy files are browseable but intentionally not deletable through this
 module, avoiding accidental removal of unmanaged content.
+
+Sprint 22 adds optional `mediaId` references to a ResourceFile's `file` and
+the reusable Lesson media subobjects. These are additive and coexist with
+their existing storage keys; no existing document needs migration. The parent
+ResourceFile/Lesson remains the access-control authority.
 
 ## User — [`models/User.js`](../models/User.js)
 

@@ -1,5 +1,9 @@
 # 04. Architecture
 
+## Shared non-image Media Library (Sprint 22)
+
+`Media` remains an additive catalogue. Images use the existing public media path; PDFs, Office documents, and videos are stored in `private-uploads/media/`. `GET /api/admin/media/:id?content=1` is admin-authenticated for library preview. A ResourceFile (and compatible Lesson media object) may keep a `mediaId` beside its legacy storage key. The content-serving route checks the parent's established authorization first, then resolves that shared media id; the library itself never grants public access.
+
 ## Stack
 
 | Layer | Choice | Version |

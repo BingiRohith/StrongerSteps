@@ -8,6 +8,7 @@ import { canAccess } from '@/lib/access/canAccess';
 import { getResourceConfig } from '@/lib/verification/resourceRegistry';
 import { readProtectedFile } from '@/lib/privateUpload';
 import { mimeFromFilename } from '@/lib/fileMime';
+import { readLibraryMedia } from '@/lib/mediaLibraryFile';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,10 +73,10 @@ export const GET = withErrorHandling(async (request, { params }) => {
     return fail('Media not available for this lesson', 404);
   }
 
-  const subdir = config.subdirFor(fileKind);
+  const libraryFile = await readLibraryMedia(file.mediaId);
   let buffer;
   try {
-    buffer = await readProtectedFile(subdir, file.url);
+    buffer = libraryFile?.buffer || await readProtectedFile(config.subdirFor(fileKind), file.url);
   } catch (err) {
     return fail('File not found', 404);
   }
@@ -83,8 +84,8 @@ export const GET = withErrorHandling(async (request, { params }) => {
   return new Response(buffer, {
     status: 200,
     headers: {
-      'Content-Type': mimeFromFilename(file.url),
-      'Content-Disposition': `inline; filename="${(file.filename || file.url).replace(/"/g, '')}"`,
+      'Content-Type': libraryFile?.media.mimeType || mimeFromFilename(file.url),
+      'Content-Disposition': `inline; filename="${(file.filename || libraryFile?.media.originalName || file.url).replace(/"/g, '')}"`,
       'Cache-Control': 'private, no-store',
     },
   });

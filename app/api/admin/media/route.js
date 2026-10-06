@@ -5,6 +5,7 @@ import Media from '@/models/Media';
 import { requireAuth } from '@/lib/auth';
 import { fail, ok, withErrorHandling } from '@/lib/apiResponse';
 import { saveUploadedImage } from '@/lib/localUpload';
+import { saveMediaLibraryAsset } from '@/lib/privateUpload';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,13 +44,22 @@ export const GET = withErrorHandling(async (request) => {
 export const POST = withErrorHandling(async (request) => {
   const user = await requireAuth(request, ['admin', 'editor']);
   if (user instanceof Response) return user;
-  const result = await saveUploadedImage(request, 'media', { maxSizeBytes: 8 * 1024 * 1024 });
+  // Peek only at multipart metadata here; each saver performs its own
+  // validation before writing, so a forged MIME type never selects storage.
+  const formData = await request.clone().formData();
+  const file = formData.get('file');
+  const isImage = file && typeof file !== 'string' && file.type.startsWith('image/');
+  const result = isImage
+    ? await saveUploadedImage(request, 'media', { maxSizeBytes: 8 * 1024 * 1024 })
+    : await saveMediaLibraryAsset(request);
   if (result.error) return result.error;
   await connectDB();
-  const filename = path.basename(result.url);
+  const filename = isImage ? path.basename(result.url) : result.url;
+  const kind = isImage ? 'image' : file.type === 'application/pdf' ? 'pdf' : file.type.startsWith('video/') ? 'video' : 'document';
   const media = await Media.create({
-    url: result.url, filename, originalName: result.originalName, mimeType: result.mimeType,
-    size: result.size, alt: result.alt, uploadedBy: user._id,
+    url: result.url, filename, originalName: result.originalName || file.name, mimeType: result.mimeType,
+    size: result.size ?? result.sizeBytes, alt: result.alt, kind,
+    storage: isImage ? 'public' : 'private', uploadedBy: user._id,
   });
   return ok({ media }, 201);
 });

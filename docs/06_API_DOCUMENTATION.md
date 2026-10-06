@@ -1,5 +1,10 @@
 # 06. API Documentation
 
+## Sprint 22 Media Library additions
+
+- `POST /api/admin/media` accepts the existing images plus PDFs, Word, PowerPoint, Excel, and MP4/WebM/Ogg files. It requires admin/editor authentication; non-images are stored privately.
+- `GET /api/admin/media/:id?content=1` provides an authenticated inline preview. `GET /api/admin/media/:id` remains the usage inspection endpoint; `DELETE` remains admin-only and returns 409 when any saved reference exists.
+
 All responses follow the shape from [`lib/apiResponse.js`](../lib/apiResponse.js):
 `{ success: true, ...data }` or `{ success: false, error, ...extra }`.
 Validation errors → 400, duplicate key → 409, auth failures → 401/403,

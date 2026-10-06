@@ -1,5 +1,15 @@
 # Changelog
 
+## Sprint 22: Secure Document, PDF & Video Media Library — 2026-10-06
+
+Extended the existing reusable Media Library without moving, rewriting, or migrating any existing upload or Atlas record. JPEG/PNG/WebP/GIF behavior is unchanged. New PDFs, Office documents, and MP4/WebM/Ogg video uploads are catalogued as private `Media` assets under `private-uploads/media/`; they can be browsed and previewed only by an authenticated admin. The upload service uses a fixed MIME allowlist and size limit (200 MB for shared non-image assets), never a permissive catch-all file upload.
+
+Resource File editing now offers **Choose from Media Library** for matching PDF/document/video/image types. A reused file stores an additive `mediaId` reference while retaining its Resource File access level. Existing lesson/resource serving routes resolve that reference only after their normal authorization decision, so a shared file cannot become public merely because it appears in the library. Media deletion scans both legacy URLs and these references immediately before deleting.
+
+Database impact: `Media.kind`/`storage` and optional `mediaId` fields on Lesson/ResourceFile are additive. No migration, reset, reseed, deletion, or write to existing content was performed. `Media` rows are created only for new library uploads.
+
+Verification: 143/143 automated tests passed, `npm run build` passed, and `npm audit --omit=dev` found zero production vulnerabilities. Runtime uploads, logs, and `.env.local` remain ignored by Git. A signed-in browser smoke test is still required before uploading production-like files.
+
 ## Sprint 21: Reusable Media Library — 2026-10-06
 
 Scope: deliver CRS §15/§18's current image-media requirement without moving,

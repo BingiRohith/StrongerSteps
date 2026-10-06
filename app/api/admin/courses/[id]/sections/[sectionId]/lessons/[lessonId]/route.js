@@ -90,11 +90,12 @@ export const PUT = withErrorHandling(async (request, { params }) => {
       source,
       url,
       filename: body.video?.filename || '',
+      mediaId: body.video?.mediaId || null,
       captions: Array.isArray(body.video?.captions) ? body.video.captions : lesson.video?.captions || [],
     };
   }
   if (body.pdf !== undefined) {
-    lesson.pdf = { url: body.pdf?.url || '', filename: body.pdf?.filename || '' };
+    lesson.pdf = { url: body.pdf?.url || '', filename: body.pdf?.filename || '', mediaId: body.pdf?.mediaId || null };
   }
   if (body.image !== undefined) {
     lesson.image = { url: body.image?.url || '', alt: body.image?.alt || '' };

@@ -4,50 +4,28 @@ Last updated: 2026-10-06
 
 ## Latest completed work
 
-Sprint 21 is complete: it added the reusable image Media Library required by
-CRS §15/§18, without migrating or altering existing Atlas records/uploads.
-New shared images are catalogued in `Media`; prior module-specific public
-uploads are discovered for browsing/reuse and deliberately remain untouched.
+Sprint 22 is complete. The reusable Media Library now supports images, PDFs, Office documents, and MP4/WebM/Ogg videos without altering any previous Atlas record or upload. Images retain the Sprint 21 public path; new non-image assets are catalogued and held privately in `private-uploads/media/`.
 
-The follow-up documentation process update makes this file and `NEXT_CHAT_PROMPT.md` mandatory at the end of each future sprint.
+Admins can upload, search, browse, authenticated-preview, inspect usage, and delete unreferenced managed assets. Resource File editing can choose a shared asset of its matching type. The saved `mediaId` is additive and the parent Resource File's access setting remains authoritative: public/OTP/member/purchased/admin checks happen before shared bytes are served. Legacy protected files and their routes were not moved or migrated.
 
 ## Verified state
 
-- Local development server uses `http://localhost:3001` when port 3000 is unavailable.
 - `npm test`: 143 tests passed.
-- `npm run build`: passed.
-- The new Media Library's upload/delete UI still needs a browser smoke test
-  with a signed-in admin before a production upload is attempted; do not use
-  existing media records for destructive testing.
-- `npm test`: 143 tests passed.
-- `npm run build`: passed.
-- Production dependency audit: zero vulnerabilities.
+- `npm run build`: passed on Next.js 15.5.24.
+- `npm audit --omit=dev`: zero production vulnerabilities.
+- Runtime uploads, logs, and `.env.local` remain excluded from Git.
+- Browser smoke testing needs a signed-in admin. Do not use existing records for deletion tests; a disposable new asset is appropriate only when the user authorizes a write to Atlas.
 
 ## Database impact
 
-Sprint 21 adds the `Media` collection only when an admin uploads a new
-library image. No migration, reset, reseed, or existing-record/file write was
-performed. Managed deletion scans every content model and refuses to remove a
-referenced file; legacy upload files cannot be deleted by this feature.
+`Media.kind` and `Media.storage`, plus optional Media references on Resource File and Lesson media shapes, are additive. The `Media` collection changes only when an admin uploads a new library asset. No migration, reset, reseed, or existing-record/file write was performed.
 
-## Known development note
+## Remaining limitations
 
-Next.js 15 reports development warnings in older routes that access dynamic `params` or `cookies()` synchronously. The production build passes, but a future maintenance sprint should update those older call sites to the Next.js 15 async API convention.
-
-## Known limitation
-
-The Media Library currently manages images only (JPEG/PNG/WebP/GIF). Videos,
-documents, and PDFs remain in their existing protected course/resource/
-infographic pipelines; centralizing them needs an explicit access-control and
-storage decision because they are not universally public.
-
-## Next product decision
-
-The highest-value remaining current-scope choices are role management,
-payments, communication, or a separately-scoped extension of Media Library
-to protected documents/video/PDF. These require explicit sprint scope and,
-for external services, provider decisions.
+- Library reuse is wired into Resource Files; Lessons retain their established direct-upload UI, though their serving route already supports shared media references for a future UI extension.
+- Local disk storage is not durable for serverless/multi-instance deployment; provider migration and resumable large-video uploads remain separate work.
+- Older Next.js 15 synchronous dynamic API warnings remain logged technical debt; the production build passes.
 
 ## Next developer starting point
 
-Use `docs/NEXT_CHAT_PROMPT.md`. Replace its `SPRINT GOAL` placeholder with the user-approved goal. Do not recreate `.env.local`, reseed the admin account, or reset MongoDB.
+Use `docs/NEXT_CHAT_PROMPT.md`. Verify the latest commit and actual code before selecting a narrowly scoped next sprint. Do not recreate `.env.local`, reseed the admin account, reset MongoDB, or migrate old uploads.
