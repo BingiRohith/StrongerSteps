@@ -280,6 +280,22 @@ payment-ready even though Sprint 12 has no payment step — see `bookingStatus`.
 
 Indexes: `{event, createdAt}`, unique index on `bookingReference`.
 
+## NotificationDelivery — [`models/NotificationDelivery.js`](../models/NotificationDelivery.js)
+
+Sprint 24's additive operational audit for booking notifications. A row is created per channel attempt after a successful booking/status write; it is not an authorization record and it never stores email addresses, mobile numbers, OTPs, or message content.
+
+| Field | Type | Notes |
+|---|---|---|
+| `booking` / `event` | ObjectId refs | Required links to the authoritative, access-controlled records |
+| `notificationType` | enum | `booking-created` \| `booking-confirmed` \| `booking-cancelled` |
+| `channel` | enum | `email` \| `sms` |
+| `provider` / `providerRef` | String | Provider selection and non-sensitive provider correlation reference |
+| `status` | enum | `queued` \| `sent` \| `failed` |
+| `failureCode` | String | Generic safe outcome only; no raw provider error is stored |
+| `attemptedAt` / `completedAt` | Date | Delivery timing |
+
+Index: `{booking, createdAt}`. No migration is required; the collection remains absent until the first attempt.
+
 ## Verification — [`models/Verification.js`](../models/Verification.js)
 
 Backs the reusable OTP verification service (Sprint 12.5,

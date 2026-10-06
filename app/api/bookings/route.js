@@ -5,6 +5,7 @@ import Booking from '@/models/Booking';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
 import { isValidEmail, isValidMobile } from '@/lib/eventValidation';
 import { generateBookingReference } from '@/lib/bookingReference';
+import { queueBookingNotification } from '@/lib/notifications/bookingNotifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,6 +77,15 @@ export const POST = withErrorHandling(async (request) => {
     await Event.updateOne({ _id: event._id }, { $inc: { availableSeats: 1 } });
     return fail('Could not complete booking. Please try again.', 500);
   }
+
+  // The booking and atomic seat write have both succeeded. Delivery is
+  // deliberately best-effort and cannot turn this successful booking into an error.
+  queueBookingNotification({
+    writeSucceeded: true,
+    booking,
+    event,
+    notificationType: 'booking-created',
+  });
 
   return ok({ booking, event }, 201);
 });

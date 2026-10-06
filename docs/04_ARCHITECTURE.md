@@ -1,5 +1,11 @@
 # 04. Architecture
 
+## Booking communication (Sprint 24)
+
+`lib/notifications/bookingNotifications.js` builds minimal email/SMS messages after a Booking write has completed. Public creation queues `booking-created`; admin status changes queue only real transitions to `confirmed` or `cancelled`. The queue is best-effort and not awaited by the HTTP route, so provider failure cannot roll back or alter booking/seat-locking behavior. It reuses the existing `lib/verification/providers/` factory contract (`send({ to, channel, subject, text })`) with independently named notification provider settings and a safe mock fallback.
+
+`NotificationDelivery` is an additive audit collection, not a recipient profile or message archive: it links Booking/Event to type, channel, provider, safe provider reference, generic failure code, timestamps, and outcome only. Email/mobile values and rendered content stay out of logs and audit records.
+
 ## Shared non-image Media Library (Sprint 22)
 
 `Media` remains an additive catalogue. Images use the existing public media path; PDFs, Office documents, and videos are stored in `private-uploads/media/`. `GET /api/admin/media/:id?content=1` is admin-authenticated for library preview. Resource Files and Lesson video/PDF/attachment objects may keep a `mediaId` beside their legacy storage key. Lesson editing validates the selected asset's private storage and compatible kind server-side. Both the session-gated Lesson route and OTP-download route check parent authorization before resolving that shared id; the library itself never grants public access.

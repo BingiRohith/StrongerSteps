@@ -201,6 +201,9 @@ payment integration yet.**
   event (capped at `maxSeats`); reactivating a cancelled booking
   re-consumes 1 seat only if one is still available (409 otherwise) — see
   `app/api/admin/bookings/[id]/status/route.js`.
+- Sprint 24 queues concise recipient notifications only after a successful,
+  changed transition to Confirmed or Cancelled. Delivery is non-blocking and
+  its safe channel outcome is recorded without exposing contact/message data.
 
 ## Recipe Categories — `/admin/recipe-categories`
 

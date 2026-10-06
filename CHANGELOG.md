@@ -1,5 +1,13 @@
 # Changelog
 
+## Sprint 24: Communication Foundation — 2026-10-06
+
+Added provider-neutral, post-write booking notifications for public booking creation and actual admin transitions to `confirmed` or `cancelled`. Both concise email and SMS messages include only the attendee name, event title/date/time, booking status, and booking reference. The request returns immediately after its booking/status write; best-effort delivery cannot change that successful result.
+
+`NotificationDelivery` records one channel-level outcome per attempted delivery, linked to the Booking/Event but intentionally excluding recipient addresses/numbers and rendered content. It records only provider name, a safe provider reference, generic failure code, timestamps, and queued/sent/failed state. The shared provider factory now accepts a selected provider name for both OTP and notifications; unknown/unconfigured notification providers safely use the no-op mock. Mock delivery logs neither recipients nor OTPs.
+
+Database impact: an additive `NotificationDelivery` collection will be created only when notification delivery is attempted. No migration, reseed, reset, or existing Atlas record update was performed. Real email/SMS adapters remain intentionally unimplemented; configuration is limited to documented variable names.
+
 ## Sprint 23: Secure Lesson Media Library Reuse — 2026-10-06
 
 Lesson editing now offers **Choose from Media Library** for uploaded video lessons (MP4/WebM/Ogg), PDF lessons, and compatible downloadable attachments (PDF, Office document, or video). Existing direct Lesson uploads remain unchanged. Selecting a shared asset stores the existing additive `mediaId` alongside canonical private storage metadata; replacing/removing it or switching to another video source clears that reference.

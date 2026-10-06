@@ -421,10 +421,15 @@ computed result rather than a file.
 
 | Route | Method | Auth | Notes |
 |---|---|---|---|
-| `/api/bookings` | POST | Public | Body: `{ eventId, name, mobile, email }`. Validates the event is published and within its registration window (if set), then atomically decrements `availableSeats` (rejects with 409 if already fully booked) before creating the `Booking` with a generated `bookingReference`. Created directly with `bookingStatus: 'confirmed'` — no payment step this sprint. Returns `{ booking, event }` (the updated event, so the client can refresh its seat count), 201. |
+| `/api/bookings` | POST | Public | Body: `{ eventId, name, mobile, email }`. Validates the event is published and within its registration window (if set), then atomically decrements `availableSeats` (rejects with 409 if already fully booked) before creating the `Booking` with a generated `bookingReference`. Created directly with `bookingStatus: 'confirmed'` — no payment step this sprint. **Only after this write succeeds**, Sprint 24 queues non-blocking mock/provider-neutral email and SMS confirmation attempts. Returns `{ booking, event }` (the updated event, so the client can refresh its seat count), 201. |
 | `/api/bookings/lookup` | GET | Public | Query: `mobile` (required, matched on last-10-digits so a stored `+91...` number still matches a plain 10-digit search), `reference` (optional, narrows to one booking). No pagination-worthy volume expected per lookup; capped at 50 results. Powers the public `/booking-history` page — both the "view one booking's details/status/reference" case and the full booking-history list use this same route. Returns `{ bookings }` (array, `event` populated). |
 
 ## Admin Bookings — `app/api/admin/bookings/` (Sprint 16)
+
+Sprint 24 adds non-blocking notification attempts only after a successful,
+changed status write to `confirmed` or `cancelled`; failures and no-op updates
+never queue a message. Channel outcomes are retained in the safe
+`NotificationDelivery` audit trail, without contact or message content.
 
 | Route | Method | Auth | Notes |
 |---|---|---|---|
