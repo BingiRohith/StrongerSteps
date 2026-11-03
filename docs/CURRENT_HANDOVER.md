@@ -20,7 +20,7 @@ invoice or application refund-initiation endpoint was introduced.
 
 ## Verified state
 
-- `npm test`: 203 tests passed.
+- `npm test`: 206 tests passed, including Indian-mobile E.164 transport tests.
 - `npm run build`: passed on Next.js 15.5.28; sanitize-html is 2.18.1.
 - `npm run lint`: passed with two existing Media Library image warnings.
 - `npm audit --omit=dev`: zero vulnerabilities.

@@ -26,7 +26,7 @@ Local Sprint 19.6/19.7a/null fixes are reconciled with GitHub Sprints 20–24.
 Sprint 19.7b adds server-priced membership checkout, canonical captured-payment
 activation, signed webhooks/refunds, payment history and private receipts.
 VerifiedLead is the only public identity. Next.js 15.5.28 and sanitizer 2.18.1:
-203 unit tests and 28 isolated HTTP integration groups pass, build/lint pass
+206 unit tests (including SMS transport) and 28 isolated HTTP integration groups pass, build/lint pass
 (two existing media warnings), production audit zero. Simulations use a
 disposable copy of the configured Atlas data; source records were read-only.
 

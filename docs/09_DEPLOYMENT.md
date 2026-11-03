@@ -93,6 +93,10 @@ real delivery: configure `OTP_EMAIL_PROVIDER=resend` and/or
 actual controlled inbox/phone round trip before launch. A rejected provider
 delivery returns 503 instead of claiming a code was sent.
 
+The Twilio adapter converts validated local Indian numbers to `+91` E.164
+transport and preserves explicitly formatted international E.164 numbers.
+The sender number and destination must also be permitted by the Twilio account.
+
 For payment configuration, capture settings, webhook events and real test-mode
 acceptance, follow [16_MEMBERSHIP_PAYMENTS.md](16_MEMBERSHIP_PAYMENTS.md).
 

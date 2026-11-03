@@ -1,5 +1,14 @@
 # Changelog
 
+## OTP provider readiness — 2026-11-03
+
+Before real provider acceptance, corrected the Twilio adapter to translate
+the platform's existing Indian mobile formats into E.164 (`+91` plus the
+validated ten digits). The shared validators are reused; invalid destinations
+are rejected before any provider request. No identity normalization, authentication
+model or stored user record changed. Three focused transport tests were added.
+Real email/SMS and Razorpay test credentials remain absent from this checkout.
+
 ## Sprint 19.7b: Membership Razorpay checkout — 2026-11-03
 
 Added the client-required payment milestone to the reconciled branch. Paid
