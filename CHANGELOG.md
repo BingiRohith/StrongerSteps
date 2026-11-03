@@ -1,5 +1,316 @@
 # Changelog
 
+## Post-Sprint-19.7a fix: `VerifiedLead` sparse-index bug — 2026-07-24
+
+Found while manually browser-verifying Sprint 19.7a's membership request
+flow against a live MongoDB — not caused by 19.7a's own code, but a
+pre-existing bug in Sprint 19.1B's `VerifiedLead` foundation that 19.7a's
+verification pass happened to trigger.
+
+**The bug:** a *second* email-only (or mobile-only) OTP verification
+anywhere on the site — Knowledge Center downloads, Tools, Lessons, or the
+new membership request flow — threw:
+```
+MongoServerError: E11000 duplicate key error collection: verifiedleads
+index: mobile_1 dup key: { mobile: null }
+```
+`db.verifiedleads.getIndexes()` confirmed the index itself was correctly
+declared `{unique: true, sparse: true}`. The real cause: MongoDB's sparse
+index only excludes documents where the indexed field is entirely
+**absent** — not documents where it's explicitly `null`. Because
+`models/VerifiedLead.js`'s `email`/`mobile` fields defaulted to
+`default: null`, every fresh lead's unset identifier was explicitly
+`null` (present, not absent), so the sparse index never actually excluded
+it — a unique index then only permits **one document total** with
+`mobile: null` (and separately, one with `email: null`).
+
+**Fixed:**
+- `models/VerifiedLead.js` — removed `default: null` from `email`/
+  `mobile`; added a schema `set: (v) => (v === null ? undefined : v)` on
+  both fields so any code path assigning `null` (the field's own defaults,
+  plus `lib/verifiedLead.js`'s `mergeVerifiedLeads()` tombstoning and
+  `planLeadMerge()`'s merge-fill logic) is converted to `undefined` —
+  verified empirically (throwaway probe script against a live Mongoose
+  connection) that this makes the key fully absent from the stored
+  document on both `create()` and re-`save()`, restoring correct
+  sparse-index behavior regardless of which code path sets the value.
+- New one-time `scripts/migrateVerifiedLeadNulls.mjs`
+  (`npm run migrate:verified-lead-nulls`) — `$unset`s any already-existing
+  document's explicit `email: null`/`mobile: null` (idempotent, safe to
+  re-run). Run once against the dev database during this fix; **must also
+  be run once against any other environment with existing `VerifiedLead`
+  data** before/after deploying this fix.
+- New `tests/models/verifiedLeadModel.test.js` (6 tests) — covers the
+  absent-vs-null distinction on creation and the null-to-undefined setter,
+  including the exact tombstoning shape `mergeVerifiedLeads()` uses.
+
+**Verification:** live-Mongo repro — two email-only `VerifiedLead`s
+created back-to-back via `findOrCreateVerifiedLead()`, previously
+guaranteed to throw on the second call, now both succeed with no
+`mobile` key stored (confirmed by reading the raw inserted document).
+177/177 tests (up from 171), clean build, clean lint.
+
+## Sprint 19.7a: Membership Access & User Experience — 2026-07-24
+
+Scope: CRS §8's membership purchase flow — minus payment automation, which
+is Sprint 19.7b (Razorpay). Built entirely on the existing `VerifiedLead`/
+`canAccess()`/OTP architecture confirmed just before this sprint (see
+`docs/13_DECISIONS.md`'s 2026-07-24 entry): no new consumer identity model,
+no username/password auth, no change to `middleware.js` (still scoped to
+`/admin/:path*` only).
+
+### Added — Data model
+- **`models/MembershipSubscription.js`** — the per-lead membership
+  subscription instance ("who requested/holds which plan, and its
+  lifecycle"), deliberately separate from `models/Membership.js` (the plan
+  *catalog*, unchanged). Generic lifecycle (`pending`/`active`/`expired`/
+  `cancelled`); `paymentStatus` (`pending`/`manual`) is a deliberately
+  independent field so Sprint 19.7b can widen/extend payment handling
+  without touching the lifecycle enum. A **partial unique index** on
+  `{lead: 1}` (scoped to `pending`/`active` statuses) caps each lead to one
+  in-flight subscription — DB-enforced, not just an application check, same
+  convention as `VerifiedLead.email`/`.mobile`'s sparse-unique indexes.
+
+### Added — Core logic
+- **`lib/membershipSubscription.js`** — `createMembershipRequest()`,
+  `activateMembershipSubscription()`, `expireMembershipSubscription()`,
+  `cancelMembershipSubscription()`, `computeExpiryFromBillingPeriod()`,
+  `listMembershipSubscriptions()`/`listSubscriptionsForLead()`/
+  `getLatestSubscriptionForLead()`. Every state-changing function is
+  **idempotent and race-safe**: a duplicate request or an out-of-order
+  admin action (e.g. activating an already-active subscription) returns a
+  clear 409 conflict rather than silently reprocessing or corrupting
+  state; a duplicate-key race on the partial unique index above is caught
+  and turned into the same friendly conflict. `activate`/`expire`/`cancel`
+  each write to both `MembershipSubscription` and `VerifiedLead`
+  (`.membership`/`.membershipExpiry`, the fields `canAccess()` actually
+  reads) inside one MongoDB transaction (`mongoose.startSession()` +
+  `session.withTransaction()` — Atlas runs as a replica set, so
+  multi-document transactions are available), so a mid-operation failure
+  can't leave the two collections out of sync. `expire`/`cancel` only sync
+  `VerifiedLead` if the lead's *current* membership still points at that
+  subscription's plan (`shouldSyncLeadOnDeactivate()`, pure/unit-tested) —
+  guards against clobbering a different, newer active plan.
+- **`lib/access/membershipStatus.js`** — `getMembershipStatus(lead)`
+  returns `guest`/`registered`/`active_member`/`expired_member`, reusing
+  `lib/access/canAccess.js`'s now-exported `isActiveMember()` rather than
+  duplicating the active-membership check. The single centralized helper
+  read by `GET /api/me`, `/dashboard`, and `MembersOnlyDialog.js`.
+- **`lib/access/requireMembership.js`** — `requireActiveMember(request)`,
+  mirrors `lib/auth.js`'s `requireAuth()` shape (`instanceof Response`
+  short-circuit) for any future API route needing a membership guard.
+- **`lib/verification/resourceRegistry.js`** — new `membership` entry
+  (model `Membership`, `isAccessible: doc.status === 'active'`, no file —
+  same "gate an action, not a file" shape as the existing `tool` entry).
+  Reused for both the `/join` per-plan request OTP step and the Members
+  Only dialog's "Login" re-authentication.
+- **`lib/membershipCopy.js`** — `MEMBERSHIP_PENDING_MESSAGE`, a
+  deliberately generic, payment-automation-agnostic string ("...notify you
+  once it becomes active") shared between the `/join` confirmation and the
+  dashboard's subscription history, so Sprint 19.7b's auto-activation won't
+  make the wording stale. Kept dependency-free (no Mongoose imports) so
+  client components can import it directly.
+
+### Added — API
+- **`GET /api/me`** — the single reusable "who am I" endpoint: lead,
+  membership `{status, plan, expiresAt}`, latest subscription, and derived
+  `permissions` booleans. Never 401s. Intended as the one source of truth
+  for authenticated frontend pages and future non-page clients.
+- **`POST /api/membership/requests`** — creates a `pending`
+  `MembershipSubscription` for the current lead session (401 if none —
+  the OTP step must run first). **`GET /api/membership/requests`** —
+  the current lead's subscription history.
+- **`GET /api/admin/members`** — paginated, searchable (lead name/email/
+  mobile or plan name), status-filterable list of subscriptions, with a
+  per-row derived `effectiveStatus` (an `active` row whose `expiresAt` has
+  already passed displays as `expired` without mutating the stored
+  `status` — no cron/scheduled job needed).
+- **`GET /api/admin/members/[id]`** — detail (populated lead + plan).
+- **`PATCH /api/admin/members/[id]/status`** — `{action: 'activate' |
+  'expire' | 'cancel'}`, dispatches to `lib/membershipSubscription.js`.
+
+### Changed — Public UI
+- **`/join`** — each real plan's WhatsApp CTA replaced with
+  `components/membership/PlanRequestButton.js`: Guest → OTP Verification
+  (existing `VerificationModal`) → Membership Request → confirmation.
+  The page's two *unconditional* WhatsApp CTAs (empty-state, closing
+  banner) are untouched — general "talk to us" contact links, not
+  plan-specific, out of this sprint's scope.
+- **New `/dashboard`** — the Member Dashboard: Profile, Membership Status
+  (current plan + expiry), Subscription History, and Knowledge Center/
+  Courses quick links, built as a card grid
+  (`components/membership/dashboard/*`) so a future Downloads/Courses/
+  Renew Membership/Certificates card is another sibling card, not a page
+  restructure. Guests see an empty state linking to `/join`.
+- **`components/resources/ResourceDownloadsSection.js`** and
+  **`app/courses/[slug]/lessons/[lessonId]/page.js`** — the dead,
+  non-interactive "Members only" badge/label is now clickable, opening
+  **`components/membership/MembersOnlyDialog.js`** (Login + View
+  Membership Plans — no WhatsApp link). "Login" reuses the same OTP
+  mechanics as everywhere else, anchored to any one active plan (the
+  specific plan is semantically irrelevant to a re-authentication check —
+  same precedent as the `tool` registry entry).
+
+### Added — Admin UI
+- New **`/admin/members`** section (`components/admin/members/
+  MembersListClient.js`, modeled on `BookingsListClient.js`'s search/
+  status-tab/action-icon pattern) — search, status tabs, Activate/Expire/
+  Cancel actions with confirm dialogs for the destructive ones, plus a
+  **`/admin/members/[id]`** detail page (lead profile, full subscription
+  history, same actions). Deliberately separate from the existing
+  `/admin/membership` (plan catalog CRUD, untouched) — added to
+  `AdminSidebar.js`'s `NAV_ITEMS` as its own nav entry.
+
+### Documentation
+- `docs/05_DATABASE.md` — new `MembershipSubscription` entry, updated
+  `VerifiedLead.membership`/`.membershipExpiry` (now actually written to),
+  updated relationships diagram.
+- `docs/14_ACCESS_CONTROL.md` — documented the request/activation flow,
+  `getMembershipStatus()`/`requireActiveMember()`/`GET /api/me`, the
+  Knowledge Center Members Only gate; marked "Membership history" and the
+  Membership purchase flow as shipped in the future-extensibility table
+  and "what wasn't done" list.
+
+### Verification
+- `npm test` — 171/171 passing (up from 145; 26 new tests covering
+  `getMembershipStatus()`, `computeExpiryFromBillingPeriod()`,
+  `shouldSyncLeadOnDeactivate()`, the new error classes, and
+  `MembershipSubscription` schema validation). Full DB-transaction/
+  idempotency/race behavior of `lib/membershipSubscription.js`'s
+  `create`/`activate`/`expire`/`cancel` functions requires a live MongoDB
+  replica set (same documented sandbox limitation as every earlier
+  sprint's DB-touching functions) — smoke-test against a real database
+  before relying on it.
+- `npm run build` — clean; every new route (`/api/me`,
+  `/api/membership/requests`, `/admin/members`, `/admin/members/[id]`,
+  `/dashboard`) compiles correctly alongside the modified `/join` and
+  lesson viewer pages.
+- `npm run lint` — clean.
+
+### Remaining for Sprint 19.7b
+Razorpay integration: real payment collection, widening `paymentStatus`
+beyond `pending`/`manual` (e.g. `paid`/`failed`/`refunded`), webhook-driven
+auto-activation (replacing the admin-manual `activate` action as the
+primary path), and receipts/invoices.
+
+## Sprint 19.6: Production Readiness Audit — 2026-07-24
+
+Scope: a full production-readiness audit of the entire application ahead of
+public launch — explicitly not a feature sprint (no redesigns, no
+rewrites, no new architecture, no unnecessary dependencies). Three
+research passes (security/auth, code quality/dead code, SEO/accessibility)
+surfaced concrete, verified findings; this sprint fixed the real ones and
+documented the rest (client sign-off items, infrastructure dependencies)
+rather than acting on everything found. See `docs/10_SPRINT_HISTORY.md`
+for the condensed summary and this file for full detail.
+
+### Fixed — Security
+- **`GET /api/bookings/lookup`** and **`POST /api/bookings`** — both were
+  completely unrate-limited (a mobile number alone is the only lookup
+  credential by design, so this was scriptable enumeration/seat-spam
+  exposure). Added the existing `lib/rateLimit.js` limiter (same pattern
+  as `POST /api/auth/login`): lookup 20/15min per mobile+IP, booking
+  create 10/15min per mobile+IP.
+- **Regex injection (ReDoS) in 5 admin category search routes**
+  (`app/api/admin/{course,product,recipe,resource,tool}-categories/route.js`)
+  — `search` query param was interpolated unescaped into `{ $regex }`,
+  unlike `app/api/admin/bookings/route.js`'s already-correct escaping.
+  Extracted a shared `lib/escapeRegex.js` (unit-tested,
+  `tests/lib/escapeRegex.test.js`) and applied it to all 5 routes.
+
+### Added — Error handling
+- Root `app/error.js` and `app/not-found.js` — previously **zero** existed
+  anywhere in the app (any unhandled error fell through to Next's generic
+  default screen). Both match the existing brand/empty-state visual
+  pattern (icon-in-circle, `font-display` heading, `Button` from
+  `components/ui.js`).
+- `loading.js` for `courses`, `resources`, `tools`, `products`, `recipes`,
+  `knowledge-center`, `programs` — via a new shared
+  `components/RouteLoading.js`, reusing the same spinner pattern already
+  used for in-page fetch loading states.
+
+### Fixed — Code quality
+- Deleted confirmed-dead `components/BlogTopics.js` (zero importers,
+  verified two ways).
+- `components/programs/EventCard.js` — event photo `alt` fell back to
+  `''` instead of the event title, inconsistent with every other card
+  component's convention.
+- `app/about/page.js` — a literal stray backslash was rendering on the
+  public page (`India\'s` instead of `India's`), found while fixing an
+  unrelated ESLint `react/no-unescaped-entities` error on the same line.
+
+### Added — SEO
+- `app/sitemap.js` — was missing `/courses`, `/resources`, `/tools` (index
+  pages) and every `courses/[slug]`, `resources/[slug]`, `tools/[slug]`
+  detail page (all shipped in Sprint 19.2–19.4, after the sitemap was last
+  touched in Sprint 17). Extended using the same query-and-map pattern
+  already used for Blog/Recipe.
+- `app/courses/[slug]/lessons/[lessonId]/page.js` — was title-only; added
+  description/canonical/OpenGraph metadata matching the course detail
+  page's pattern, plus `robots: {index: false}` since lesson content is
+  access-gated.
+- JSON-LD structured data added to Recipe detail (`Recipe` schema —
+  ingredients/instructions/prep-cook-total time) and Blog article
+  (`Article` schema — author/datePublished/dateModified), matching the
+  existing Course/Resource/Tool `Course`/`CreativeWork`/`WebApplication`
+  pattern from earlier sprints.
+
+### Added — Accessibility
+- New `components/useModalA11y.js` hook (Escape-to-close, body scroll
+  lock, Tab-cycle focus trap, restores focus on close) — applied to
+  `components/verification/VerificationModal.js` and
+  `components/programs/BookingModal.js`, the two most-reused modals in the
+  app, which previously had neither Escape handling nor a focus trap
+  (unlike newer modals from Sprint 19.3 like `ResourceFileViewer.js`).
+
+### Changed — Git hygiene / tooling
+- `public/uploads/` and `private-uploads/` were never gitignored — real
+  uploaded media (images, an infographic, lesson videos) was being
+  committed directly. Added both to `.gitignore` (keeping `.gitkeep`
+  placeholders) and untracked the ~15 already-committed files (`git rm
+  --cached`; the files remain on disk).
+- Added a real ESLint config (`.eslintrc.json`, `next/core-web-vitals`) —
+  none existed before, and `next.config.mjs` had
+  `eslint: { ignoreDuringBuilds: true }`, so lint had never actually run
+  against this codebase. First real lint pass found exactly 12 genuine
+  errors (all `react/no-unescaped-entities`, across 7 files) — small
+  enough to fix directly rather than deferring; no legacy backlog needed
+  documenting. Removed `ignoreDuringBuilds` now that the codebase lints
+  clean, so `next build` enforces it going forward.
+
+### Documented (not fixed) — launch blockers and deferred items
+- **OTP email/SMS delivery** (`lib/verification/providers/mockProvider.js`)
+  — the only provider is `mock`, which console-logs OTP codes instead of
+  delivering them. This is an external infrastructure dependency (needs
+  real Resend/SendGrid/Twilio/MSG91 credentials this sprint doesn't have),
+  not a code defect — documented as the top pre-launch action item in
+  `docs/09_DEPLOYMENT.md`, provider abstraction left unchanged and ready.
+- `accent-dark` WCAG AA contrast failure (first found Sprint 17, still
+  open, now used in 60+ places including Sprint 19 components) — still
+  needs explicit client sign-off before changing a brand color.
+- Upload MIME validation trusts client-supplied `Content-Type` (no
+  magic-byte sniffing), in-memory/single-instance rate limiter and local
+  disk upload storage (both pre-existing, documented caveats) — left as
+  architecture, not bugs; would need a new dependency or infra decision.
+- Duplicated admin CRUD patterns (a 9x status-filter snippet, a 16x
+  status-toggle handler) — real duplication, but fixing it doesn't address
+  a verified bug/security/correctness issue, so it's out of scope for a
+  production-readiness sprint; flagged as a candidate for a future
+  maintenance sprint rather than refactored here.
+
+### Verification
+- `npm run build` — clean, 0 errors, ESLint now enforced during build.
+- `npm test` — 145/145 passing (up from 141; 4 new tests for
+  `escapeRegex()`).
+- `npm run lint` — clean.
+- Live-browser-verified representative pages (Homepage, About, Products,
+  Knowledge Center, Courses list/detail/player, Tools list/assessment,
+  Blog article, Programs/booking flow, admin login/dashboard/CRUD, the new
+  not-found page) at 375/768/1024/1440px — no overflow, no clipped
+  buttons, Header's Sprint 18 `xl` breakpoint fix still holds, Products
+  sidebar's tablet/mobile accordion behavior still holds, Escape-to-close
+  verified working on both newly-fixed modals.
+
 ## Sprint 19.5: Courses → Learning Management System — 2026-07-22
 
 Scope: extend Sprint 19.2's existing Course→Section→Lesson CMS into a

@@ -19,6 +19,7 @@ import {
   GraduationCap,
   Library,
   Wrench,
+  UserCheck,
   X,
 } from 'lucide-react';
 
@@ -31,6 +32,7 @@ export const NAV_ITEMS = [
   { href: '/admin/products', label: 'Products', icon: Package },
   { href: '/admin/product-categories', label: 'Product Categories', icon: Tags },
   { href: '/admin/membership', label: 'Membership', icon: CreditCard },
+  { href: '/admin/members', label: 'Members', icon: UserCheck },
   { href: '/admin/events', label: 'Programs', icon: Calendar },
   { href: '/admin/bookings', label: 'Bookings', icon: Ticket },
   { href: '/admin/recipes', label: 'Recipes', icon: Soup },

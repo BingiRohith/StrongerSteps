@@ -1,6 +1,7 @@
-import { Check, Crown, MessageCircle, ArrowRight, HeartHandshake, CalendarCheck, Percent, Users, CreditCard } from 'lucide-react';
+import { Check, Crown, MessageCircle, HeartHandshake, CalendarCheck, Percent, Users, CreditCard } from 'lucide-react';
 import { Button, Badge, Eyebrow, SectionHeading } from '@/components/ui';
 import StepDivider from '@/components/StepDivider';
+import PlanRequestButton from '@/components/membership/PlanRequestButton';
 import { getActiveMembershipPlans } from '@/lib/publicMembership';
 import { currencySymbol, billingPeriodLabel } from '@/lib/membershipOptions';
 
@@ -140,13 +141,7 @@ export default async function JoinPage() {
                     ))}
                   </ul>
 
-                  <Button
-                    href={plan.ctaUrl || plan.externalUrl || '#'}
-                    variant={plan.featured ? 'accent' : 'primary'}
-                    className="mt-8 w-full"
-                  >
-                    {plan.ctaLabel || 'Join Now'} <ArrowRight size={18} aria-hidden="true" />
-                  </Button>
+                  <PlanRequestButton plan={plan} variant={plan.featured ? 'accent' : 'primary'} />
                 </div>
               ))}
             </div>

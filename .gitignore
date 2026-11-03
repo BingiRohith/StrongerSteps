@@ -12,6 +12,15 @@ node_modules/
 .next/
 out/
 
+# User-uploaded media (Sprint 19.6) — runtime content, not source; also
+# breaks on serverless/multi-instance deploys (see docs/09_DEPLOYMENT.md).
+# .gitkeep placeholders are explicitly re-added below so empty upload
+# subdirectories still exist on a fresh checkout.
+public/uploads/*
+private-uploads/*
+!public/uploads/**/.gitkeep
+!private-uploads/**/.gitkeep
+
 # Logs
 npm-debug.log*
 yarn-debug.log*

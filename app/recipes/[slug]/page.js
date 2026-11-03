@@ -55,8 +55,31 @@ export default async function RecipeDetailPage({ params }) {
   const related = await getRelatedRecipes(recipe, 3);
   const totalTime = (Number(recipe.prepTime) || 0) + (Number(recipe.cookTime) || 0);
 
+  // Schema.org Recipe structured data, same pattern/placement as the Course
+  // detail page's JSON-LD (app/courses/[slug]/page.js). See
+  // https://schema.org/Recipe. Durations use the minimal valid ISO 8601
+  // form (PT<minutes>M) since prepTime/cookTime are stored as plain minutes.
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'Recipe',
+    name: recipe.name,
+    description: recipe.shortDescription || recipe.fullDescription || undefined,
+    image: recipe.featuredImage?.url ? [recipe.featuredImage.url] : undefined,
+    recipeYield: recipe.servings > 0 ? `${recipe.servings} servings` : undefined,
+    prepTime: recipe.prepTime > 0 ? `PT${recipe.prepTime}M` : undefined,
+    cookTime: recipe.cookTime > 0 ? `PT${recipe.cookTime}M` : undefined,
+    totalTime: totalTime > 0 ? `PT${totalTime}M` : undefined,
+    recipeIngredient: recipe.ingredients?.length ? recipe.ingredients : undefined,
+    recipeInstructions: recipe.instructions?.length
+      ? recipe.instructions.map((step) => ({ '@type': 'HowToStep', text: step }))
+      : undefined,
+  };
+
   return (
     <>
+      {/* eslint-disable-next-line react/no-danger -- static, server-generated JSON-LD, no user input reflected unescaped */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
+
       <section className="bg-bg">
         <div className="mx-auto max-w-content px-6 py-16 md:py-20">
           <Link

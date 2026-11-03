@@ -20,6 +20,67 @@
 `.env.example` (restored in Sprint 17 — see [13_DECISIONS.md](13_DECISIONS.md))
 mirrors this table; `cp .env.example .env.local` and fill in real values.
 
+### Environment variable audit (Sprint 19.6)
+
+Every `process.env.*` read in the codebase was cross-checked against the
+table above and `.env.example` — no gaps either direction (nothing read in
+code is undocumented, nothing documented is unused). Summary of
+missing-variable behavior, for pre-launch verification:
+
+- **`MONGODB_URI` / `JWT_SECRET`** — hard-required. Missing either one
+  throws immediately (`lib/db.js`'s `connectDB()`, `lib/auth.js`'s
+  `getJwtSecret()`) on the first request that touches the database or signs/
+  verifies a session — the app does not start in a silently-broken state,
+  it fails loudly on first use.
+- Every other app var (`JWT_EXPIRES_IN`, `AUTH_COOKIE_NAME`,
+  `LEAD_COOKIE_NAME`, `LEAD_SESSION_EXPIRES_IN`, `OTP_EXPIRY_MINUTES`,
+  `DOWNLOAD_TOKEN_EXPIRY_MINUTES`, `OTP_EMAIL_PROVIDER`,
+  `OTP_SMS_PROVIDER`) has a safe, silent default and is genuinely optional.
+- **`NEXT_PUBLIC_SITE_URL`** — optional but **must be set for a real
+  launch**; left at its `localhost` default, canonical/OpenGraph URLs and
+  every `app/sitemap.js` entry will point at `localhost` in production.
+- **`NODE_ENV`** — not application-specific (standard Next.js/Node var, set
+  by the hosting platform, not `.env.local`). Confirmed correct usage: both
+  `lib/auth.js` and `lib/access/leadToken.js` set the admin/lead session
+  cookies' `secure` flag from `process.env.NODE_ENV === 'production'` (and
+  hardcode `sameSite: 'lax'` unconditionally) — cookies work over plain
+  HTTP in dev and require HTTPS in production, correctly.
+- **Rate limiting** (`lib/rateLimit.js`) — thresholds are hardcoded
+  constants per call site (login: 8/15min, booking create: 10/15min,
+  booking lookup: 20/15min per Sprint 19.6), not environment-configurable.
+  Intentional — see the existing in-memory/single-instance caveat below.
+- **Image domains** — `next.config.mjs` has no `images.domains`/
+  `remotePatterns`; the app doesn't use `next/image` for uploaded/remote
+  content at all (plain `<img>` tags throughout, each with a documented
+  `eslint-disable` for the reason), so there's nothing to configure here.
+- **CORS** — no cross-origin configuration exists anywhere (no `headers()`
+  in `next.config.mjs`, no API route sets `Access-Control-*`). Not a gap:
+  the public site and its API run same-origin; add one only if a future
+  requirement calls the API from a different origin.
+
+### OTP email/SMS provider — launch blocker
+
+`OTP_EMAIL_PROVIDER`/`OTP_SMS_PROVIDER` default to `mock`
+(`lib/verification/providers/mockProvider.js`), which does not deliver
+anything — it only `console.log`s the OTP code server-side. **This must be
+replaced with a real provider before public launch**, or no visitor can
+ever complete an OTP-gated flow (protected downloads, OTP-gated
+lessons/tools, booking-adjacent verification). This is an external
+infrastructure dependency, not a code defect — the provider abstraction
+(`lib/verification/providers/index.js`) is already in place and ready:
+
+1. Sign up for a real email provider (e.g. Resend, SendGrid) and/or SMS
+   provider (e.g. Twilio, MSG91) and obtain API credentials.
+2. Add one file per provider under `lib/verification/providers/` matching
+   `mockProvider.js`'s exact contract: `send({ to, otp, channel })`.
+3. Add a `case` for it in `getEmailProvider()`/`getSmsProvider()`
+   (`lib/verification/providers/index.js`) and add its API key(s) as new
+   env vars (documented here and in `.env.example` at that time).
+4. Set `OTP_EMAIL_PROVIDER`/`OTP_SMS_PROVIDER` to the new provider's name.
+5. Test a full OTP round-trip end-to-end against the real provider before
+   sign-off — do not consider this done until an actual email/SMS is
+   received by a real inbox/phone.
+
 ## First-time setup
 
 ```bash
@@ -74,17 +135,32 @@ instances) — when cloud storage replaces local disk, this becomes the
 natural point to switch to signed/presigned URLs instead, since gating then
 comes for free from the URL's own expiry.
 
-## Login rate limiting — same single-instance caveat
+## Login/booking rate limiting — same single-instance caveat
 
 Sprint 17 added rate limiting to `POST /api/auth/login` (`lib/rateLimit.js`,
-8 attempts / 15 min per email+IP) to close a brute-force gap. It's an
-in-memory `Map`, scoped to one Node process — same "single always-on
-server" assumption as the upload storage caveat above. Fine for the
-documented single-instance deployment; if this app ever moves to a
-multi-instance/serverless deployment, this should move to a shared store
-(Redis, or the `Verification` collection's DB-backed pattern in
+8 attempts / 15 min per email+IP) to close a brute-force gap. Sprint 19.6
+extended the same limiter to `POST /api/bookings` (10/15min per
+mobile+IP — prevents seat-inventory spam) and `GET /api/bookings/lookup`
+(20/15min per mobile+IP — prevents scripted enumeration of booking history
+by mobile number, which has no other access control since a mobile number
+alone is the only lookup credential by design). All three are an in-memory
+`Map`, scoped to one Node process — same "single always-on server"
+assumption as the upload storage caveat above. Fine for the documented
+single-instance deployment; if this app ever moves to a multi-instance/
+serverless deployment, this should move to a shared store (Redis, or the
+`Verification` collection's DB-backed pattern in
 `lib/verification/verificationService.js`) at the same time the upload
 storage does.
+
+**Reverse proxy requirement:** all three limiters key partly on
+`request.headers.get('x-forwarded-for')`. This header is client-suppliable
+and only trustworthy if the host/reverse proxy **overwrites** it (rather
+than appending to or passing through a client-supplied value) before the
+request reaches Next.js — true by default on Vercel, but must be confirmed
+on any other host (nginx/Node reverse proxy) before relying on these
+limiters in production. If untrusted, an attacker can send an arbitrary
+`X-Forwarded-For` value per request to get a fresh rate-limit bucket every
+time.
 
 ## Build verification checklist (per sprint)
 

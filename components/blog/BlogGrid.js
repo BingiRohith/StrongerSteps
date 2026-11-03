@@ -140,7 +140,7 @@ export default function BlogGrid({ initialBlogs, initialPagination, categories }
           </span>
           <p className="font-display text-sm font-semibold text-primary-dark">No articles found</p>
           <p className="max-w-sm text-sm text-muted">
-            Try a different search term{categories?.length ? ' or category' : ''}, or check back soon — we're
+            Try a different search term{categories?.length ? ' or category' : ''}, or check back soon — we&apos;re
             publishing new articles regularly.
           </p>
         </div>

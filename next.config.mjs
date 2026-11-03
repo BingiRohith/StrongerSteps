@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // Sprint 19.6: a real .eslintrc.json (next/core-web-vitals) now exists and
+  // the codebase lints clean, so `next build` runs ESLint for real instead
+  // of skipping it — this was previously ignored because no config existed.
   // NOTE: `output: 'export'` was removed. Static export disables API routes
   // and middleware entirely, so it can't coexist with the backend
   // (MongoDB + auth) added in this sprint. The app now builds as a normal
