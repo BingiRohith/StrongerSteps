@@ -1,5 +1,65 @@
 # Changelog
 
+## Sprint 19.7b: Membership Razorpay checkout — 2026-11-03
+
+Added the client-required payment milestone to the reconciled branch. Paid
+plans use existing lead OTP sessions and server-priced Razorpay orders. Checkout
+retries reuse the stored order; a DB lease and receipt recovery prevent blind
+order recreation after timeouts. Captured-payment verification and signed
+webhooks share one canonical gateway reconciliation path and an Atlas
+transaction for payment/subscription/lead grant changes. Replays preserve expiry.
+
+Added `MembershipPayment` with sparse-unique gateway references and immutable
+price/duration snapshots; widened only the subscription payment-state enum.
+Partial refunds are recorded; full processed refunds revoke access. Late
+captures after cancellation/expiry become staff-review records. Dashboard and
+staff member details show payment history/references and private receipt links.
+Receipts acknowledge payment and are explicitly not statutory tax invoices.
+Refund initiation stays in the merchant's Razorpay Dashboard. No consumer
+identity, recurring debit product or unrelated commerce workflow was added.
+
+New routes: `POST /api/membership/checkout`,
+`POST /api/membership/payments/verify`,
+`POST /api/payments/razorpay/webhook`, and
+`GET /api/membership/payments/[id]/receipt`. `/api/me` adds safe payment summaries.
+Gateway calls use built-in fetch/crypto and a fixed provider origin, without
+adding dependencies. See `docs/16_MEMBERSHIP_PAYMENTS.md` for setup and sources.
+
+203 unit tests and 28 isolated Atlas-copy HTTP integration groups pass, including
+repeated migrations, existing identities, OTP downloads/tool scoring, concurrent
+requests/callbacks, capture-only activation, webhook replay, receipt privacy,
+refunds, failed-payment retry, late capture and early webhook recovery. Production
+build and lint pass (two existing media image warnings); production audit: zero.
+The runner removed its generated fixtures and temporary database. Real credentials
+were absent from this checkout and no deployed URL was supplied. Real Razorpay
+checkout and live OTP delivery remain acceptance gates, not completed tests.
+
+
+## Cross-laptop reconciliation and client delivery baseline — 2026-11-03
+
+Preserved the local Sprint 19.6/19.7a and VerifiedLead null fix in recovery
+commit `02de0c6`, then merged GitHub's seven newer commits through Sprint 24.
+Retained booking reference privacy, HTML sanitization, media reuse, providers,
+local rate limits, accessibility improvements and membership workflows.
+Next.js 15 cookies/new membership params are awaited; member detail routes
+register populated models explicitly. Removed remaining membership WhatsApp
+CTAs, allow requests after calendar expiry, reject invalid activation expiry,
+clamp month-end durations, and report rejected OTP deliveries accurately.
+
+Upgraded Next.js to 15.5.28 and sanitize-html to 2.18.1 after the current
+production audit identified newer advisories. 192 tests and production build
+pass; lint passes with two pre-existing Media Library image warnings; production
+audit reports zero vulnerabilities. See `docs/CLIENT_DELIVERY_CHECKLIST.md`.
+`npm run verify:launch` checks actual HTTP routes against a disposable copy of
+the configured Atlas lead data and fixture content; it never writes to the
+source database or sends live email/SMS. The null migration's second run is
+verified to be a no-op, and copied existing identity IDs are preserved.
+
+Razorpay was added to the delivery requirement by the user during this work;
+it is the next implementation milestone, not part of this baseline's completion
+claim. Required credentials and deployed staging acceptance remain external inputs.
+
+
 ## Post-Sprint-19.7a fix: `VerifiedLead` sparse-index bug — 2026-07-24
 
 Found while manually browser-verifying Sprint 19.7a's membership request
@@ -310,6 +370,115 @@ for the condensed summary and this file for full detail.
   buttons, Header's Sprint 18 `xl` breakpoint fix still holds, Products
   sidebar's tablet/mobile accordion behavior still holds, Escape-to-close
   verified working on both newly-fixed modals.
+## Sprint 24 follow-up: Resend and Twilio adapters — 2026-10-06
+
+Added first-party HTTP adapters for Resend email and Twilio SMS, reusing the shared notification/OTP provider contract with no new dependency. Selecting `resend` or `twilio` without the corresponding deployment-only credentials makes no network request and records the safe `provider-not-configured` delivery outcome. Both adapters return only their non-sensitive provider correlation reference on success and never log credentials, recipients, message bodies, or OTPs.
+
+## Sprint 24: Communication Foundation — 2026-10-06
+
+Added provider-neutral, post-write booking notifications for public booking creation and actual admin transitions to `confirmed` or `cancelled`. Both concise email and SMS messages include only the attendee name, event title/date/time, booking status, and booking reference. The request returns immediately after its booking/status write; best-effort delivery cannot change that successful result.
+
+`NotificationDelivery` records one channel-level outcome per attempted delivery, linked to the Booking/Event but intentionally excluding recipient addresses/numbers and rendered content. It records only provider name, a safe provider reference, generic failure code, timestamps, and queued/sent/failed state. The shared provider factory now accepts a selected provider name for both OTP and notifications; unknown/unconfigured notification providers safely use the no-op mock. Mock delivery logs neither recipients nor OTPs.
+
+Database impact: an additive `NotificationDelivery` collection will be created only when notification delivery is attempted. No migration, reseed, reset, or existing Atlas record update was performed. Real email/SMS adapters remain intentionally unimplemented; configuration is limited to documented variable names.
+
+## Sprint 23: Secure Lesson Media Library Reuse — 2026-10-06
+
+Lesson editing now offers **Choose from Media Library** for uploaded video lessons (MP4/WebM/Ogg), PDF lessons, and compatible downloadable attachments (PDF, Office document, or video). Existing direct Lesson uploads remain unchanged. Selecting a shared asset stores the existing additive `mediaId` alongside canonical private storage metadata; replacing/removing it or switching to another video source clears that reference.
+
+The Lesson update API validates every new `mediaId` server-side: it must exist, be privately stored, and match the field's allowed media kind. The regular Lesson media route continues to enforce the Lesson's `PUBLIC`/`MEMBER`/`PURCHASED`/`ADMIN` decision before it resolves shared bytes. The OTP download route now performs the same shared-file resolution only after token and parent-Lesson validation, preserving the existing OTP rule. Media deletion usage tracking now scans Lessons, so a referenced library asset cannot be removed.
+
+Database impact: no migration or existing record/file write. `Lesson.video`, `Lesson.pdf`, and `Lesson.attachments` already have additive optional `mediaId` fields; new references are written only when an admin deliberately saves a Library selection. No Atlas reset, reseed, deletion, or upload move occurred.
+
+## Sprint 22: Secure Document, PDF & Video Media Library — 2026-10-06
+
+Extended the existing reusable Media Library without moving, rewriting, or migrating any existing upload or Atlas record. JPEG/PNG/WebP/GIF behavior is unchanged. New PDFs, Office documents, and MP4/WebM/Ogg video uploads are catalogued as private `Media` assets under `private-uploads/media/`; they can be browsed and previewed only by an authenticated admin. The upload service uses a fixed MIME allowlist and size limit (200 MB for shared non-image assets), never a permissive catch-all file upload.
+
+Resource File editing now offers **Choose from Media Library** for matching PDF/document/video/image types. A reused file stores an additive `mediaId` reference while retaining its Resource File access level. Existing lesson/resource serving routes resolve that reference only after their normal authorization decision, so a shared file cannot become public merely because it appears in the library. Media deletion scans both legacy URLs and these references immediately before deleting.
+
+Database impact: `Media.kind`/`storage` and optional `mediaId` fields on Lesson/ResourceFile are additive. No migration, reset, reseed, deletion, or write to existing content was performed. `Media` rows are created only for new library uploads.
+
+Verification: 143/143 automated tests passed, `npm run build` passed, and `npm audit --omit=dev` found zero production vulnerabilities. Runtime uploads, logs, and `.env.local` remain ignored by Git. A signed-in browser smoke test is still required before uploading production-like files.
+
+## Sprint 21: Reusable Media Library — 2026-10-06
+
+Scope: deliver CRS §15/§18's current image-media requirement without moving,
+resetting, or changing existing Atlas content or uploaded files.
+
+- Added `models/Media.js` and `/api/admin/media`: new JPEG/PNG/WebP/GIF
+  uploads (max 8MB) are saved once in `public/uploads/media/` with filename,
+  MIME/size, alt text, uploader, and timestamps. Existing per-module public
+  uploads are discovered read-only and listed alongside the managed library,
+  so no data migration was needed.
+- Added `/admin/media`, dashboard card, and sidebar entry with image grid,
+  search, upload, usage inspection, and deletion controls. Managed deletion
+  performs a fresh scan of all content models immediately before removing a
+  file and returns 409 with the referencing records if it is still in use.
+  Legacy files remain browse-only, the conservative choice for content not
+  catalogued by this sprint.
+- Reworked the shared admin image picker, Blog cover picker, and Recipe
+  gallery to select an existing image or upload through the Media Library.
+  This gives new and edited content a reusable asset flow while preserving
+  every existing module-specific upload endpoint for compatibility.
+
+Database impact: adds the empty `Media` collection only when the first new
+library image is uploaded. No existing collection, file, or record was
+migrated, reset, reseeded, or deleted.
+
+Verification: 143/143 automated tests pass; `npm run build` passes. The
+production audit could not reach npm's audit endpoint from this restricted
+environment and must be rerun with network access. Runtime upload folders,
+logs, and `.env.local` remain ignored by Git.
+
+## Post-Sprint 20: Continuation & Handover Process — 2026-10-06
+
+- Replaced the stale Sprint 9 handover with an accurate current project handover covering Sprint 20, Next.js 15.5.24, completed modules, security, verification, data safety, and the GitHub repository.
+- Added `docs/15_SPRINT_CONTINUATION_WORKFLOW.md`: every future sprint must document behaviour, reasoning, database impact, tests, remaining work, and the next starting point in the same commit as the implementation.
+- Added the living `docs/CURRENT_HANDOVER.md` and copy-ready `docs/NEXT_CHAT_PROMPT.md`. Both must be refreshed before a sprint is considered complete so work can continue in a fresh chat with less context.
+- Updated the documentation index and root README to direct incoming developers to the new workflow. This update changes documentation and developer process only; it has no application or database impact.
+
+## Sprint 20: Recovery, Security Hardening & Blog Categories — 2026-10-06
+
+Scope: resume the interrupted project against its existing MongoDB Atlas
+data, restore a working local environment, close the highest-risk security
+findings, and finish the final CRS §15 category-management placeholder. No
+database reset or destructive migration was performed.
+
+### Security and dependency hardening
+
+- Booking History now requires both mobile number and booking reference and
+  returns only the fields needed by the result card. It no longer exposes a
+  person's full booking history or private email/mobile/notes from a phone
+  number alone.
+- Added `lib/sanitizeRichHtml.js` using `sanitize-html`; Blog and Lesson HTML
+  is sanitized both when saved and when rendered, covering old records as
+  well as new edits. Tests prove scripts, event handlers, and unsafe URLs are
+  removed while supported editor formatting remains intact.
+- Upgraded Next.js to 15.5.24, aligned every Tiptap package at 3.31.4, and
+  forced Next's nested PostCSS resolution to the audited root version.
+  `npm audit --omit=dev` reports zero vulnerabilities.
+
+### Admin corrections and completed modules
+
+- Dashboard now links to every completed admin module.
+- Curriculum section rows display their saved lesson counts before a section
+  is expanded; counts are aggregated in one database query.
+- Replaced `/admin/categories`'s placeholder with Blog Categories management:
+  alphabetical list, debounced search, create, edit, automatic/editable slug,
+  description, and delete confirmation. Delete returns 409 while any Blog
+  still references the category, preventing dangling required references.
+- Renamed the navigation entry to **Blog Categories** and added a matching
+  dashboard card so it cannot be confused with Product, Recipe, Course,
+  Resource, or Tool categories.
+
+### Verification
+
+- 143/143 automated tests pass.
+- Production build passes on Next.js 15.5.24.
+- Live read-only browser verification against Atlas confirmed existing course
+  lessons and Blog Categories load unchanged, category search works, and the
+  create form auto-generates its slug. The verification form was not
+  submitted, so it did not create or modify database records.
 
 ## Sprint 19.5: Courses → Learning Management System — 2026-07-22
 

@@ -1,7 +1,8 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { ImagePlus, Loader2, X } from 'lucide-react';
+import { useState } from 'react';
+import { ImagePlus, X } from 'lucide-react';
+import MediaPickerDialog from '@/components/admin/media/MediaPickerDialog';
 
 /**
  * Click-to-upload image field with preview, alt text, and a remove button.
@@ -15,36 +16,9 @@ export default function ImageUploadField({
   value,
   onChange,
   heightClass = 'h-48',
-  uploadUrl = '/api/admin/infographics/upload',
+  uploadUrl: _uploadUrl,
 }) {
-  const inputRef = useRef(null);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState('');
-
-  async function handleFile(file) {
-    if (!file) return;
-    setError('');
-    setUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const res = await fetch(uploadUrl, { method: 'POST', body: formData });
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        setError(data.error || 'Upload failed');
-        return;
-      }
-
-      onChange({ ...value, url: data.url });
-    } catch (err) {
-      setError('Upload failed. Please try again.');
-    } finally {
-      setUploading(false);
-    }
-  }
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   return (
     <div>
@@ -64,23 +38,14 @@ export default function ImageUploadField({
       ) : (
         <button
           type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={uploading}
+          onClick={() => setPickerOpen(true)}
           className={`flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-line bg-sage/30 text-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-60 ${heightClass}`}
         >
-          {uploading ? <Loader2 size={22} className="animate-spin" /> : <ImagePlus size={22} />}
-          <span className="text-sm font-semibold">{uploading ? 'Uploading…' : 'Click to upload image'}</span>
-          <span className="text-xs">JPEG, PNG, WebP or GIF, up to 8MB</span>
+          <ImagePlus size={22} />
+          <span className="text-sm font-semibold">Choose from Media Library</span>
+          <span className="text-xs">Upload new or reuse an existing image</span>
         </button>
       )}
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
-        className="hidden"
-        onChange={(e) => handleFile(e.target.files?.[0])}
-      />
 
       {value?.url && (
         <input
@@ -92,7 +57,7 @@ export default function ImageUploadField({
         />
       )}
 
-      {error && <p className="mt-1.5 text-xs font-semibold text-red-600">{error}</p>}
+      <MediaPickerDialog open={pickerOpen} onClose={() => setPickerOpen(false)} onSelect={(image) => onChange({ ...value, ...image })} />
     </div>
   );
 }

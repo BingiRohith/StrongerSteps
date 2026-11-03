@@ -1,9 +1,10 @@
-import { Check, Crown, MessageCircle, HeartHandshake, CalendarCheck, Percent, Users, CreditCard } from 'lucide-react';
+import { Check, Crown, HeartHandshake, CalendarCheck, Percent, Users, CreditCard } from 'lucide-react';
 import { Button, Badge, Eyebrow, SectionHeading } from '@/components/ui';
 import StepDivider from '@/components/StepDivider';
 import PlanRequestButton from '@/components/membership/PlanRequestButton';
 import { getActiveMembershipPlans } from '@/lib/publicMembership';
 import { currencySymbol, billingPeriodLabel } from '@/lib/membershipOptions';
+import { membershipAmountMinor } from '@/lib/membershipPricing';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,8 +46,9 @@ const MEMBER_BENEFITS = [
 ];
 
 function formatPrice(plan) {
-  if (!plan.price) return 'Free';
-  return `${currencySymbol(plan.currency)}${plan.price.toLocaleString('en-IN')}`;
+  const amount = membershipAmountMinor(plan) / 100;
+  if (!amount) return 'Free';
+  return `${currencySymbol(plan.currency)}${amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 }
 
 export default async function JoinPage() {
@@ -90,8 +92,8 @@ export default async function JoinPage() {
                 We&apos;re putting the finishing touches on our membership plans. Check back shortly, or
                 reach out to us directly to learn more.
               </p>
-              <Button href="https://wa.me/919999999999" variant="primary" className="mt-6">
-                <MessageCircle size={18} aria-hidden="true" /> Talk to Us on WhatsApp
+              <Button href="/knowledge-center" variant="primary" className="mt-6">
+                Explore the Knowledge Center
               </Button>
             </div>
           ) : (
@@ -181,8 +183,8 @@ export default async function JoinPage() {
           <p className="mx-auto mt-3 max-w-xl text-white/75">
             Start free, or go further with a membership built around your goals.
           </p>
-          <Button href="https://wa.me/919999999999" variant="accent" className="mt-8">
-            <MessageCircle size={18} aria-hidden="true" /> Talk to Us on WhatsApp
+          <Button href="#plans" variant="accent" className="mt-8">
+            View Membership Plans
           </Button>
         </div>
       </section>

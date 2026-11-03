@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { ImagePlus, Loader2, X } from 'lucide-react';
+import MediaPickerDialog from '@/components/admin/media/MediaPickerDialog';
 
 /**
  * Multi-image gallery uploader — unlimited images, each with its own alt
@@ -16,6 +17,7 @@ export default function GalleryUpload({ value, onChange }) {
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   async function handleFile(file) {
     if (!file) return;
@@ -101,7 +103,12 @@ export default function GalleryUpload({ value, onChange }) {
         onChange={(e) => handleFile(e.target.files?.[0])}
       />
 
+      <button type="button" onClick={() => setPickerOpen(true)} className="mt-2 text-xs font-bold text-primary hover:text-primary-dark">
+        Choose existing image from Media Library
+      </button>
+
       {error && <p className="mt-1.5 text-xs font-semibold text-red-600">{error}</p>}
+      <MediaPickerDialog open={pickerOpen} onClose={() => setPickerOpen(false)} onSelect={(image) => onChange([...images, image])} />
     </div>
   );
 }

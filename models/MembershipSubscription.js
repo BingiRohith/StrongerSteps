@@ -50,7 +50,7 @@ const MembershipSubscriptionSchema = new Schema(
     // additive change, same as any other Mongoose enum widening.
     paymentStatus: {
       type: String,
-      enum: ['pending', 'manual'],
+      enum: ['pending', 'manual', 'paid', 'failed', 'refunded', 'review_required'],
       default: 'pending',
     },
     startsAt: {

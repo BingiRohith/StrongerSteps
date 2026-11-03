@@ -274,7 +274,10 @@ export default function CurriculumManager({ courseId }) {
                     <span className="font-display text-sm font-semibold text-ink">{section.title}</span>
                   )}
                   <span className="text-xs text-muted">
-                    ({lessons.length || (lessonsBySection[section._id] ? 0 : '…')} lessons)
+                    {/* Before expansion, use the lightweight count returned
+                        with the section. Once loaded, the lesson array is the
+                        current source of truth after add/delete operations. */}
+                    ({lessonsBySection[section._id] ? lessons.length : (section.lessonCount ?? '…')} lessons)
                   </span>
                 </button>
 

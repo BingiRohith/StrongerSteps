@@ -44,7 +44,7 @@ describe('MembershipSubscription validation', () => {
     const subscription = new MembershipSubscription({
       lead: VALID_LEAD_ID,
       plan: VALID_PLAN_ID,
-      paymentStatus: 'paid', // not yet a valid value this sprint (Sprint 19.7b widens this)
+      paymentStatus: 'unverified-client-claim',
     });
     const error = subscription.validateSync();
     assert.ok(error?.errors.paymentStatus);
@@ -55,7 +55,7 @@ describe('MembershipSubscription validation', () => {
       const subscription = new MembershipSubscription({ lead: VALID_LEAD_ID, plan: VALID_PLAN_ID, status });
       assert.equal(subscription.validateSync(), undefined, `expected status "${status}" to be valid`);
     }
-    for (const paymentStatus of ['pending', 'manual']) {
+    for (const paymentStatus of ['pending', 'manual', 'paid', 'failed', 'refunded', 'review_required']) {
       const subscription = new MembershipSubscription({ lead: VALID_LEAD_ID, plan: VALID_PLAN_ID, paymentStatus });
       assert.equal(subscription.validateSync(), undefined, `expected paymentStatus "${paymentStatus}" to be valid`);
     }

@@ -42,6 +42,14 @@ describe('computeExpiryFromBillingPeriod', () => {
     assert.equal(computeExpiryFromBillingPeriod('one-time', from), null);
   });
 
+  it('clamps a January month-end expiry to February instead of March', () => {
+    assert.equal(computeExpiryFromBillingPeriod('monthly', '2027-01-31T12:00:00Z').toISOString(), '2027-02-28T12:00:00.000Z');
+  });
+
+  it('clamps leap-day yearly expiry to February 28', () => {
+    assert.equal(computeExpiryFromBillingPeriod('yearly', '2028-02-29T12:00:00Z').toISOString(), '2029-02-28T12:00:00.000Z');
+  });
+
   it('never expires for free', () => {
     assert.equal(computeExpiryFromBillingPeriod('free', from), null);
   });

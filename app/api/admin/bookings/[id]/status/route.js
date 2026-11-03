@@ -4,6 +4,7 @@ import Booking from '@/models/Booking';
 import Event from '@/models/Event';
 import { requireAuth } from '@/lib/auth';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
+import { notificationTypeForStatusChange, queueBookingNotification } from '@/lib/notifications/bookingNotifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,7 @@ export const PATCH = withErrorHandling(async (request, { params }) => {
   if (!booking) return fail('Booking not found', 404);
 
   const nextStatus = body.status;
+  const previousStatus = booking.bookingStatus;
   const wasHolding = HOLDS_SEAT.has(booking.bookingStatus);
   const willHold = HOLDS_SEAT.has(nextStatus);
 
@@ -63,6 +65,14 @@ export const PATCH = withErrorHandling(async (request, { params }) => {
   }
 
   await booking.populate('event', 'title eventDate startTime endTime location maxSeats availableSeats');
+
+  const notificationType = notificationTypeForStatusChange(previousStatus, nextStatus);
+  queueBookingNotification({
+    writeSucceeded: previousStatus !== nextStatus,
+    booking,
+    event: booking.event,
+    notificationType,
+  });
 
   return ok({ booking });
 });

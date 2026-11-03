@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import connectDB from '@/lib/db';
 import Course from '@/models/Course';
 import Section from '@/models/Section';
+import Lesson from '@/models/Lesson';
 import { requireAuth } from '@/lib/auth';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
 
@@ -20,9 +21,26 @@ export const GET = withErrorHandling(async (request, { params }) => {
   if (!mongoose.Types.ObjectId.isValid(params.id)) return fail('Invalid course id', 400);
 
   await connectDB();
-  const sections = await Section.find({ course: params.id }).sort({ displayOrder: 1 }).lean();
+  const courseId = new mongoose.Types.ObjectId(params.id);
+  const [sections, lessonCounts] = await Promise.all([
+    Section.find({ course: courseId }).sort({ displayOrder: 1 }).lean(),
+    // Count lessons in one grouped query so collapsed sections can show an
+    // accurate total without downloading every lesson's full editor data.
+    Lesson.aggregate([
+      { $match: { course: courseId } },
+      { $group: { _id: '$section', count: { $sum: 1 } } },
+    ]),
+  ]);
 
-  return ok({ sections });
+  const lessonCountBySection = new Map(
+    lessonCounts.map(({ _id, count }) => [_id.toString(), count])
+  );
+  const sectionsWithCounts = sections.map((section) => ({
+    ...section,
+    lessonCount: lessonCountBySection.get(section._id.toString()) || 0,
+  }));
+
+  return ok({ sections: sectionsWithCounts });
 });
 
 /**

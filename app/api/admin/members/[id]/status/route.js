@@ -28,6 +28,7 @@ const ACTIONS = {
  * lib/membershipSubscription.js's idempotency design.
  */
 export const PATCH = withErrorHandling(async (request, { params }) => {
+  params = await params;
   const user = await requireAuth(request, ['admin', 'editor']);
   if (user instanceof Response) return user;
 
@@ -35,7 +36,7 @@ export const PATCH = withErrorHandling(async (request, { params }) => {
 
   const body = await request.json();
   const action = body?.action;
-  if (!ACTIONS[action]) {
+  if (!Object.hasOwn(ACTIONS, action)) {
     return fail("Action must be 'activate', 'expire', or 'cancel'", 400);
   }
 

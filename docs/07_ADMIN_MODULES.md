@@ -1,5 +1,15 @@
 # 07. Admin Modules
 
+## Members — reconciled Sprint 19.7a/19.7b
+
+`/admin/members` manages per-lead subscriptions separately from the existing
+`/admin/membership` plan catalogue. Staff can search name/email/mobile/plan,
+filter lifecycle status, inspect profile/history, and activate/expire/cancel.
+Actions reject duplicates and invalid transitions. Detail pages also display
+online payment amounts/references/status, receipt links and late-capture review
+flags. Refund initiation is performed in Razorpay's Dashboard; signed processed
+refunds update the local ledger and access automatically.
+
 Admin panel lives at `/admin/*`, gated by [`middleware.js`](../middleware.js)
 (edge cookie-presence check) and
 [`app/admin/(protected)/layout.js`](../app/admin/(protected)/layout.js)
@@ -43,7 +53,23 @@ creates it from seed defaults on first load).
   hide the section entirely from the public homepage).
 
 Image uploads across all tabs go through `ImageUploadField.js` (reused
-as-is) → `/api/admin/homepage/upload`.
+as a shared Media Library picker. It can upload a new reusable image or
+select an existing library/legacy upload; the prior homepage upload route is
+preserved for compatibility but is no longer used by this form.
+
+## Media Library — `/admin/media` (Sprints 21–22)
+
+Central browser for CRS §15/§18. Images remain public reusable assets; new
+PDFs, Office documents, and videos are catalogued in `Media` but saved in
+private storage and previewable only by an authenticated admin. Resource File
+editing can select a matching shared non-image asset while preserving the
+file's own access level. Sprint 23 extends that picker to Lesson video
+(`video`), PDF (`pdf`), and downloadable attachment (`pdf`/`document`/`video`)
+controls; direct Lesson uploads remain available. Existing module uploads are listed as **Existing
+upload (preserved)** without changing their files or records. A managed asset
+may be deleted only after the
+server checks every content collection and confirms it has no live URL
+reference; legacy files are browse-only for safety.
 
 ## Blogs — `/admin/blogs`
 
@@ -185,6 +211,9 @@ payment integration yet.**
   event (capped at `maxSeats`); reactivating a cancelled booking
   re-consumes 1 seat only if one is still available (409 otherwise) — see
   `app/api/admin/bookings/[id]/status/route.js`.
+- Sprint 24 queues concise recipient notifications only after a successful,
+  changed transition to Confirmed or Cancelled. Delivery is non-blocking and
+  its safe channel outcome is recorded without exposing contact/message data.
 
 ## Recipe Categories — `/admin/recipe-categories`
 
@@ -256,21 +285,26 @@ unlimited future tools — first one is the Fall Risk Assessment Calculator
   the public assessment form would, for reviewing content before
   publishing.
 
-## Categories — `/admin/categories`
+## Blog Categories — `/admin/categories` (Sprint 20)
 
-**Status: placeholder only.** Renders `PagePlaceholder` with a "Coming in a
-future sprint" message. The only working functionality is the
-list+quick-create API (`/api/admin/categories`) consumed inline by the Blog
-form's category picker — there is no dedicated management page to
-edit/delete/reorder categories. (Not to be confused with Recipe Categories
-above, which got its own full management UI in Sprint 13.)
+**Status: full lightweight CRUD, production-capable.** This module manages
+only the Blog taxonomy; Product, Recipe, Course, Resource, and Tool categories
+each keep their own dedicated model and screen.
+
+- List (`CategoriesListClient.js`): alphabetical records, debounced name/
+  description search, edit action, protected delete confirmation, and clear
+  loading/empty/error states.
+- Create/Edit (`CategoryForm.js`): name, automatic/editable slug, optional
+  description with a 300-character limit. New categories become immediately
+  available in the existing Blog editor category selector.
+- Delete is rejected with 409 while one or more Blogs reference the category,
+  because `Blog.category` is required. Reassign those posts first.
 
 ## Shared admin UI building blocks
 
 - `AdminShell.js` — sidebar + header wrapper, owns mobile-drawer open/close state.
 - `AdminSidebar.js` — nav list (`NAV_ITEMS`), desktop fixed rail + mobile slide-over.
 - `AdminHeader.js` — page title, signed-in user info, logout button.
-- `PagePlaceholder.js` — shared "coming soon" block (used only by Categories today).
 - `StatusBadge.js` (in `components/admin/blogs/`, reused generically by Infographics/Products/Team/Recipes lists) — Draft/Published pill.
 - `ImageUploadField.js` (in `components/admin/infographics/`, reused by Products, Events, Recipes, and Recipe Categories — Events also reuses it a second time within the same form for the host photo) — click-to-upload-with-preview.
 - `TagsInput.js` (in `components/admin/blogs/`, reused as-is by Recipes — no blog-specific logic inside) — add/remove tag chips.

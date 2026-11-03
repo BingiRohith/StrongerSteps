@@ -28,7 +28,7 @@ function formatDate(date) {
 }
 
 /** Sprint 19.7a — admin member detail: profile, current subscription, actions, full history. */
-export default function MemberDetailClient({ initialSubscription, history }) {
+export default function MemberDetailClient({ initialSubscription, history, payments = [] }) {
   const [subscription, setSubscription] = useState(initialSubscription);
   const [records, setRecords] = useState(history);
   const [busy, setBusy] = useState(false);
@@ -48,7 +48,7 @@ export default function MemberDetailClient({ initialSubscription, history }) {
         setError(data.error || 'Could not update this membership.');
         return;
       }
-      const updated = { ...data.subscription, lead: subscription.lead, plan: subscription.plan };
+      const updated = { ...data.subscription, _id: subscription._id, lead: subscription.lead, plan: subscription.plan };
       setSubscription(updated);
       setRecords((prev) => prev.map((r) => (r._id === updated._id ? { ...r, ...updated } : r)));
     } catch (err) {
@@ -128,6 +128,21 @@ export default function MemberDetailClient({ initialSubscription, history }) {
               </button>
             )}
           </div>
+        </div>
+
+        <div className="rounded-xl2 border border-line bg-surface p-6">
+          <h3 className="font-display text-base font-bold text-primary-dark">Payments</h3>
+          {!payments.length && <p className="mt-3 text-sm text-muted">No online payment records.</p>}
+          {payments.map((payment) => (
+            <div key={payment.id} className="mt-3 break-all rounded-lg border border-line p-3 text-sm">
+              <p className="font-semibold">{payment.planName} — {(payment.amount / 100).toFixed(2)} {payment.currency}</p>
+              <p>Status: {payment.status.replaceAll('_', ' ')}</p>
+              <p>Order: {payment.orderId || 'Preparing'}</p>
+              {payment.paymentId && <p>Payment: {payment.paymentId}</p>}
+              {payment.status === 'review_required' && <p className="mt-2 font-semibold text-red-700">Payment received after access was cancelled or expired. Review this payment in Razorpay before taking further action.</p>}
+              {payment.paidAt && <a href={`/api/membership/payments/${payment.id}/receipt`} className="font-semibold text-primary underline">Download receipt</a>}
+            </div>
+          ))}
         </div>
 
         <div className="rounded-xl2 border border-line bg-surface p-6">

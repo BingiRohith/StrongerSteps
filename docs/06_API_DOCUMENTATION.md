@@ -1,5 +1,26 @@
 # 06. API Documentation
 
+## Reconciled membership endpoints (2026-11-03)
+
+Public lead identity and membership state: `GET /api/me` (guest-safe),
+`GET /api/membership/requests` (own history), and
+`POST /api/membership/requests` (`{planId}`, requires OTP lead session).
+Staff use `GET /api/admin/members`, `GET /api/admin/members/[id]`, and
+`PATCH /api/admin/members/[id]/status` (`{action: activate|expire|cancel}`).
+Duplicate requests/actions return a friendly 409; activation expiry must be valid
+and in the future. Member and staff sessions remain separate.
+
+Razorpay routes and ownership/signature requirements are documented in
+[16_MEMBERSHIP_PAYMENTS.md](16_MEMBERSHIP_PAYMENTS.md): checkout order creation,
+payment verification, raw signed webhooks, and owner/staff-only payment receipts.
+`GET /api/me` now includes safe payment summaries as well as access permissions.
+
+## Sprint 22–23 Media Library additions
+
+- `POST /api/admin/media` accepts the existing images plus PDFs, Word, PowerPoint, Excel, and MP4/WebM/Ogg files. It requires admin/editor authentication; non-images are stored privately.
+- `GET /api/admin/media/:id?content=1` provides an authenticated inline preview. `GET /api/admin/media/:id` remains the usage inspection endpoint; `DELETE` remains admin-only and returns 409 when any saved reference exists.
+- Lesson `PUT` accepts a Library reference only for an uploaded video (`video`), PDF lesson (`pdf`), or attachment (`pdf`, `document`, `video`). It resolves canonical private metadata itself and rejects incompatible/public/missing assets.
+
 All responses follow the shape from [`lib/apiResponse.js`](../lib/apiResponse.js):
 `{ success: true, ...data }` or `{ success: false, error, ...extra }`.
 Validation errors → 400, duplicate key → 409, auth failures → 401/403,
@@ -19,6 +40,15 @@ unhandled errors → 500.
 | `/api/auth/register` | POST | **Admin only** | `{ name, email, password, role? }` | `{ user }`, 201. Not public signup — only for admins creating other admin/editor accounts. First admin comes from `npm run seed:admin`. |
 
 ## Blogs
+
+## Media Library — `app/api/admin/media/` (Sprint 21)
+
+| Route | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/admin/media` | GET | Any session | Browse library records plus read-only legacy public uploads. Optional `search` matches filename/original name/alt text. |
+| `/api/admin/media` | POST | Admin/editor | multipart image (max 8MB) or PDF/Office/video (max 200MB). Images save under `public/uploads/media/`; non-images use private Media storage. Creates a `Media` catalogue row, returns `{ media }`, 201. |
+| `/api/admin/media/[id]` | GET | Any session | Returns `{ usage }`, a live list of saved content records currently using that library URL. |
+| `/api/admin/media/[id]` | DELETE | Admin only | Re-runs the live usage scan and returns 409 with `{ usage }` if referenced; otherwise removes the library row and file. Legacy uploads have no delete API. |
 
 ### Admin — `app/api/admin/blogs/`
 
@@ -41,8 +71,11 @@ unhandled errors → 500.
 
 | Route | Method | Auth | Notes |
 |---|---|---|---|
-| `/api/admin/categories` | GET | Any session | Alphabetical full list. Powers the Blog form's category `<select>` only — no public route exists. |
-| `/api/admin/categories` | POST | Admin/editor | Body: `{ name, description? }`. Quick-create used by the Blog form's inline "+ new category". |
+| `/api/admin/categories` | GET | Any session | Alphabetical list. Optional `search` matches name or description. Used by both Blog Categories management and the Blog form's category `<select>`; no public route exists. |
+| `/api/admin/categories` | POST | Admin/editor | Body: `{ name, slug?, description? }`. Used by the full create form and the Blog form's inline "+ new category". Returns `{ category }`, 201. |
+| `/api/admin/categories/[id]` | GET | Any session | Returns one category for editing. |
+| `/api/admin/categories/[id]` | PUT | Admin/editor | Partial name/slug/description update. |
+| `/api/admin/categories/[id]` | DELETE | Admin/editor | Blocks with 409 while a Blog still references the category; otherwise returns `{ deleted: true }`. |
 
 ## Infographics
 
@@ -275,7 +308,7 @@ Singleton — no `[id]` routes, since there's exactly one document.
 |---|---|---|---|
 | `/api/admin/courses/[id]/sections/[sectionId]/lessons` | GET | Any session | Every lesson in the section, ordered. Returns `{ lessons }`. |
 | `/api/admin/courses/[id]/sections/[sectionId]/lessons` | POST | Admin/editor | Body: `title` required (minimal create — media/content fields are set afterward via PUT, same two-step "create then attach media" flow as every upload-bearing module). Returns `{ lesson }`, 201. |
-| `/api/admin/courses/[id]/sections/[sectionId]/lessons/[lessonId]` | GET \| PUT \| DELETE | Admin/editor (GET: any session) | PUT accepts `video` (`{source, url, filename, captions}` — Sprint 19.5; server validates `url` via `lib/videoEmbed.js`'s `isValidVideoUrl()` when `source !== 'upload'`)/`pdf`/`image`/`externalUrl`/`body`/`attachments`/`bodyImages` (Sprint 19.5) plus the reorder-swap `displayOrder`. |
+| `/api/admin/courses/[id]/sections/[sectionId]/lessons/[lessonId]` | GET \| PUT \| DELETE | Admin/editor (GET: any session) | PUT accepts `video`/`pdf`/`image`/`externalUrl`/`body`/`attachments`/`bodyImages` plus `displayOrder`. It validates external video URLs and any Library `mediaId` against the compatible private asset type, then writes canonical metadata. |
 | `/api/admin/courses/[id]/sections/[sectionId]/lessons/[lessonId]/upload` | POST | Admin/editor | multipart `file`; query `?mediaType=video\|pdf\|image\|bodyImage\|attachment` (not a form field — the request body is read exactly once by the underlying `saveProtected*` helper). `bodyImage` (Sprint 19.5) writes to `lessons-body-images/` for inline rich-text images; `attachment` now accepts image/PDF/document/ZIP (`saveProtectedAttachment()`, Sprint 19.5 — previously office documents only). Always writes to **private** storage (`private-uploads/lessons-<kind>/`) via `lib/privateUpload.js`, regardless of the lesson's current `accessLevel`. Returns `{ url, filename }`, 201 — `url` is a private storage key, not a browsable path. |
 
 ### Public — Lesson &amp; course progress (Sprint 19.5)
@@ -403,10 +436,15 @@ computed result rather than a file.
 
 | Route | Method | Auth | Notes |
 |---|---|---|---|
-| `/api/bookings` | POST | Public | Body: `{ eventId, name, mobile, email }`. Validates the event is published and within its registration window (if set), then atomically decrements `availableSeats` (rejects with 409 if already fully booked) before creating the `Booking` with a generated `bookingReference`. Created directly with `bookingStatus: 'confirmed'` — no payment step this sprint. Returns `{ booking, event }` (the updated event, so the client can refresh its seat count), 201. |
+| `/api/bookings` | POST | Public | Body: `{ eventId, name, mobile, email }`. Validates the event is published and within its registration window (if set), then atomically decrements `availableSeats` (rejects with 409 if already fully booked) before creating the `Booking` with a generated `bookingReference`. Created directly with `bookingStatus: 'confirmed'` — no payment step this sprint. **Only after this write succeeds**, Sprint 24 queues non-blocking mock/provider-neutral email and SMS confirmation attempts. Returns `{ booking, event }` (the updated event, so the client can refresh its seat count), 201. |
 | `/api/bookings/lookup` | GET | Public | Query: `mobile` (required, matched on last-10-digits so a stored `+91...` number still matches a plain 10-digit search), `reference` (optional, narrows to one booking). No pagination-worthy volume expected per lookup; capped at 50 results. Powers the public `/booking-history` page — both the "view one booking's details/status/reference" case and the full booking-history list use this same route. Returns `{ bookings }` (array, `event` populated). |
 
 ## Admin Bookings — `app/api/admin/bookings/` (Sprint 16)
+
+Sprint 24 adds non-blocking notification attempts only after a successful,
+changed status write to `confirmed` or `cancelled`; failures and no-op updates
+never queue a message. Channel outcomes are retained in the safe
+`NotificationDelivery` audit trail, without contact or message content.
 
 | Route | Method | Auth | Notes |
 |---|---|---|---|

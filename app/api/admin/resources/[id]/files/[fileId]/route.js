@@ -78,6 +78,7 @@ export const PUT = withErrorHandling(async (request, { params }) => {
       mimeType: body.file?.mimeType || '',
       sizeBytes: Number.isFinite(body.file?.sizeBytes) ? body.file.sizeBytes : 0,
       storageProvider: body.file?.storageProvider || 'local',
+      mediaId: body.file?.mediaId || null,
     };
     if (isReplacement) file.currentVersion += 1;
   }

@@ -11,7 +11,7 @@ import QuickLinksCard from './QuickLinksCard';
  * CertificatesCard is another sibling card added to this same grid, not a
  * page restructuring.
  */
-export default function DashboardShell({ lead, status, plan, membershipExpiry, subscriptions }) {
+export default function DashboardShell({ lead, status, plan, membershipExpiry, subscriptions, payments = [] }) {
   return (
     <section className="bg-bg">
       <div className="mx-auto max-w-content px-6 py-12 md:py-16">
@@ -23,7 +23,7 @@ export default function DashboardShell({ lead, status, plan, membershipExpiry, s
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
             <MembershipStatusCard status={status} plan={plan} membershipExpiry={membershipExpiry} />
-            <SubscriptionHistoryCard subscriptions={subscriptions} />
+            <SubscriptionHistoryCard subscriptions={subscriptions} payments={payments} />
           </div>
           <div className="space-y-6">
             <ProfileCard lead={lead} />

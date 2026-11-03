@@ -4,6 +4,7 @@ import Membership from '@/models/Membership';
 import { getCurrentLead } from '@/lib/access/leadSession';
 import { getMembershipStatus, MEMBERSHIP_STATUSES } from '@/lib/access/membershipStatus';
 import { getLatestSubscriptionForLead } from '@/lib/membershipSubscription';
+import { listMembershipPayments } from '@/lib/payments/membershipPayments';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +36,7 @@ export const GET = withErrorHandling(async (request) => {
       expiresAt: lead?.membershipExpiry ?? null,
     },
     subscription,
+    payments: lead ? await listMembershipPayments(lead._id) : [],
     permissions: {
       isGuest: status === MEMBERSHIP_STATUSES.GUEST,
       isRegistered: status === MEMBERSHIP_STATUSES.REGISTERED,

@@ -5,6 +5,7 @@ import { ArrowRight, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui';
 import VerificationModal from '@/components/verification/VerificationModal';
 import { MEMBERSHIP_PENDING_MESSAGE } from '@/lib/membershipCopy';
+import { openMembershipCheckout } from '@/lib/payments/checkoutClient';
 
 /**
  * Sprint 19.7a — replaces the old hardcoded WhatsApp CTA on each real
@@ -25,12 +26,14 @@ export default function PlanRequestButton({ plan, variant = 'primary', className
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [verifyOpen, setVerifyOpen] = useState(false);
+  const [message, setMessage] = useState('');
+  const payable = Number(plan.price) > 0 && Number(plan.discountPercentage || 0) < 100;
 
   async function submitRequest() {
     setSubmitting(true);
     setError('');
     try {
-      const res = await fetch('/api/membership/requests', {
+      const res = await fetch(payable ? '/api/membership/checkout' : '/api/membership/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId: plan._id }),
@@ -46,8 +49,25 @@ export default function PlanRequestButton({ plan, variant = 'primary', className
         return;
       }
 
-      setSuccess(true);
       setVerifyOpen(false);
+      if (payable) {
+        const opened = await openMembershipCheckout(data.checkout);
+        if (opened.dismissed) {
+          setMessage('Checkout closed. You can continue this payment from your dashboard.');
+          return;
+        }
+        const verified = await fetch('/api/membership/payments/verify', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(opened.result),
+        });
+        const confirmation = await verified.json();
+        if (!verified.ok || !confirmation.success) {
+          setError(confirmation.error || 'We could not confirm payment yet. Please check your dashboard before paying again.');
+          return;
+        }
+        const paid = ['paid', 'partially_refunded'].includes(confirmation.payment?.status);
+        setMessage(paid ? 'Payment confirmed. Your membership is active.' : 'Payment is being confirmed. Please check your dashboard shortly.');
+      }
+      setSuccess(true);
     } catch (err) {
       setError('Could not submit your request. Please check your connection and try again.');
     } finally {
@@ -56,6 +76,7 @@ export default function PlanRequestButton({ plan, variant = 'primary', className
   }
 
   function handleVerified() {
+    setVerifyOpen(false);
     submitRequest();
   }
 
@@ -63,7 +84,7 @@ export default function PlanRequestButton({ plan, variant = 'primary', className
     return (
       <div className={`mt-8 flex items-start gap-2 rounded-xl2 bg-sage px-4 py-3.5 text-sm text-primary-dark ${className}`}>
         <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-primary" aria-hidden="true" />
-        <span>{MEMBERSHIP_PENDING_MESSAGE}</span>
+        <span>{message || MEMBERSHIP_PENDING_MESSAGE} <a href="/dashboard" className="font-semibold underline">View dashboard</a></span>
       </div>
     );
   }
@@ -78,7 +99,7 @@ export default function PlanRequestButton({ plan, variant = 'primary', className
         className="mt-8 w-full"
       >
         {submitting && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
-        Request Membership <ArrowRight size={18} aria-hidden="true" />
+        {payable ? 'Pay & Join' : 'Request Membership'} <ArrowRight size={18} aria-hidden="true" />
       </Button>
 
       {error && (
@@ -87,6 +108,7 @@ export default function PlanRequestButton({ plan, variant = 'primary', className
           <span>{error}</span>
         </div>
       )}
+      {message && !success && <p className="mt-3 text-sm text-muted">{message} <a href="/dashboard" className="font-semibold underline">View dashboard</a></p>}
 
       {verifyOpen && (
         <VerificationModal

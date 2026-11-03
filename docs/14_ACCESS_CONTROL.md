@@ -1,5 +1,24 @@
 # 14. Access Control
 
+## Payment-driven membership grants (2026-11-03)
+
+Sprint 19.7b reuses the existing `canAccess`/`isActiveMember` grant: only a
+server-verified captured payment may activate a pending membership. Signature,
+stored order, amount and currency checks precede a transaction that updates
+MembershipPayment, MembershipSubscription and VerifiedLead together. Checkout
+success on its own grants nothing. Repeated callbacks/events preserve expiry;
+full refunds revoke access, and late captures after cancellation require staff
+review. Receipts are restricted to the paying lead or authenticated staff.
+No consumer User model or Edge membership middleware was introduced.
+
+## Booking notification data boundary (Sprint 24)
+
+Booking notifications do not extend public or admin access. They run only after the existing booking/status write succeeds and use the Booking's already-validated contact values transiently at provider call time. `NotificationDelivery` retains no recipient identifier, message body, OTP, provider exception text, admin secret, or credential; its Booking/Event references remain accessible only through the existing admin booking controls.
+
+## Sprint 22 — Shared non-image media
+
+Media Library PDFs, Office documents, and videos are private storage objects: the library preview path requires an authenticated admin. When a Resource File or Lesson references a library asset, its own established access check runs before bytes are resolved. For Lessons that includes `canAccess()` for PUBLIC/MEMBER/PURCHASED/ADMIN and the verified OTP-token route for OTP downloads. A Media row is never an access grant, and no shared non-image asset has a static public URL.
+
 Sprint 19.1B. This is the single source of truth for authorization across
 the platform — every future protected resource (Courses, Resources, Tools,
 and the existing Infographic downloads) should be gated through the

@@ -1,5 +1,21 @@
 # 05. Database
 
+## MembershipPayment — reconciled Sprint 19.7b (2026-11-03)
+
+`models/MembershipPayment.js` adds an independent payment ledger with `lead`
+and unique `subscription` references, integer minor-unit `amount`, `currency`,
+`planName`/`billingPeriod` snapshots, sparse-unique `orderId`/`paymentId`,
+`paidAt`, `refundedAmount`, and order-creation recovery/lease fields.
+States are creating/created/failed/paid/partially_refunded/refunded/review_required.
+No card data, signatures, API secrets or raw event payloads are stored.
+
+`MembershipSubscription.paymentStatus` additionally supports paid, failed,
+refunded and review_required; its lifecycle remains pending/active/expired/cancelled.
+Captured-payment activation and full-refund revocation synchronize the payment,
+subscription and VerifiedLead grant in an Atlas transaction. Free requests and
+manual activation remain supported. No consumer User collection is introduced.
+See [16_MEMBERSHIP_PAYMENTS.md](16_MEMBERSHIP_PAYMENTS.md).
+
 MongoDB Atlas, accessed via Mongoose 8.5.1 through the cached-connection
 helper in [`lib/db.js`](../lib/db.js) (`connectDB()` — reuses a single
 connection across requests/hot-reloads via `global._mongooseConnection`).
@@ -8,6 +24,34 @@ Every model follows shared conventions — see
 [08_CODING_STANDARDS.md](08_CODING_STANDARDS.md) for the pattern (`status`
 lifecycle, `toSafeObject()`, `pre('validate')` hooks) rather than repeating
 it per-model below.
+
+## Media — [`models/Media.js`](../models/Media.js) (Sprints 21–22)
+
+Catalogue records for images uploaded through the reusable Admin Media
+Library. This is deliberately additive: old files in module-specific
+`public/uploads/<module>/` folders and the content records that point to them
+remain valid and require no migration.
+
+| Field | Type | Notes |
+|---|---|---|
+| `url` | String | required, unique public `/uploads/media/...` path |
+| `filename` / `originalName` | String | storage filename and original upload name, used for browsing/search |
+| `mimeType` / `size` | String / Number | validated metadata; images max 8 MB, shared non-images max 200 MB |
+| `kind` / `storage` | enum | `image`/`pdf`/`document`/`video`; images are public, non-images private |
+| `alt` | String | optional, max 150 |
+| `uploadedBy` | ObjectId ref → `User` | required audit field |
+
+The record is deleted only after a live cross-content usage scan finds no
+reference to its URL. The file is then removed from `public/uploads/media/`.
+Legacy files are browseable but intentionally not deletable through this
+module, avoiding accidental removal of unmanaged content.
+
+Sprints 22–23 add optional `mediaId` references to a ResourceFile's `file`
+and Lesson `video`, `pdf`, and `attachments` subobjects. These are additive
+and coexist with their existing storage keys; no existing document needs
+migration. Sprint 23 validates a referenced asset's private storage and
+compatible kind before saving it. The parent ResourceFile/Lesson remains the
+access-control authority.
 
 ## User — [`models/User.js`](../models/User.js)
 
@@ -28,9 +72,10 @@ Instance methods: `comparePassword(candidate)` (bcrypt compare),
 
 ## Category — [`models/Category.js`](../models/Category.js)
 
-Minimal — only backs the Blog category picker. **Not** a full-featured
-taxonomy system (no reorder/hierarchy). No admin management UI exists yet
-(see [02_ROADMAP.md](02_ROADMAP.md)).
+Lightweight Blog taxonomy with full admin list/search/create/edit/delete
+management. It deliberately has no status, manual order, icon, or hierarchy;
+the public Blog filters use alphabetical order. Deletion is blocked while a
+Blog still references the category because `Blog.category` is required.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -251,6 +296,22 @@ payment-ready even though Sprint 12 has no payment step — see `bookingStatus`.
 
 Indexes: `{event, createdAt}`, unique index on `bookingReference`.
 
+## NotificationDelivery — [`models/NotificationDelivery.js`](../models/NotificationDelivery.js)
+
+Sprint 24's additive operational audit for booking notifications. A row is created per channel attempt after a successful booking/status write; it is not an authorization record and it never stores email addresses, mobile numbers, OTPs, or message content.
+
+| Field | Type | Notes |
+|---|---|---|
+| `booking` / `event` | ObjectId refs | Required links to the authoritative, access-controlled records |
+| `notificationType` | enum | `booking-created` \| `booking-confirmed` \| `booking-cancelled` |
+| `channel` | enum | `email` \| `sms` |
+| `provider` / `providerRef` | String | Provider selection and non-sensitive provider correlation reference |
+| `status` | enum | `queued` \| `sent` \| `failed` |
+| `failureCode` | String | Generic safe outcome only; no raw provider error is stored |
+| `attemptedAt` / `completedAt` | Date | Delivery timing |
+
+Index: `{booking, createdAt}`. No migration is required; the collection remains absent until the first attempt.
+
 ## Verification — [`models/Verification.js`](../models/Verification.js)
 
 Backs the reusable OTP verification service (Sprint 12.5,
@@ -277,8 +338,8 @@ max 3 OTP requests per identifier per 15 minutes), TTL index on `createdAt`
 Sprint 13. A dedicated, full-featured taxonomy for Recipes — unlike
 `Infographic.category` (still free text), the CRS explicitly requires
 admin-managed Create/Edit/Delete/Activate-Deactivate/Reorder here, so it
-needed its own model rather than reusing the minimal `models/Category.js`
-(Blog-only, no management UI). `ProductCategory` (Sprint 18, below) later
+needed its own model rather than reusing the lightweight `models/Category.js`
+(Blog-only, with a smaller management UI). `ProductCategory` (Sprint 18, below) later
 followed this same pattern. See [13_DECISIONS.md](13_DECISIONS.md).
 
 | Field | Type | Notes |
@@ -570,11 +631,11 @@ for a deliberate denormalized convenience field).
 | `previewAvailable` | Boolean | default `false` — bypasses the lesson's own `accessLevel` gate entirely (including `OTP`) when viewing, see [14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md) |
 | `accessLevel` | String enum | reuses `lib/access/accessLevels.js`'s `ACCESS_LEVELS` — no lesson-specific enum |
 | `video` | `{ source, url, filename, captions }` | Sprint 19.5: `source` enum `upload`\|`youtube`\|`vimeo`\|`external` (default `upload`), admin-selected, player adapts (`lib/videoEmbed.js`'s `parseVideoUrl()`). For `upload`, `url` stays the pre-19.5 **private storage key**; for the other three sources `url` is the actual video URL (validated server-side on save). `captions` is a `[{url, filename, label, language}]` array — **architecture placeholder only**, not wired to any upload UI or playback yet, added now so a future WebVTT subtitle feature is a plain additive UI/route change, not a schema redesign |
-| `pdf` | `{ url, filename }` | `url` is always a **private storage key** (`private-uploads/lessons-pdfs/`), regardless of `accessLevel` — see below |
+| `pdf` | `{ url, filename, mediaId? }` | `url` is a private storage key (either `private-uploads/lessons-pdfs/` or a validated shared library key); `mediaId` is additive — see below |
 | `image` | `{ url, alt }` | same private-storage convention |
 | `externalUrl` | String | for `lessonType: 'external_link'` |
 | `body` | String | rich HTML from the Tiptap-based lesson editor (Sprint 19.5; previously stored/rendered as plain text — see [13_DECISIONS.md](13_DECISIONS.md)), for `lessonType: 'text'` |
-| `attachments` | `[{ url, filename, label }]` | covers the brief's "Attachments" **and** "Downloadable Resources" as one field — both describe the identical technical concept, unlike `Course`'s three learning-content lists (see [13_DECISIONS.md](13_DECISIONS.md)). Sprint 19.5: accepts image/PDF/document/ZIP via `lib/privateUpload.js`'s `saveProtectedAttachment()` (previously office documents only) |
+| `attachments` | `[{ url, filename, label, mediaId? }]` | covers the brief's "Attachments" **and** "Downloadable Resources" as one field. Direct upload accepts image/PDF/document/ZIP; a reusable reference is limited to a validated private PDF/document/video asset. |
 | `bodyImages` | `[{ url, filename, alt }]` | Sprint 19.5 — inline images inserted into `body` by the rich text editor, same private-storage shape as `attachments`; referenced from the rendered HTML via `fileKind=body-image-<index>` (mirrors `attachment-<index>`) |
 
 **Media storage, always private.** Unlike every other module's uploads

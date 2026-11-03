@@ -6,6 +6,7 @@ import { readProtectedFile } from '@/lib/privateUpload';
 import { mimeFromFilename } from '@/lib/fileMime';
 import { getCurrentLead } from '@/lib/access/leadSession';
 import { recordDownload } from '@/lib/downloadLog';
+import { readLibraryMedia } from '@/lib/mediaLibraryFile';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,10 +48,13 @@ export const GET = withErrorHandling(async (request) => {
     return fail('File not available for this resource', 404);
   }
 
+  // Resolve a shared asset only after the OTP token and its parent resource
+  // have both been verified; a Media row is never a standalone access grant.
+  const libraryFile = await readLibraryMedia(file.mediaId);
   const subdir = config.subdirFor(fileKind);
   let buffer;
   try {
-    buffer = await readProtectedFile(subdir, file.url);
+    buffer = libraryFile?.buffer || await readProtectedFile(subdir, file.url);
   } catch (err) {
     return fail('File not found', 404);
   }
@@ -62,12 +66,12 @@ export const GET = withErrorHandling(async (request) => {
   const lead = await getCurrentLead(request).catch(() => null);
   await recordDownload({ resourceType, resourceId, fileKind, fileLabel: file.filename || '', lead });
 
-  const downloadName = file.filename || file.url;
+  const downloadName = file.filename || libraryFile?.media.originalName || file.url;
 
   return new Response(buffer, {
     status: 200,
     headers: {
-      'Content-Type': mimeFromFilename(file.url),
+      'Content-Type': libraryFile?.media.mimeType || mimeFromFilename(file.url),
       'Content-Disposition': `attachment; filename="${downloadName.replace(/"/g, '')}"`,
       'Cache-Control': 'no-store',
     },

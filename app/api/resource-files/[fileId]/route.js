@@ -8,6 +8,7 @@ import { canAccess } from '@/lib/access/canAccess';
 import { readProtectedFile } from '@/lib/privateUpload';
 import { mimeFromFilename } from '@/lib/fileMime';
 import { recordDownload } from '@/lib/downloadLog';
+import { readLibraryMedia } from '@/lib/mediaLibraryFile';
 
 export const dynamic = 'force-dynamic';
 
@@ -87,9 +88,10 @@ export const GET = withErrorHandling(async (request, { params }) => {
     return fail('File not available for this resource', 404);
   }
 
+  const libraryFile = await readLibraryMedia(file.file?.mediaId);
   let buffer;
   try {
-    buffer = await readProtectedFile('resources-files', file.file.url);
+    buffer = libraryFile?.buffer || await readProtectedFile('resources-files', file.file.url);
   } catch (err) {
     return fail('File not found', 404);
   }
@@ -105,12 +107,12 @@ export const GET = withErrorHandling(async (request, { params }) => {
   }
 
   const disposition = action === 'download' ? 'attachment' : 'inline';
-  const downloadName = (file.file.filename || file.file.url).replace(/"/g, '');
+  const downloadName = (file.file.filename || libraryFile?.media.originalName || file.file.url).replace(/"/g, '');
 
   return new Response(buffer, {
     status: 200,
     headers: {
-      'Content-Type': file.file.mimeType || mimeFromFilename(file.file.url),
+      'Content-Type': libraryFile?.media.mimeType || file.file.mimeType || mimeFromFilename(file.file.url),
       'Content-Disposition': `${disposition}; filename="${downloadName}"`,
       'Cache-Control': action === 'download' ? 'no-store' : 'private, no-store',
     },

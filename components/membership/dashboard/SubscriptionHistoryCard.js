@@ -1,5 +1,6 @@
 import { History } from 'lucide-react';
 import { MEMBERSHIP_PENDING_MESSAGE } from '@/lib/membershipCopy';
+import PlanRequestButton from '@/components/membership/PlanRequestButton';
 
 const STATUS_BADGES = {
   pending: 'bg-accent-soft text-accent-dark',
@@ -13,7 +14,7 @@ function formatDate(date) {
   return new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export default function SubscriptionHistoryCard({ subscriptions }) {
+export default function SubscriptionHistoryCard({ subscriptions, payments = [] }) {
   return (
     <div className="rounded-xl2 border border-line bg-white p-6">
       <div className="flex items-center gap-2 text-primary-dark">
@@ -36,6 +37,13 @@ export default function SubscriptionHistoryCard({ subscriptions }) {
                   Requested {formatDate(sub.createdAt)}
                   {sub.status === 'pending' && ` — ${MEMBERSHIP_PENDING_MESSAGE}`}
                 </p>
+                {sub.status === 'pending' && sub.plan?.price > 0 && <PlanRequestButton plan={sub.plan} variant="outline" />}
+                {payments.filter((payment) => payment.subscriptionId === String(sub._id)).map((payment) => (
+                  <div key={payment.id} className="mt-2 text-xs text-muted">
+                    <p>Payment: {payment.status.replaceAll('_', ' ')} — {(payment.amount / 100).toFixed(2)} {payment.currency}</p>
+                    {payment.paidAt && <a href={`/api/membership/payments/${payment.id}/receipt`} className="font-semibold text-primary underline">Download payment receipt</a>}
+                  </div>
+                ))}
               </div>
               <span
                 className={`w-fit shrink-0 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${

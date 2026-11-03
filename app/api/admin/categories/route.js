@@ -6,25 +6,34 @@ import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/admin/categories — full list, sorted alphabetically.
- * Powers the Blog form's category <select>. Full category CRUD management
- * (edit/delete/reorder) is out of scope for this sprint; this route only
- * covers what the Blog Management module needs.
+ * GET /api/admin/categories — the shared category list for the Blog editor
+ * and Blog Categories admin screen. The optional search query is used only
+ * by the management screen; callers without it still receive the full list.
  */
 export const GET = withErrorHandling(async (request) => {
   const user = await requireAuth(request);
   if (user instanceof Response) return user;
 
   await connectDB();
-  const categories = await Category.find({}).sort({ name: 1 }).lean();
+  const search = new URL(request.url).searchParams.get('search')?.trim();
+  const escapedSearch = search?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const query = escapedSearch
+    ? {
+        $or: [
+          { name: { $regex: escapedSearch, $options: 'i' } },
+          { description: { $regex: escapedSearch, $options: 'i' } },
+        ],
+      }
+    : {};
+
+  const categories = await Category.find(query).sort({ name: 1 }).lean();
 
   return ok({ categories });
 });
 
 /**
- * POST /api/admin/categories — quick-create, used by the "+ New category"
- * option inline in the Blog form so authors aren't blocked waiting on a
- * separate Categories management page.
+ * POST /api/admin/categories — creates a category from either the full
+ * management form or the Blog editor's compact "+ New category" control.
  */
 export const POST = withErrorHandling(async (request) => {
   const user = await requireAuth(request, ['admin', 'editor']);
@@ -37,6 +46,7 @@ export const POST = withErrorHandling(async (request) => {
 
   const category = await Category.create({
     name: body.name.trim(),
+    slug: body.slug?.trim() || undefined,
     description: body.description || '',
   });
 

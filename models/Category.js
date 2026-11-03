@@ -4,13 +4,9 @@ import { slugify } from '@/lib/slugify';
 const { Schema, models, model } = mongoose;
 
 /**
- * Minimal Categories collection. This sprint only needs it as the source
- * for Blog category selection (didn't exist yet in the uploaded project),
- * so it's intentionally lightweight — name + auto slug + optional
- * description. The full Categories admin management page is still a
- * placeholder and is out of scope for this sprint; `app/api/admin/categories`
- * exposes just enough (list + quick-create) for the Blog form's category
- * picker.
+ * Blog category data. Categories stay intentionally lightweight because
+ * they are labels used to organize articles rather than publishable content
+ * of their own. The admin CRUD screens manage these three fields directly.
  */
 const CategorySchema = new Schema(
   {

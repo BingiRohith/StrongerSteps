@@ -15,29 +15,31 @@
     "migrate:protected-infographics": "node scripts/migrateProtectedInfographics.mjs",
     "migrate:product-categories": "node scripts/migrateProductCategories.mjs",
     "migrate:verified-lead-nulls": "node scripts/migrateVerifiedLeadNulls.mjs",
-    "test": "node --import ./tests/register-loader.mjs --test"
+    "test": "node --import ./tests/register-loader.mjs --test",
+    "verify:launch": "node scripts/verifyLaunchFlows.mjs --isolated-copy"
   },
   "dependencies": {
-    "@tiptap/extension-image": "^3.28.0",
-    "@tiptap/extension-link": "^3.28.0",
-    "@tiptap/extension-placeholder": "^3.28.0",
-    "@tiptap/extension-table": "^3.28.0",
-    "@tiptap/extension-table-cell": "^3.28.0",
-    "@tiptap/extension-table-header": "^3.28.0",
-    "@tiptap/extension-table-row": "^3.28.0",
-    "@tiptap/pm": "^3.28.0",
-    "@tiptap/react": "^3.28.0",
-    "@tiptap/starter-kit": "^3.28.0",
+    "@tiptap/extension-image": "3.31.4",
+    "@tiptap/extension-link": "3.31.4",
+    "@tiptap/extension-placeholder": "3.31.4",
+    "@tiptap/extension-table": "3.31.4",
+    "@tiptap/extension-table-cell": "3.31.4",
+    "@tiptap/extension-table-header": "3.31.4",
+    "@tiptap/extension-table-row": "3.31.4",
+    "@tiptap/pm": "3.31.4",
+    "@tiptap/react": "3.31.4",
+    "@tiptap/starter-kit": "3.31.4",
     "bcryptjs": "^2.4.3",
     "framer-motion": "^12.42.2",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.383.0",
     "mongodb": "^7.4.0",
     "mongoose": "^8.5.1",
-    "next": "14.2.5",
+    "next": "15.5.28",
     "react": "^18.3.1",
     "react-calendar": "^6.0.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "sanitize-html": "^2.18.1"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.19",
@@ -46,5 +48,10 @@
     "eslint-config-next": "^14.2.5",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.4"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "$postcss"
+    }
   }
 }

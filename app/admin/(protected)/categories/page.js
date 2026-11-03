@@ -1,12 +1,5 @@
-import { FolderTree } from 'lucide-react';
-import PagePlaceholder from '@/components/admin/PagePlaceholder';
+import CategoriesListClient from '@/components/admin/categories/CategoriesListClient';
 
 export default function AdminCategoriesPage() {
-  return (
-    <PagePlaceholder
-      icon={FolderTree}
-      title="Categories"
-      description="Organize blog and content categories from here once category management is built."
-    />
-  );
+  return <CategoriesListClient />;
 }

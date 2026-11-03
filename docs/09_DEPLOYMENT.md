@@ -1,5 +1,24 @@
 # 09. Deployment
 
+## Reconciled delivery deployment order (2026-11-03)
+
+1. Deploy the reconciled code, preserving the target environment's secrets,
+   JWT signing key, cookie names and upload directories.
+2. Run `npm run migrate:verified-lead-nulls` with that environment's
+   `MONGODB_URI`. The migration only unsets explicit null email/mobile values;
+   subsequent runs make no changes. Do not reset/reseed existing data.
+3. Verify email-only/mobile-only OTP, linking a second identifier, existing
+   sessions, membership requests, and Knowledge Center/Course/Tool OTP flows.
+
+See [CLIENT_DELIVERY_CHECKLIST.md](CLIENT_DELIVERY_CHECKLIST.md) for acceptance
+and cross-laptop synchronization. `npm run verify:launch` runs an opt-in HTTP
+regression pass using a disposable copy of at most 1,000 configured Atlas lead
+records, matching source indexes, and generated content. It drops only its own
+`strongersteps_verify_<random>` database and generated files afterward. Providers
+are mocked and OTP hashes are substituted only in the isolated test database;
+this does not prove real email/SMS delivery or a deployed staging environment.
+
+
 ## Environment variables
 
 | Variable | Required | Notes |
@@ -9,13 +28,19 @@
 | `JWT_EXPIRES_IN` | No | Defaults to `7d` |
 | `AUTH_COOKIE_NAME` | No | Defaults to `ss_token` |
 | `ADMIN_NAME` / `ADMIN_EMAIL` / `ADMIN_PASSWORD` | For seeding | Read once by `scripts/createAdmin.mjs` to create the first admin login |
-| `OTP_EMAIL_PROVIDER` | No | Sprint 12.5 — defaults to `mock` (console-logs the OTP). Set to a real provider name once one is wired into `lib/verification/providers/index.js` (e.g. Resend, SendGrid). |
+| `OTP_EMAIL_PROVIDER` | No | Sprint 12.5 — defaults to the safe no-op `mock`. Set only to a provider name implemented in `lib/verification/providers/index.js`. |
 | `OTP_SMS_PROVIDER` | No | Sprint 12.5 — defaults to `mock`. Set to a real provider name once one is wired in (e.g. MSG91, Twilio, AWS SNS). |
 | `OTP_EXPIRY_MINUTES` | No | Sprint 12.5 — defaults to `10`. |
 | `DOWNLOAD_TOKEN_EXPIRY_MINUTES` | No | Sprint 12.5 — defaults to `15`. Reuses `JWT_SECRET` (distinct `purpose` claim), not a separate secret. |
+| `NOTIFICATION_EMAIL_PROVIDER` | No | Sprint 24 — booking email delivery selection; defaults/falls back safely to `mock`. |
+| `NOTIFICATION_SMS_PROVIDER` | No | Sprint 24 — booking SMS delivery selection; defaults/falls back safely to `mock`. |
+| `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | When email provider is `resend` | Sprint 24 follow-up — required by the Resend adapter; set only in the deployment environment. |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | When SMS provider is `twilio` | Sprint 24 follow-up — required by the Twilio adapter; set only in the deployment environment. |
 | `NEXT_PUBLIC_SITE_URL` | No | Sprint 17 — defaults to `http://localhost:3000`. Public site origin, used for `metadataBase` (canonical/OpenGraph URLs in `app/layout.js`) and the absolute URLs in `app/sitemap.js`/`app/robots.js`. **Set this to the real production domain before going live** — left at the default, canonical/OG/sitemap URLs will all point at `localhost`. |
 | `LEAD_COOKIE_NAME` | No | Sprint 19.1B — defaults to `ss_lead`. The public visitor identity (`VerifiedLead`) session cookie — separate from `AUTH_COOKIE_NAME`'s admin session. See [14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md). |
 | `LEAD_SESSION_EXPIRES_IN` | No | Sprint 19.1B — defaults to `180d`. Reuses `JWT_SECRET` (distinct `purpose` claim), not a separate secret. |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | For paid memberships | Server-side Razorpay API credentials. Use test mode on staging. Only the key ID is returned to Checkout. |
+| `RAZORPAY_WEBHOOK_SECRET` | For payment webhooks | Dedicated HMAC secret for `/api/payments/razorpay/webhook`; not the API key secret. |
 
 `.env.example` (restored in Sprint 17 — see [13_DECISIONS.md](13_DECISIONS.md))
 mirrors this table; `cp .env.example .env.local` and fill in real values.
@@ -61,25 +86,15 @@ missing-variable behavior, for pre-launch verification:
 ### OTP email/SMS provider — launch blocker
 
 `OTP_EMAIL_PROVIDER`/`OTP_SMS_PROVIDER` default to `mock`
-(`lib/verification/providers/mockProvider.js`), which does not deliver
-anything — it only `console.log`s the OTP code server-side. **This must be
-replaced with a real provider before public launch**, or no visitor can
-ever complete an OTP-gated flow (protected downloads, OTP-gated
-lessons/tools, booking-adjacent verification). This is an external
-infrastructure dependency, not a code defect — the provider abstraction
-(`lib/verification/providers/index.js`) is already in place and ready:
+(`lib/verification/providers/mockProvider.js`), which is a no-op and does not
+log codes or deliver messages. Existing Resend and Twilio adapters support
+real delivery: configure `OTP_EMAIL_PROVIDER=resend` and/or
+`OTP_SMS_PROVIDER=twilio` with the matching credentials above, then verify an
+actual controlled inbox/phone round trip before launch. A rejected provider
+delivery returns 503 instead of claiming a code was sent.
 
-1. Sign up for a real email provider (e.g. Resend, SendGrid) and/or SMS
-   provider (e.g. Twilio, MSG91) and obtain API credentials.
-2. Add one file per provider under `lib/verification/providers/` matching
-   `mockProvider.js`'s exact contract: `send({ to, otp, channel })`.
-3. Add a `case` for it in `getEmailProvider()`/`getSmsProvider()`
-   (`lib/verification/providers/index.js`) and add its API key(s) as new
-   env vars (documented here and in `.env.example` at that time).
-4. Set `OTP_EMAIL_PROVIDER`/`OTP_SMS_PROVIDER` to the new provider's name.
-5. Test a full OTP round-trip end-to-end against the real provider before
-   sign-off — do not consider this done until an actual email/SMS is
-   received by a real inbox/phone.
+For payment configuration, capture settings, webhook events and real test-mode
+acceptance, follow [16_MEMBERSHIP_PAYMENTS.md](16_MEMBERSHIP_PAYMENTS.md).
 
 ## First-time setup
 
@@ -142,8 +157,8 @@ Sprint 17 added rate limiting to `POST /api/auth/login` (`lib/rateLimit.js`,
 extended the same limiter to `POST /api/bookings` (10/15min per
 mobile+IP — prevents seat-inventory spam) and `GET /api/bookings/lookup`
 (20/15min per mobile+IP — prevents scripted enumeration of booking history
-by mobile number, which has no other access control since a mobile number
-alone is the only lookup credential by design). All three are an in-memory
+by mobile number; Sprint 20 additionally requires the booking reference).
+All three are an in-memory
 `Map`, scoped to one Node process — same "single always-on server"
 assumption as the upload storage caveat above. Fine for the documented
 single-instance deployment; if this app ever moves to a multi-instance/

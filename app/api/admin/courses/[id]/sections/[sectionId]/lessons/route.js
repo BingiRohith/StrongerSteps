@@ -4,6 +4,7 @@ import Section from '@/models/Section';
 import Lesson from '@/models/Lesson';
 import { requireAuth } from '@/lib/auth';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
+import { sanitizeRichHtml } from '@/lib/sanitizeRichHtml';
 import { LESSON_TYPE_VALUES } from '@/lib/courseOptions';
 import { isValidAccessLevel } from '@/lib/access/accessLevels';
 
@@ -25,7 +26,14 @@ export const GET = withErrorHandling(async (request, { params }) => {
     .sort({ displayOrder: 1 })
     .lean();
 
-  return ok({ lessons });
+  // The editor receives sanitized HTML too, protecting an admin who opens
+  // an older lesson created before save-time sanitizing was introduced.
+  return ok({
+    lessons: lessons.map((lesson) => ({
+      ...lesson,
+      body: sanitizeRichHtml(lesson.body),
+    })),
+  });
 });
 
 /**

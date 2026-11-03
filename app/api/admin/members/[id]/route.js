@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import connectDB from '@/lib/db';
 import MembershipSubscription from '@/models/MembershipSubscription';
+import '@/models/VerifiedLead';
+import '@/models/Membership';
 import { requireAuth } from '@/lib/auth';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
 
@@ -11,6 +13,7 @@ export const dynamic = 'force-dynamic';
  * populated lead + plan, for the admin member detail page.
  */
 export const GET = withErrorHandling(async (request, { params }) => {
+  params = await params;
   const user = await requireAuth(request);
   if (user instanceof Response) return user;
 

@@ -1,5 +1,6 @@
 import { Crown } from 'lucide-react';
 import { currencySymbol, billingPeriodLabel } from '@/lib/membershipOptions';
+import { membershipAmountMinor } from '@/lib/membershipPricing';
 
 const STATUS_LABELS = {
   guest: 'Guest',
@@ -42,11 +43,11 @@ export default function MembershipStatusCard({ status, plan, membershipExpiry })
           <p className="font-display text-lg font-bold text-primary-dark">{plan.name}</p>
           <p className="text-muted">
             {currencySymbol(plan.currency)}
-            {(plan.price ?? 0).toLocaleString('en-IN')} / {billingPeriodLabel(plan.billingPeriod).toLowerCase()}
+            {(membershipAmountMinor(plan) / 100).toLocaleString('en-IN')} / {billingPeriodLabel(plan.billingPeriod).toLowerCase()}
           </p>
           {membershipExpiry ? (
             <p className="text-muted">
-              {status === 'expired_member' ? 'Expired on' : 'Renews on'} {formatDate(membershipExpiry)}
+              {status === 'expired_member' ? 'Expired on' : 'Expires on'} {formatDate(membershipExpiry)}
             </p>
           ) : (
             <p className="text-muted">This plan does not expire.</p>

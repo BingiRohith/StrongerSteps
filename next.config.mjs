@@ -3,6 +3,10 @@ const nextConfig = {
   // Sprint 19.6: a real .eslintrc.json (next/core-web-vitals) now exists and
   // the codebase lints clean, so `next build` runs ESLint for real instead
   // of skipping it — this was previously ignored because no config existed.
+  // sanitize-html is server-only and loads htmlparser2 dynamically. Keep it
+  // as a Node dependency instead of asking webpack to rebundle the parser's
+  // ESM package graph. (Top-level name used by Next 15+.)
+  serverExternalPackages: ['sanitize-html'],
   // NOTE: `output: 'export'` was removed. Static export disables API routes
   // and middleware entirely, so it can't coexist with the backend
   // (MongoDB + auth) added in this sprint. The app now builds as a normal

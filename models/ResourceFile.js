@@ -95,6 +95,9 @@ const ResourceFileSchema = new Schema(
       mimeType: { type: String, default: '' },
       sizeBytes: { type: Number, default: 0 },
       storageProvider: { type: String, default: 'local' },
+      // Optional shared-library asset. The parent file's access settings,
+      // not the library record, remain the authority for visitor access.
+      mediaId: { type: Schema.Types.ObjectId, ref: 'Media', default: null },
     },
     // For fileType 'external_link' only.
     externalUrl: {

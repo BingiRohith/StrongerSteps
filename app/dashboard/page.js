@@ -6,12 +6,14 @@ import { getMembershipStatus } from '@/lib/access/membershipStatus';
 import { listSubscriptionsForLead } from '@/lib/membershipSubscription';
 import { Button, Eyebrow } from '@/components/ui';
 import DashboardShell from '@/components/membership/dashboard/DashboardShell';
+import { listMembershipPayments } from '@/lib/payments/membershipPayments';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
   title: 'My Membership Dashboard',
   description: 'View your Stronger Steps membership status, current plan, and request history.',
+  robots: { index: false, follow: false },
 };
 
 function serialize(doc) {
@@ -57,6 +59,7 @@ export default async function DashboardPage() {
       plan={serialize(plan)}
       membershipExpiry={lead.membershipExpiry}
       subscriptions={serialize(subscriptions)}
+      payments={serialize(await listMembershipPayments(lead._id))}
     />
   );
 }
