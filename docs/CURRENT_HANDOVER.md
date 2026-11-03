@@ -44,9 +44,12 @@ configured database. Runtime uploads remain on disk and outside source control.
 
 ## Client acceptance gates
 
-The user reported test credentials configured elsewhere, but RAZORPAY_KEY_ID,
-RAZORPAY_KEY_SECRET and RAZORPAY_WEBHOOK_SECRET were absent from this checkout
-when checked. No staging/live URL has been supplied. Securely configure them,
+The Razorpay test key pair was found as incorrectly labelled text in the other
+project folder and copied into this checkout's ignored `.env.local` using the
+correct variable names. A read-only Razorpay orders request returned HTTP 200;
+the app reloaded the environment. No real order, payment or refund was created.
+RAZORPAY_WEBHOOK_SECRET is still absent and no staging/live URL was supplied.
+Configure the webhook secret and the hosting environment securely,
 enable auto-capture, register the HTTPS webhook for payment.captured,
 payment.failed and refund.processed, then complete a real test checkout,
 receipt, retry, webhook replay and refund. Verify real OTP receipt in a

@@ -14,9 +14,10 @@ Workspace/repository:
 SPRINT GOAL:
 Finish real deployed test-mode Razorpay and OTP acceptance for the two-day
 client delivery. Read CLIENT_DELIVERY_CHECKLIST.md and 16_MEMBERSHIP_PAYMENTS.md.
-The three Razorpay variables were absent from this checkout at the last check,
-despite being reported configured on another laptop. Obtain the staging HTTPS
-URL, configure secrets securely, enable auto-capture and register the webhook.
+The Razorpay test key pair is now configured in this checkout's ignored env file
+and passed a read-only provider authentication request (HTTP 200). No real
+checkout was submitted. The webhook secret is still absent. Obtain the staging
+HTTPS URL, configure the webhook secret securely, enable auto-capture and register the webhook.
 Verify actual checkout, receipt, failure/retry, webhook replay and processed
 refund access changes. Do not claim external acceptance from simulation alone.
 

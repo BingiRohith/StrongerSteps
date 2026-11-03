@@ -25,8 +25,9 @@ with another or run a hard reset to synchronize them.
 - Client requires Razorpay for this delivery. Sprint 19.7b is implemented and
   verified in 28 isolated HTTP integration groups; real deployed test-mode
   acceptance is still required before enabling live collection.
-- Configure the three Razorpay variables in this checkout's `.env.local` and
-  hosting environment. They were absent at the 2026-11-03 configuration check.
+- The Razorpay test key pair is now configured in this checkout's ignored
+  `.env.local` and passed read-only authentication (HTTP 200). The webhook
+  secret and hosting configuration are still required. Keys are not in Git.
 - Supply the staging HTTPS URL, configure its Razorpay webhook, and complete
   a real test checkout including receipt, webhook retry and refund delivery.
   Follow [16_MEMBERSHIP_PAYMENTS.md](16_MEMBERSHIP_PAYMENTS.md).

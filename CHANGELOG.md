@@ -1,5 +1,15 @@
 # Changelog
 
+## Local Razorpay test configuration corrected — 2026-11-03
+
+Located the user-saved test pair in the other project folder, where the values
+were labelled text rather than environment assignments. Validated them with a
+read-only Razorpay API request (HTTP 200), then mechanically copied them to
+the running checkout's ignored `.env.local` under the expected variable names.
+The app reloaded its environment and membership routes still return 200.
+No credential values were printed or committed; no provider order/payment/refund
+was created. The webhook secret and real checkout acceptance remain pending.
+
 ## OTP provider readiness — 2026-11-03
 
 Before real provider acceptance, corrected the Twilio adapter to translate
