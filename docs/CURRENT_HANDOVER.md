@@ -1,6 +1,24 @@
 # Current Handover
 
-Last updated: 2026-11-03
+Last updated: 2026-11-04
+
+## Latest local acceptance follow-up
+
+Knowledge Center now reuses active VerifiedLead membership sessions for
+infographic and OTP ResourceFile downloads. Other visitors retain OTP;
+purchased/admin-only access and Course/Tool OTP policies are unchanged.
+`npm test`: 210 passed. `npm run lint` and `npm run build`: passed (the two
+existing Media Library image warnings remain). `npm run verify:launch`: 30
+groups passed on a disposable Atlas copy of two leads; source data was read-only,
+transports mocked and generated fixtures removed. No schema change/migration.
+
+User confirmed real email OTP delivery. Their screenshot showed a completed
+Razorpay Test Mode payment and active Family membership through 4 November 2027;
+local server logs also showed payment verification 200 and receipt download 200.
+Real external webhook acceptance is still pending. SMS is explicitly deferred:
+Twilio's current Messaging trial rejected custom OTP text with error 572006.
+Local ignored provider settings were configured; older missing-key notes below
+are historical, not the current environment state.
 
 ## Repository and implemented work
 

@@ -1,5 +1,17 @@
 # 06. API Documentation
 
+## Knowledge Center member downloads (2026-11-04)
+
+- `GET /api/infographics/[id]/download?fileKind=image|pdf`: private attachment
+  for a published infographic. Requires a signed, active-member VerifiedLead
+  session; guest 401, inactive/expired 403, invalid id/kind 400, missing or
+  unpublished record/file 404. Logs the download and never caches file bytes.
+  Non-members continue using the existing OTP/token endpoint.
+- `GET /api/resource-files/[fileId]?action=view|download`: active members can
+  now access OTP files using the same Knowledge Center policy as resource page
+  annotations. PURCHASED/ADMIN restrictions and download-disabled flags remain.
+
+
 ## Reconciled membership endpoints (2026-11-03)
 
 Public lead identity and membership state: `GET /api/me` (guest-safe),

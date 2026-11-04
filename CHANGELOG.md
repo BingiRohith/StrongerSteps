@@ -1,5 +1,17 @@
 # Changelog
 
+## Knowledge Center member downloads — 2026-11-04
+
+- Active members reuse their VerifiedLead session for infographic and OTP-gated
+  ResourceFile downloads, without another email/SMS OTP.
+- Added a private, published-only infographic member-download route and a
+  centralized Knowledge Center policy shared by resource metadata and streaming.
+- Non-members retain OTP; expired/revoked memberships lose the bypass. Purchased
+  and admin-only restrictions remain unchanged, as do Course/Tool OTP rules.
+- Added unit and isolated HTTP integration coverage; no database migration.
+- Verification: 210 unit tests, 30 isolated MongoDB HTTP integration groups,
+  lint and production build passed. Existing Media Library image warnings remain.
+
 ## Local Razorpay test configuration corrected — 2026-11-03
 
 Located the user-saved test pair in the other project folder, where the values

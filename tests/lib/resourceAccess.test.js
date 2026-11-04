@@ -69,6 +69,34 @@ describe('annotateResourceFileAccess — PURCHASED', () => {
 });
 
 describe('annotateResourceFileAccess — OTP', () => {
+  it('unlocks for an active member without requesting another OTP', () => {
+    const result = annotateResourceFileAccess(baseFile({ accessLevel: 'OTP' }), baseResource(), {
+      lead: { membership: 'plan-1', membershipExpiry: new Date(Date.now() + 60000) },
+    });
+    assert.equal(result.locked, false);
+    assert.equal(result.requiresOtp, false);
+    assert.equal(result.file.url, 'private-key.pdf');
+  });
+
+  it('keeps registered, expired and revoked leads OTP-gated', () => {
+    for (const lead of [{}, { membership: 'plan-1', membershipExpiry: new Date(0) }, { membership: null }]) {
+      const result = annotateResourceFileAccess(baseFile({ accessLevel: 'OTP' }), baseResource(), { lead });
+      assert.equal(result.locked, true);
+      assert.equal(result.requiresOtp, true);
+      assert.equal(result.file, undefined);
+    }
+  });
+
+  it('does not extend membership to purchased or admin-only files', () => {
+    for (const accessLevel of ['PURCHASED', 'ADMIN']) {
+      const result = annotateResourceFileAccess(baseFile({ accessLevel }), baseResource(), {
+        lead: { membership: 'plan-1' },
+      });
+      assert.equal(result.locked, true);
+      assert.equal(result.file, undefined);
+    }
+  });
+
   it('is locked with requiresOtp set, never unlocked by canAccess() alone', () => {
     const result = annotateResourceFileAccess(baseFile({ accessLevel: 'OTP' }), baseResource(), {});
     assert.equal(result.locked, true);

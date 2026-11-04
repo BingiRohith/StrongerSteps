@@ -1,5 +1,23 @@
 # 14. Access Control
 
+## Knowledge Center member-session reuse (2026-11-04)
+
+Active members do not repeat OTP for Knowledge Center downloads. Resource-file
+annotations and streaming both use `lib/access/knowledgeAccess.js`, which adds
+an active-member grant for OTP files and otherwise delegates to `canAccess`.
+PUBLIC previews, MEMBER gates, PURCHASED requirements and ADMIN restrictions
+retain their existing meaning. This exception is scoped to Knowledge Center:
+the generic `canAccess` OTP policy for Courses/Tools is unchanged.
+
+Infographic downloads first try
+`GET /api/infographics/[id]/download?fileKind=image|pdf`. This route resolves the
+existing signed VerifiedLead session and checks active membership on every
+request, serves published records only, uses private storage/media readers,
+logs the download against the lead and returns private, non-cacheable bytes.
+Guests (401) and non-members/expired members (403) fall back to the existing
+OTP modal and signed download-token flow. Invalid kinds, unpublished records
+and missing files do not fall back to OTP. No schema or migration is needed.
+
 ## Payment-driven membership grants (2026-11-03)
 
 Sprint 19.7b reuses the existing `canAccess`/`isActiveMember` grant: only a
@@ -37,7 +55,7 @@ resource**, not pricing tiers — a module's price/plan logic (e.g.
 | Level | Who can access it | Proof mechanism |
 |---|---|---|
 | `PUBLIC` | Anyone, no verification | None |
-| `OTP` | Anyone who verifies an email/mobile via OTP for *this specific resource* | Short-lived signed download token (`app/api/verify/*`, unchanged since Sprint 12.5) |
+| `OTP` | Resource-specific OTP; active membership also suffices for Knowledge Center downloads only | Signed download token, or the Knowledge Center member-session policy above |
 | `MEMBER` | A visitor with a `VerifiedLead` that has an active, non-expired `Membership` | `VerifiedLead.membership` + `membershipExpiry` |
 | `PURCHASED` | A visitor whose `VerifiedLead` has this `(resourceType, resourceId)` pair in its purchase history | `VerifiedLead.purchasedItems` (polymorphic — one list for every purchasable type) |
 | `ADMIN` | An authenticated admin/editor session | `lib/auth.js`'s existing JWT session (unchanged) |

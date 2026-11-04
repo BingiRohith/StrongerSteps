@@ -184,16 +184,41 @@ try {
   assert.equal((await action('activate', { expiresAt: '2020-01-01' })).status, 400);
   assert.equal((await db.collection('membershipsubscriptions').findOne({ _id: sub._id })).status, 'pending');
   passed('Invalid activation dates leave the request pending');
+  const memberInfographicUrl = `/api/infographics/${infographicId}/download?fileKind=pdf`;
+  assert.equal((await request(memberInfographicUrl)).status, 401);
+  assert.equal((await request(memberInfographicUrl, { cookie: linked.cookie })).status, 403);
+  assert.equal((await request(`/api/resource-files/${fileId}`, { cookie: linked.cookie })).status, 403);
   assert.equal((await request(`/api/resource-files/${memberFileId}`, { cookie: linked.cookie })).status, 403);
   assert.equal((await action('activate')).status, 200);
   assert.equal((await action('activate')).status, 409);
   assert.equal((await request('/api/me', { cookie: linked.cookie })).data.membership.status, 'active_member');
   assert.equal((await request(`/api/resource-files/${memberFileId}`, { cookie: linked.cookie })).data, content);
   passed('Transactional activation, duplicate conflict and premium resource access');
+  const verificationCount = await db.collection('verifications').countDocuments({});
+  for (const url of [memberInfographicUrl, `/api/resource-files/${fileId}`]) {
+    const downloaded = await request(url, { cookie: linked.cookie });
+    assert.equal(downloaded.status, 200);
+    assert.equal(downloaded.data, content);
+  }
+  assert.equal(await db.collection('verifications').countDocuments({}), verificationCount);
+  assert.ok(await db.collection('downloadlogs').findOne({ resourceType: 'infographic', resourceId: infographicId, lead: sub.lead }));
+  assert.equal((await request(`/api/infographics/${infographicId}/download?fileKind=invalid`, { cookie: linked.cookie })).status, 400);
+  await db.collection('infographics').updateOne({ _id: infographicId }, { $set: { status: 'draft' } });
+  assert.equal((await request(memberInfographicUrl, { cookie: linked.cookie })).status, 404);
+  await db.collection('infographics').updateOne({ _id: infographicId }, { $set: { status: 'published' } });
+  for (const accessLevel of ['PURCHASED', 'ADMIN']) {
+    await db.collection('resourcefiles').updateOne({ _id: memberFileId }, { $set: { accessLevel } });
+    assert.equal((await request(`/api/resource-files/${memberFileId}`, { cookie: linked.cookie })).status, 403);
+  }
+  await db.collection('resourcefiles').updateOne({ _id: memberFileId }, { $set: { accessLevel: 'MEMBER' } });
+  passed('Active members download Knowledge Center files without OTP; drafts and purchased/admin files stay protected');
   assert.equal((await action('expire')).status, 200); assert.equal((await action('expire')).status, 409);
   assert.equal((await request('/api/me', { cookie: linked.cookie })).data.membership.status, 'expired_member');
   assert.equal((await request(`/api/resource-files/${memberFileId}`, { cookie: linked.cookie })).status, 403);
   passed('Expiration revokes membership access');
+  assert.equal((await request(memberInfographicUrl, { cookie: linked.cookie })).status, 403);
+  assert.equal((await request(`/api/resource-files/${fileId}`, { cookie: linked.cookie })).status, 403);
+  passed('Expired membership cannot bypass Knowledge Center OTP');
   const renewal = await request('/api/membership/requests', { method: 'POST', cookie: linked.cookie, body: { planId: String(plan._id) } });
   assert.equal(renewal.status, 201);
   const pending = await db.collection('membershipsubscriptions').findOne({ lead: sub.lead, status: 'pending' });

@@ -1,5 +1,14 @@
 # 10. Sprint History
 
+## Membership acceptance follow-up — 2026-11-04
+
+Removed repeated Knowledge Center download OTP for active members by reusing
+VerifiedLead sessions. Added a published-only infographic download endpoint
+and centralized the ResourceFile membership exception for metadata and bytes.
+Guests retain OTP; expired/revoked members lose this exception. Purchased and
+staff restrictions, Course/Tool OTP and all schemas remain unchanged.
+
+
 | 24 | Communication Foundation | 2026-10-06 | Added provider-neutral mock-safe email/SMS notification attempts after successful public booking creation and actual admin transitions to confirmed/cancelled. New additive `NotificationDelivery` records safe channel outcomes without recipient/message data; booking writes, seat locks, OTP, access control, and existing records remain unchanged. |
 | 24 follow-up | Resend and Twilio delivery adapters | 2026-10-06 | Added dependency-free HTTP adapters for selected Resend email and Twilio SMS providers, also compatible with the existing OTP transport contract. Missing credentials make no network call and produce an auditable safe outcome. 154 tests and a production build passed. |
 | 23 | Secure Lesson Media Library reuse | 2026-10-06 | Added compatible Media Library pickers to Lesson video, PDF, and attachment editing while retaining direct uploads. Server validation canonicalizes only private compatible assets; shared references are served only after every existing Lesson access rule, including OTP download tokens. Media deletion now detects Lesson usage. No existing Atlas record or upload was changed. |
