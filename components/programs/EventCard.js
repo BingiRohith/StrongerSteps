@@ -36,7 +36,7 @@ export default function EventCard({ event, onBook }) {
         // eslint-disable-next-line @next/next/no-img-element -- locally-uploaded file, not an optimizable remote image
         <img
           src={event.image.url}
-          alt={event.image.alt || ''}
+          alt={event.image.alt || event.title}
           className="h-40 w-full shrink-0 rounded-lg object-cover sm:h-auto sm:w-36"
         />
       ) : (

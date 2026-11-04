@@ -1,5 +1,15 @@
 # 07. Admin Modules
 
+## Members — reconciled Sprint 19.7a/19.7b
+
+`/admin/members` manages per-lead subscriptions separately from the existing
+`/admin/membership` plan catalogue. Staff can search name/email/mobile/plan,
+filter lifecycle status, inspect profile/history, and activate/expire/cancel.
+Actions reject duplicates and invalid transitions. Detail pages also display
+online payment amounts/references/status, receipt links and late-capture review
+flags. Refund initiation is performed in Razorpay's Dashboard; signed processed
+refunds update the local ledger and access automatically.
+
 Admin panel lives at `/admin/*`, gated by [`middleware.js`](../middleware.js)
 (edge cookie-presence check) and
 [`app/admin/(protected)/layout.js`](../app/admin/(protected)/layout.js)

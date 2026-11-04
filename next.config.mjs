@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // Sprint 19.6: a real .eslintrc.json (next/core-web-vitals) now exists and
+  // the codebase lints clean, so `next build` runs ESLint for real instead
+  // of skipping it — this was previously ignored because no config existed.
   // sanitize-html is server-only and loads htmlparser2 dynamically. Keep it
   // as a Node dependency instead of asking webpack to rebundle the parser's
   // ESM package graph. (Top-level name used by Next 15+.)

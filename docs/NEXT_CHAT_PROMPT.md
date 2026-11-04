@@ -1,19 +1,44 @@
 # Next Chat Prompt
 
 ```text
-Continue the StrongerSteps project from the latest origin/main branch.
+Continue StrongerSteps client delivery from codex/reconcile-membership-launch,
+or origin/main if the reconciliation PR has merged. Verify git status, branch,
+latest remote commit and PR before editing. Do not reset or overwrite a laptop's
+working directory to synchronize it.
 
 Workspace/repository:
-- Local project: C:\Users\rosha\OneDrive\Desktop\StrongerSteps
+- Local project: C:\Users\rosha\Downloads\StrongerSteps
 - GitHub: https://github.com/BingiRohith/StrongerSteps
-- Branch: main
+- Branch: codex/reconcile-membership-launch (check PR merge status)
 
 SPRINT GOAL:
-[Describe one approved, narrow outcome. Recommended next candidate: design a durable notification delivery/retry approach around the existing Resend/Twilio adapters, or scope CRS §19 role management. Do not combine them.]
+Finish real deployed test-mode Razorpay and OTP acceptance for the two-day
+client delivery. Read CLIENT_DELIVERY_CHECKLIST.md and 16_MEMBERSHIP_PAYMENTS.md.
+The Razorpay test key pair is now configured in this checkout's ignored env file
+and passed a read-only provider authentication request (HTTP 200). No real
+checkout was submitted. The webhook secret is still absent. Obtain the staging
+HTTPS URL, configure the webhook secret securely, enable auto-capture and register the webhook.
+Verify actual checkout, receipt, failure/retry, webhook replay and processed
+refund access changes. Do not claim external acceptance from simulation alone.
 
 Before editing, read docs/01_PROJECT_HANDOVER.md, docs/CURRENT_HANDOVER.md, docs/15_SPRINT_CONTINUATION_WORKFLOW.md, docs/02_ROADMAP.md, docs/03_CLIENT_REQUIREMENTS.md §17, and the relevant architecture/database/API/admin/security/deployment documents. Inspect git status/latest commit and actual booking, notification, provider, OTP, and access-control code. Use the existing .env.local without printing values; never expose secrets, OTPs, recipients, or provider credentials. Preserve Atlas and existing uploads: no reset, reseed, migration, deletion, live notification, or production-like booking/status write without explicit authorization.
 
-Sprint 24 added lib/notifications/bookingNotifications.js, models/NotificationDelivery.js, and notification provider variable names. The current mock is deliberately no-op and safe; booking creation and admin confirmed/cancelled changes queue only after a successful write. Preserve atomic seat locking, booking-history privacy, OTP behavior, access-control rules, admin roles, and the no-sensitive-data audit boundary.
+Local Sprint 19.6/19.7a/null fixes are reconciled with GitHub Sprints 20–24.
+Sprint 19.7b adds server-priced membership checkout, canonical captured-payment
+activation, signed webhooks/refunds, payment history and private receipts.
+VerifiedLead is the only public identity. Next.js 15.5.28 and sanitizer 2.18.1:
+206 unit tests (including SMS transport) and 28 isolated HTTP integration groups pass, build/lint pass
+(two existing media warnings), production audit zero. Simulations use a
+disposable copy of the configured Atlas data; source records were read-only.
 
-Work autonomously within the approved scope. Add focused tests, run npm test, npm run build, and npm audit --omit=dev; report any network-limited audit. Use a read-only smoke test unless explicit authorization permits data changes. Update CHANGELOG.md, docs/10_SPRINT_HISTORY.md, docs/02_ROADMAP.md, affected technical docs, CURRENT_HANDOVER.md, and this file. Confirm secrets/logs/runtime uploads are excluded, review staged changes for secrets, then commit and push to origin/main. Report the commit, verification, database impact, limitations, and the next prompt.
+Deployment order: deploy code, run npm run migrate:verified-lead-nulls with the
+target environment URI, verify OTP flows, then complete Razorpay acceptance.
+Preserve existing JWT keys/cookies/uploads. No reseed/reset/drop-index operation.
+Do not charge live money or issue real refunds without explicit authorization.
+Recurring debits, tax invoices and broader product commerce remain separate scope.
+
+Work autonomously within this delivery scope. Run relevant tests, build and
+audit. Update the handover with actual external results and remaining gates.
+Review staged source for secrets/logs/runtime media. Commit and push the approved
+branch; do not switch the deployment to live payments before client acceptance.
 ```

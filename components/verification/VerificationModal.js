@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { X, Mail, Phone, Loader2, ShieldCheck, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useModalA11y } from '@/components/useModalA11y';
 
 /**
  * Reusable Email/Mobile OTP verification modal — not Knowledge Center
@@ -39,6 +40,8 @@ export default function VerificationModal({ resourceType, resourceId, fileKind, 
   const [verificationId, setVerificationId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const panelRef = useRef(null);
+  useModalA11y(panelRef, onClose);
 
   function pickMethod(next) {
     setMethod(next);
@@ -113,8 +116,10 @@ export default function VerificationModal({ resourceType, resourceId, fileKind, 
       aria-label={skipRedirect ? 'Verify to continue' : 'Verify to download'}
     >
       <div
+        ref={panelRef}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm overflow-hidden rounded-xl2 bg-white shadow-xl"
+        tabIndex={-1}
+        className="w-full max-w-sm overflow-hidden rounded-xl2 bg-white shadow-xl outline-none"
       >
         <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-4">
           <div className="flex items-center gap-2">

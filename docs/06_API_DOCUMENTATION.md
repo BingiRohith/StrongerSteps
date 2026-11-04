@@ -1,5 +1,32 @@
 # 06. API Documentation
 
+## Knowledge Center member downloads (2026-11-04)
+
+- `GET /api/infographics/[id]/download?fileKind=image|pdf`: private attachment
+  for a published infographic. Requires a signed, active-member VerifiedLead
+  session; guest 401, inactive/expired 403, invalid id/kind 400, missing or
+  unpublished record/file 404. Logs the download and never caches file bytes.
+  Non-members continue using the existing OTP/token endpoint.
+- `GET /api/resource-files/[fileId]?action=view|download`: active members can
+  now access OTP files using the same Knowledge Center policy as resource page
+  annotations. PURCHASED/ADMIN restrictions and download-disabled flags remain.
+
+
+## Reconciled membership endpoints (2026-11-03)
+
+Public lead identity and membership state: `GET /api/me` (guest-safe),
+`GET /api/membership/requests` (own history), and
+`POST /api/membership/requests` (`{planId}`, requires OTP lead session).
+Staff use `GET /api/admin/members`, `GET /api/admin/members/[id]`, and
+`PATCH /api/admin/members/[id]/status` (`{action: activate|expire|cancel}`).
+Duplicate requests/actions return a friendly 409; activation expiry must be valid
+and in the future. Member and staff sessions remain separate.
+
+Razorpay routes and ownership/signature requirements are documented in
+[16_MEMBERSHIP_PAYMENTS.md](16_MEMBERSHIP_PAYMENTS.md): checkout order creation,
+payment verification, raw signed webhooks, and owner/staff-only payment receipts.
+`GET /api/me` now includes safe payment summaries as well as access permissions.
+
 ## Sprint 22–23 Media Library additions
 
 - `POST /api/admin/media` accepts the existing images plus PDFs, Word, PowerPoint, Excel, and MP4/WebM/Ogg files. It requires admin/editor authentication; non-images are stored privately.

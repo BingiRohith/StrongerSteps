@@ -65,7 +65,7 @@ export default async function ProductsPage({ searchParams }) {
         <div className="mx-auto max-w-content px-6 py-12 md:py-16">
           <div className="rounded-xl2 bg-primary-dark p-8 text-white">
             <h3 className="font-display text-xl font-bold">Be the first to know when checkout goes live</h3>
-            <p className="mt-2 text-white/75">Join our community and we'll notify you as soon as you can buy directly on the site.</p>
+            <p className="mt-2 text-white/75">Join our community and we&apos;ll notify you as soon as you can buy directly on the site.</p>
             <Button href="/join" variant="accent" className="mt-5">
               Join the Community <ArrowRight size={18} />
             </Button>

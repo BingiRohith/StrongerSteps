@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, Lock, ExternalLink, FileText, Download, CreditCard, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui';
+import MembersOnlyTrigger from '@/components/membership/MembersOnlyTrigger';
 import CourseCurriculumAccordion from '@/components/courses/CourseCurriculumAccordion';
 import LessonOtpUnlock from '@/components/courses/LessonOtpUnlock';
 import LessonProgressControls from '@/components/courses/LessonProgressControls';
@@ -24,7 +25,25 @@ function flattenLessonIds(sections) {
 export async function generateMetadata({ params }) {
   const result = await getPublicLessonById(params.lessonId);
   if (!result || result.course.slug !== params.slug) return { title: 'Lesson not found' };
-  return { title: `${result.lesson.title} · ${result.course.title}` };
+
+  const { lesson, course } = result;
+  const title = `${lesson.title} · ${course.title}`;
+  const description = lesson.description || course.description || undefined;
+  const ogImages = course.thumbnail?.url
+    ? [{ url: course.thumbnail.url, alt: course.thumbnail.alt || course.title }]
+    : undefined;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `/courses/${course.slug}/lessons/${params.lessonId}` },
+    openGraph: { title, description, type: 'article', images: ogImages },
+    twitter: { card: ogImages ? 'summary_large_image' : 'summary', title, description, images: ogImages },
+    // Lesson content is access-gated (OTP/MEMBER/PURCHASED) — keep it out of
+    // search results even though the page itself renders a locked-state
+    // preview for everyone; same reasoning as gated file routes elsewhere.
+    robots: { index: false, follow: true },
+  };
 }
 
 /**
@@ -133,7 +152,8 @@ function LockedLessonPanel({ lesson }) {
           : 'Course purchases aren’t available yet — check back soon.'}
       </p>
       {isMember && (
-        <div className="mt-5">
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+          <MembersOnlyTrigger label="Login" />
           <Button href="/join" variant="outline" size="sm">
             <CreditCard size={15} aria-hidden="true" />
             View membership plans

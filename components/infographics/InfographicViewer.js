@@ -7,6 +7,35 @@ import VerificationModal from '@/components/verification/VerificationModal';
 
 export default function InfographicViewer({ infographic, onClose }) {
   const [downloadKind, setDownloadKind] = useState(null); // 'image' | 'pdf' | null
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function download(kind) {
+    setBusy(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/infographics/${infographic._id}/download?fileKind=${kind}`, { cache: 'no-store' });
+      if (res.status === 401 || res.status === 403) {
+        setDownloadKind(kind); // Non-members retain the existing OTP download flow.
+        return;
+      }
+      if (!res.ok) throw new Error('download-failed');
+      const blob = await res.blob();
+      const filename = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || `infographic.${kind === 'pdf' ? 'pdf' : 'jpg'}`;
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError('Could not download this file. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (!infographic) return;
@@ -88,10 +117,12 @@ export default function InfographicViewer({ infographic, onClose }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-3 border-t border-line px-5 py-4 sm:px-6">
+          {error && <p role="alert" className="w-full text-sm text-red-700">{error}</p>}
           {infographic.fullImage?.url && (
             <button
               type="button"
-              onClick={() => setDownloadKind('image')}
+              disabled={busy}
+              onClick={() => download('image')}
               className="inline-flex items-center gap-2 rounded-full border-2 border-primary px-5 py-2.5 font-display text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
             >
               <Download size={16} aria-hidden="true" />
@@ -101,7 +132,8 @@ export default function InfographicViewer({ infographic, onClose }) {
           {infographic.pdf?.url && (
             <button
               type="button"
-              onClick={() => setDownloadKind('pdf')}
+              disabled={busy}
+              onClick={() => download('pdf')}
               className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 font-display text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
             >
               <Download size={16} aria-hidden="true" />

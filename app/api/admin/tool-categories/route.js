@@ -2,6 +2,7 @@ import connectDB from '@/lib/db';
 import ToolCategory from '@/models/ToolCategory';
 import { requireAuth } from '@/lib/auth';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
+import { escapeRegex } from '@/lib/escapeRegex';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,7 @@ export const GET = withErrorHandling(async (request) => {
   const query = {};
   if (isActive === 'true') query.isActive = true;
   if (isActive === 'false') query.isActive = false;
-  if (search) query.name = { $regex: search, $options: 'i' };
+  if (search) query.name = { $regex: escapeRegex(search), $options: 'i' };
 
   const categories = await ToolCategory.find(query)
     .sort({ displayOrder: 1, name: 1 })

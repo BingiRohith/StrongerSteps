@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { normalizeEmail, normalizeMobile, planLeadMerge } from '@/lib/verifiedLead.js';
 
 // Only the pure decision logic is covered here — findOrCreateVerifiedLead,
-// mergeVerifiedLeads, linkIdentifierToLead, linkUserToLead, and
-// resolveActiveLead all require a live MongoDB connection, which (per this
+// mergeVerifiedLeads, linkIdentifierToLead, and resolveActiveLead all
+// require a live MongoDB connection, which (per this
 // project's existing, documented precedent — see CHANGELOG.md's "Backend
 // Foundation" entry) isn't available in this sandbox. Smoke-test those
 // against a real database before relying on them.
@@ -49,15 +49,15 @@ describe('planLeadMerge', () => {
   });
 
   it('flags a conflict when both sides hold different, non-null identity values', () => {
-    const primary = { linkedUser: 'user-1', identifierLinks: [] };
-    const secondary = { linkedUser: 'user-2', identifierLinks: [] };
+    const primary = { membership: 'plan-1', identifierLinks: [] };
+    const secondary = { membership: 'plan-2', identifierLinks: [] };
 
     const { conflicts } = planLeadMerge(primary, secondary);
 
     assert.equal(conflicts.length, 1);
-    assert.equal(conflicts[0].field, 'linkedUser');
-    assert.equal(conflicts[0].primaryValue, 'user-1');
-    assert.equal(conflicts[0].secondaryValue, 'user-2');
+    assert.equal(conflicts[0].field, 'membership');
+    assert.equal(conflicts[0].primaryValue, 'plan-1');
+    assert.equal(conflicts[0].secondaryValue, 'plan-2');
   });
 
   it('does not flag a conflict when the two sides hold the same value', () => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   FileText,
   Image as ImageIcon,
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui';
 import VerificationModal from '@/components/verification/VerificationModal';
+import MembersOnlyDialog from '@/components/membership/MembersOnlyDialog';
 import ResourceFileViewer from './ResourceFileViewer';
 import { fileTypeLabel } from '@/lib/resourceOptions';
 
@@ -60,11 +62,13 @@ const LIGHTBOX_TYPES = new Set(['image', 'video']);
  * to be expired (401), it's cleared and the modal reopens for that file.
  */
 export default function ResourceDownloadsSection({ resourceId, files }) {
+  const router = useRouter();
   const [downloadToken, setDownloadToken] = useState(null);
   const [verifyTarget, setVerifyTarget] = useState(null); // file pending OTP verification
   const [viewerFile, setViewerFile] = useState(null); // file open in the lightbox
   const [busyFileId, setBusyFileId] = useState(null);
   const [error, setError] = useState('');
+  const [membersOnlyOpen, setMembersOnlyOpen] = useState(false); // Sprint 19.7a
 
   async function downloadWithToken(file, token) {
     setError('');
@@ -166,14 +170,19 @@ export default function ResourceDownloadsSection({ resourceId, files }) {
                       {isBusy ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
                       Verify to download
                     </button>
+                  ) : file.accessLevel === 'MEMBER' ? (
+                    <button
+                      type="button"
+                      onClick={() => setMembersOnlyOpen(true)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-line px-3.5 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
+                    >
+                      <Lock size={13} aria-hidden="true" />
+                      Members only
+                    </button>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-line px-3.5 py-2 text-xs font-semibold text-muted">
                       <Lock size={13} aria-hidden="true" />
-                      {file.accessLevel === 'MEMBER'
-                        ? 'Members only'
-                        : file.accessLevel === 'PURCHASED'
-                          ? 'Purchase required'
-                          : 'Restricted'}
+                      {file.accessLevel === 'PURCHASED' ? 'Purchase required' : 'Restricted'}
                     </span>
                   )
                 ) : file.fileType === 'external_link' ? (
@@ -235,6 +244,13 @@ export default function ResourceDownloadsSection({ resourceId, files }) {
           fileKind={verifyTarget._id}
           onVerified={(token) => setDownloadToken(token)}
           onClose={() => setVerifyTarget(null)}
+        />
+      )}
+
+      {membersOnlyOpen && (
+        <MembersOnlyDialog
+          onClose={() => setMembersOnlyOpen(false)}
+          onLoggedIn={() => router.refresh()}
         />
       )}
     </div>
