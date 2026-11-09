@@ -1,5 +1,21 @@
 # 05. Database
 
+## MembershipPayment — reconciled Sprint 19.7b (2026-11-03)
+
+`models/MembershipPayment.js` adds an independent payment ledger with `lead`
+and unique `subscription` references, integer minor-unit `amount`, `currency`,
+`planName`/`billingPeriod` snapshots, sparse-unique `orderId`/`paymentId`,
+`paidAt`, `refundedAmount`, and order-creation recovery/lease fields.
+States are creating/created/failed/paid/partially_refunded/refunded/review_required.
+No card data, signatures, API secrets or raw event payloads are stored.
+
+`MembershipSubscription.paymentStatus` additionally supports paid, failed,
+refunded and review_required; its lifecycle remains pending/active/expired/cancelled.
+Captured-payment activation and full-refund revocation synchronize the payment,
+subscription and VerifiedLead grant in an Atlas transaction. Free requests and
+manual activation remain supported. No consumer User collection is introduced.
+See [16_MEMBERSHIP_PAYMENTS.md](16_MEMBERSHIP_PAYMENTS.md).
+
 MongoDB Atlas, accessed via Mongoose 8.5.1 through the cached-connection
 helper in [`lib/db.js`](../lib/db.js) (`connectDB()` — reuses a single
 connection across requests/hot-reloads via `global._mongooseConnection`).
@@ -409,7 +425,10 @@ Sprint 19.1B. The shared "verify once, reuse everywhere" visitor identity —
 not Knowledge-Center-specific, backs every current/future OTP-gated
 resource and the future Membership/purchase flows. See
 [14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md) for the full authorization
-model this feeds into.
+model this feeds into. **Confirmed Sprint 19.7 (see
+[13_DECISIONS.md](13_DECISIONS.md)): this is the platform's one permanent
+end-user identity — no separate consumer `User` model is being introduced.**
+`models/User.js` remains staff/admin-only.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -419,9 +438,7 @@ model this feeds into.
 | `preferredMethod` | String enum | `email` \| `mobile` \| `null` |
 | `emailVerifiedAt` / `mobileVerifiedAt` | Date | stamped independently — a lead can prove each channel at a different time |
 | `lastActivityAt` | Date | refreshed on every OTP re-verification |
-| `linkedUser` | ObjectId ref → `User` | nullable — set once a lead registers/logs into a future account |
-| `linkedUserAt` | Date | nullable |
-| `membership` / `membershipExpiry` | ObjectId ref → `Membership` / Date | nullable — not set by anything yet (no purchase flow this sprint), read by `canAccess()`'s `MEMBER` level |
+| `membership` / `membershipExpiry` | ObjectId ref → `Membership` / Date | nullable — read by `canAccess()`'s `MEMBER` level. **Written since Sprint 19.7a**: kept in sync with the lead's current `MembershipSubscription` by `lib/membershipSubscription.js`'s `activateMembershipSubscription()`/`expireMembershipSubscription()`/`cancelMembershipSubscription()`; `membershipExpiry` is deliberately never cleared back to `null` once set (even after expiry/cancellation) — its presence is what `lib/access/membershipStatus.js`'s `getMembershipStatus()` uses to distinguish "expired member" from "never had a membership" |
 | `orders` / `invoices` | `[ObjectId]` | ref future `Order`/`Invoice` models — the authoritative transaction record (amount, payment status, refunds); each future model will carry its own `lead` foreign key back |
 | `purchasedItems` | `[{ resourceType, resourceId, purchasedAt }]` | generic "what does this lead currently own" fast-lookup cache, read by `canAccess()`'s `PURCHASED` level. Polymorphic across any future purchasable type (Course/Resource/Tool and beyond) rather than one array per type (`purchasedCourses`/`purchasedResources`/`purchasedTools` in the original Sprint 19.1B design, consolidated during the pre-Sprint-19.2 audit — see [13_DECISIONS.md](13_DECISIONS.md)); `resourceType` free text (same convention as `Verification.resourceType`), not validated against a registry yet |
 | `bookmarks` | `[{ resourceType, resourceId, savedAt }]` | generic "saved for later," same polymorphic shape/reasoning as `purchasedItems`, spans any future content type |
@@ -447,17 +464,71 @@ valid for future real values). Always resolve a lead id through
 `resolveActiveLead()` before trusting it as "the" record — a lead-session
 JWT issued before a merge still lands on the correct canonical lead
 afterward. Merges refuse to proceed (`LeadMergeConflictError`) if the two
-leads disagree on an identity-bearing field (different `linkedUser` or
-`membership`) rather than silently picking a side.
+leads disagree on an identity-bearing field (different `membership`)
+rather than silently picking a side.
 
 Indexes: `{email: 1}` unique sparse, `{mobile: 1}` unique sparse,
-`{mergedInto: 1}`, `{linkedUser: 1}` sparse. No TTL — unlike `Verification`
+`{mergedInto: 1}`. No TTL — unlike `Verification`
 (ephemeral, 24h), a `VerifiedLead` is meant to persist indefinitely.
+
+**Account deletion / anonymization policy** (documented Sprint 19.7,
+**not implemented** — no caller exists yet): see
+[14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md)'s "Account deletion" section
+for the full design. Deferred until a real delete-account/profile-settings
+feature is actually built.
 
 Created/updated by `lib/verifiedLead.js`'s `findOrCreateVerifiedLead()` —
 called from `app/api/verify/verify-otp/route.js` on every successful OTP
 check, so it needs zero extra code as new OTP-gated resource types are
 registered in `lib/verification/resourceRegistry.js`.
+
+## MembershipSubscription — [`models/MembershipSubscription.js`](../models/MembershipSubscription.js)
+
+Sprint 19.7a. The per-lead membership subscription instance: "who
+requested/holds which plan, and its lifecycle." Its own top-level
+collection with a `lead` foreign key (not an array on `VerifiedLead`), per
+[14_ACCESS_CONTROL.md](14_ACCESS_CONTROL.md)'s rule for unbounded,
+ever-growing per-lead history — this is the exact model that section's
+future-extensibility table predicted by name. Deliberately separate from
+`models/Membership.js`, which stays the plan *catalog* ("what plans exist,"
+feeds the public `/join` page) — kept in sync by explicit functions in
+[`lib/membershipSubscription.js`](../lib/membershipSubscription.js), never
+a background job.
+
+| Field | Type | Notes |
+|---|---|---|
+| `lead` | ObjectId ref → `VerifiedLead` | required |
+| `plan` | ObjectId ref → `Membership` | required |
+| `status` | String enum | `pending` \| `active` \| `expired` \| `cancelled` — the generic subscription lifecycle |
+| `paymentStatus` | String enum | `pending` \| `manual`, default `pending` — deliberately **separate** from `status` so Sprint 19.7b's Razorpay integration can widen/extend payment handling (webhook-driven states) without touching the lifecycle enum or any code branching on `status`. `manual` means an admin confirmed payment was collected outside the platform |
+| `startsAt` / `expiresAt` | Date | both `null` until activated; `expiresAt: null` after activation = never expires (`one-time`/`free` plans), same convention as `VerifiedLead.membershipExpiry` |
+| `activatedAt` / `cancelledAt` | Date | nullable, audit only |
+
+Indexes: `{lead, status}`, `{status, expiresAt}` (admin filtering/expiry
+lookups), and a **partial unique index** on `{lead: 1}` scoped to
+`status: {$in: ['pending', 'active']}` — enforces "at most one
+pending-or-active subscription per lead" at the DB level (not just an
+application-level check), the same sparse-unique convention
+`VerifiedLead.email`/`.mobile` already use. This makes duplicate
+membership requests race-safe: a concurrent double-submit's loser fails
+with an `11000` duplicate-key error, caught and turned into a friendly
+conflict by `createMembershipRequest()`.
+
+**Idempotency and atomicity.** Every state-changing function in
+`lib/membershipSubscription.js` (`activateMembershipSubscription()`,
+`expireMembershipSubscription()`, `cancelMembershipSubscription()`) only
+accepts one valid prior `status` (e.g. activate only from `pending`) —
+any other current status returns a clear conflict instead of silently
+reprocessing a duplicate admin click. Each of those three functions writes
+to *two* collections (`MembershipSubscription` and `VerifiedLead`, to keep
+`VerifiedLead.membership`/`.membershipExpiry` — the fields `canAccess()`
+actually reads — in sync), so each runs inside one MongoDB transaction
+(`mongoose.startSession()` + `session.withTransaction()`; Atlas runs as a
+replica set, so multi-document transactions are available) — a
+mid-operation failure rolls back both sides rather than leaving them out
+of sync.
+
+No cascade delete (nothing references this collection).
 
 ## CourseCategory — [`models/CourseCategory.js`](../models/CourseCategory.js)
 
@@ -839,7 +910,6 @@ Category 1---* Blog (category)
 RecipeCategory 1---* Recipe (category)
 ProductCategory 1---* Product (category — Sprint 18)
 Team 1---* Team (parentMember, self-ref — Sprint 14 org tree)
-VerifiedLead 1---1 User (linkedUser, nullable — Sprint 19.1B)
 VerifiedLead 1---1 Membership (membership, nullable — Sprint 19.1B, not yet set by anything)
 VerifiedLead 1---1 VerifiedLead (mergedInto, self-ref tombstone — Sprint 19.1B)
 CourseCategory 1---* Course (category — Sprint 19.2)
@@ -857,6 +927,8 @@ ToolSection 1---* ToolQuestion (section — Sprint 19.4)
 Tool 1---* ToolQuestion (tool, denormalized — Sprint 19.4)
 Tool 1---* ToolResultBand (tool — Sprint 19.4)
 User 1---* Tool (createdBy/updatedBy — Sprint 19.4, sharedContentFields())
+VerifiedLead 1---* MembershipSubscription (lead — Sprint 19.7a)
+Membership 1---* MembershipSubscription (plan — Sprint 19.7a)
 ```
 
 Infographic's `category` field is **not** relational — free text, not a

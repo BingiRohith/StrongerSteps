@@ -1,5 +1,23 @@
 # 02. Roadmap
 
+## Reconciled delivery update — 2026-11-03
+
+The local Sprint 19.6/19.7a work and GitHub Sprints 20–24 are now combined.
+Membership subscriptions, dashboard, `/api/me`, manual administration and the
+VerifiedLead null-field migration are present alongside the newer security,
+media and communication features. Sprint 19.7b now implements paid membership
+checkout, verified Razorpay capture activation, signed webhook reconciliation,
+payment history, private receipts and processed-refund access updates.
+
+Client delivery requires real test-mode acceptance: credentials were absent
+from this checkout and a deployed URL has not been supplied. Gateway simulation
+does not close that acceptance gate. See [16_MEMBERSHIP_PAYMENTS.md](16_MEMBERSHIP_PAYMENTS.md)
+and [CLIENT_DELIVERY_CHECKLIST.md](CLIENT_DELIVERY_CHECKLIST.md).
+Product checkout/orders/inventory, automated recurring debits, statutory tax
+invoices, notification queues, advanced roles, and the broad Phase 3/4 roadmap
+remain separate scope. Older gap-analysis entries below are historical context;
+this dated update supersedes their membership-payment “not started” status.
+
 This is a gap analysis of the current implementation against
 **[docs/03_CLIENT_REQUIREMENTS.md](03_CLIENT_REQUIREMENTS.md) (CRS v1.0,
 VERIFIED, client-approved 07 July 2026)** — now the single source of truth

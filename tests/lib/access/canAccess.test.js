@@ -24,6 +24,11 @@ describe('canAccess — ADMIN', () => {
 });
 
 describe('canAccess — OTP', () => {
+  it('does not globally bypass course/tool OTP for members', () => {
+    const result = canAccess({ accessLevel: ACCESS_LEVELS.OTP }, { lead: { membership: 'plan-1' } });
+    assert.equal(result.allowed, false);
+    assert.equal(result.reason, 'otp-required');
+  });
   it('is never a standing grant, even with a verified lead present', () => {
     const result = canAccess(
       { accessLevel: ACCESS_LEVELS.OTP },

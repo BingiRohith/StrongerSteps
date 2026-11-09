@@ -1,5 +1,6 @@
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
+import { publicUploadRoot } from '@/lib/uploadStorage';
 import { requireAuth } from '@/lib/auth';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
 
@@ -7,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB — headshot-sized, matches app/api/admin/upload/route.js
-const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'team');
+const UPLOAD_DIR = path.join(publicUploadRoot(), 'team');
 
 function safeExt(filename, mimeType) {
   const fromName = path.extname(filename || '').toLowerCase();

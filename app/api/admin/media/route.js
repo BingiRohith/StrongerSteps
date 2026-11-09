@@ -1,5 +1,6 @@
 import { readdir } from 'fs/promises';
 import path from 'path';
+import { publicUploadRoot } from '@/lib/uploadStorage';
 import connectDB from '@/lib/db';
 import Media from '@/models/Media';
 import { requireAuth } from '@/lib/auth';
@@ -10,7 +11,7 @@ import { saveMediaLibraryAsset } from '@/lib/privateUpload';
 export const dynamic = 'force-dynamic';
 
 async function legacyUploads() {
-  const root = path.join(process.cwd(), 'public', 'uploads');
+  const root = publicUploadRoot();
   try {
     const folders = await readdir(root, { withFileTypes: true });
     const entries = await Promise.all(folders.filter((item) => item.isDirectory() && item.name !== 'media').map(async (folder) => {

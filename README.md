@@ -1,5 +1,10 @@
 # Stronger Steps — Website & Admin Dashboard
 
+Current cross-laptop handoff: read [docs/CURRENT_HANDOVER.md](docs/CURRENT_HANDOVER.md)
+and [docs/CLIENT_DELIVERY_CHECKLIST.md](docs/CLIENT_DELIVERY_CHECKLIST.md) before
+switching branches or deploying. Razorpay setup is documented in
+[docs/16_MEMBERSHIP_PAYMENTS.md](docs/16_MEMBERSHIP_PAYMENTS.md).
+
 A Next.js 15 (App Router) community wellness platform for Stronger Steps,
 with a built-in admin panel and MongoDB-backed content, bookings, courses,
 resources, assessments, products, recipes, memberships, and team profiles.

@@ -6,14 +6,14 @@ StrongerSteps is a community wellness platform for healthy ageing. It contains a
 
 Scope is governed by the verified Client Requirements Specification in [`03_CLIENT_REQUIREMENTS.md`](03_CLIENT_REQUIREMENTS.md). New product scope should be checked against that document before implementation. Architecture decisions and intentional deviations belong in [`13_DECISIONS.md`](13_DECISIONS.md).
 
-## Current state (2026-10-06)
+## Current state (2026-11-03)
 
-- **Latest completed sprint:** Sprint 20 — Project Recovery, Security Hardening & Blog Categories.
-- **Framework:** Next.js 15.5.24, React 18, App Router.
+- **Latest work:** reconciled local Sprint 19.6/19.7a with GitHub Sprints 20–24; implemented Sprint 19.7b Razorpay membership payments, with real deployed test-mode acceptance still pending.
+- **Framework:** Next.js 15.5.28, React 18, App Router.
 - **Database:** MongoDB Atlas through Mongoose. Existing data must be preserved; do not reset or reseed unless the user explicitly requests it.
 - **Authentication:** JWT admin/editor session plus a separate verified-lead session used by OTP and access-controlled content.
 - **Local URL used during the latest sprint:** `http://localhost:3001` because port 3000 was occupied.
-- **Repository:** `https://github.com/BingiRohith/StrongerSteps`, branch `main`.
+- **Repository:** `https://github.com/BingiRohith/StrongerSteps`. Reconciliation branch: `codex/reconcile-membership-launch`; check CURRENT_HANDOVER.md before selecting a branch.
 
 ## Completed application areas
 
@@ -34,10 +34,10 @@ See the root [`CHANGELOG.md`](../CHANGELOG.md) for details and [`10_SPRINT_HISTO
 
 ## Verification at handover
 
-- `npm test`: 143/143 passing.
-- `npm run build`: passing on Next.js 15.5.24.
+- `npm test`: 203/203 passing.
+- `npm run build`: passing on Next.js 15.5.28.
 - `npm audit --omit=dev`: zero vulnerabilities.
-- Live read-only Atlas checks confirmed existing lessons and categories were preserved. No verification record was submitted to the database.
+- 28 isolated Atlas-copy HTTP regression groups pass. Outbound delivery/gateway responses are simulated; the source database is read-only. Real deployed provider/payment acceptance remains pending.
 
 ## Secrets and data safety
 

@@ -222,7 +222,7 @@ export default function MembershipForm({ planId, initialData }) {
             />
             <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-muted">%</span>
           </div>
-          <p className="mt-1 text-xs text-muted">Shown as a "member discount" badge on the plan card when above 0.</p>
+          <p className="mt-1 text-xs text-muted">Shown as a &quot;member discount&quot; badge on the plan card when above 0.</p>
         </div>
 
         <div className="rounded-xl2 border border-line bg-surface p-5 sm:p-6">
@@ -331,7 +331,7 @@ export default function MembershipForm({ planId, initialData }) {
             placeholder="Most Popular"
             className="mt-1.5 w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
-          <p className="mt-1 text-xs text-muted">Shown on featured plans. Defaults to "Most Popular" if left empty.</p>
+          <p className="mt-1 text-xs text-muted">Shown on featured plans. Defaults to &quot;Most Popular&quot; if left empty.</p>
 
           <label className="mt-4 block text-sm font-semibold text-ink" htmlFor="theme">
             Plan colour / theme

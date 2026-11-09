@@ -59,8 +59,25 @@ export default async function BlogDetailPage({ params }) {
     getRelatedBlogs(blog, 3),
   ]);
 
+  // Schema.org Article structured data, same pattern/placement as the
+  // Course/Recipe detail pages' JSON-LD. See https://schema.org/Article.
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: blog.title,
+    description: blog.excerpt || undefined,
+    image: blog.coverImage?.url ? [blog.coverImage.url] : undefined,
+    datePublished: blog.publishedAt || undefined,
+    dateModified: blog.updatedAt || blog.publishedAt || undefined,
+    author: blog.author?.name ? { '@type': 'Person', name: blog.author.name } : undefined,
+    publisher: { '@type': 'Organization', name: 'Stronger Steps' },
+  };
+
   return (
     <>
+      {/* eslint-disable-next-line react/no-danger -- static, server-generated JSON-LD, no user input reflected unescaped */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
+
       {/* Header */}
       <section className="bg-bg">
         <div className="mx-auto max-w-content px-6 py-16 md:py-20">

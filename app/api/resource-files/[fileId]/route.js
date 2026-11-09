@@ -4,7 +4,7 @@ import Resource from '@/models/Resource';
 import ResourceFile from '@/models/ResourceFile';
 import { fail, withErrorHandling } from '@/lib/apiResponse';
 import { getCurrentActor } from '@/lib/access/actor';
-import { canAccess } from '@/lib/access/canAccess';
+import { canAccessKnowledgeFile } from '@/lib/access/knowledgeAccess';
 import { readProtectedFile } from '@/lib/privateUpload';
 import { mimeFromFilename } from '@/lib/fileMime';
 import { recordDownload } from '@/lib/downloadLog';
@@ -27,12 +27,9 @@ export const dynamic = 'force-dynamic';
  * parent id is needed in the URL — the file's own `resource` ref is
  * resolved server-side instead.
  *
- * Files with `accessLevel: 'OTP'` are NOT served here for non-admins —
- * they go through the existing, unchanged app/api/verify/* flow instead
- * (a `resource` entry is registered in
- * lib/verification/resourceRegistry.js for that purpose). An admin
- * session is let through regardless, same admin-preview override
- * canAccess() already applies everywhere else.
+ * OTP files also accept an active member session through the Knowledge
+ * Center policy. Other visitors retain the app/api/verify/* token flow.
+ * Existing public previews and staff overrides are preserved.
  *
  * `action=view` serves inline (Content-Disposition: inline) for the
  * "Responsive Resource Viewer" preview; `action=download` (default)
@@ -40,6 +37,7 @@ export const dynamic = 'force-dynamic';
  * additionally writing a best-effort DownloadLog entry.
  */
 export const GET = withErrorHandling(async (request, { params }) => {
+  params = await params;
   if (!mongoose.Types.ObjectId.isValid(params.fileId)) {
     return fail('Invalid file id', 400);
   }
@@ -55,10 +53,6 @@ export const GET = withErrorHandling(async (request, { params }) => {
   const resource = await Resource.findById(file.resource).select('status deletedAt').lean();
   const actor = await getCurrentActor(request);
 
-  if (file.accessLevel === 'OTP' && !actor.user) {
-    return fail('This file requires OTP verification — use /api/verify/generate-otp', 400);
-  }
-
   // Don't leak the existence of a draft/deleted resource's file to a
   // non-admin, even if the file happens to be a free preview.
   if ((resource?.status !== 'published' || resource?.deletedAt) && !actor.user) {
@@ -67,7 +61,7 @@ export const GET = withErrorHandling(async (request, { params }) => {
 
   const allowed =
     file.previewAvailable ||
-    canAccess(
+    canAccessKnowledgeFile(
       { accessLevel: file.accessLevel, resourceType: 'resource', resourceId: file.resource },
       actor
     ).allowed;

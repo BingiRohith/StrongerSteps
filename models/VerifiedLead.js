@@ -6,10 +6,12 @@ const { Schema, models, model } = mongoose;
  * Sprint 19.1B — the shared visitor-identity layer: "verify once, reuse
  * everywhere." A VerifiedLead is created/updated the first time a visitor
  * proves an email or mobile number via the existing OTP flow
- * (lib/verification/verificationService.js), and is later linked to a
- * User account, a Membership, and future purchases — see
- * docs/14_ACCESS_CONTROL.md and docs/13_DECISIONS.md's merge-strategy
- * entry for the full reasoning.
+ * (lib/verification/verificationService.js), and directly gains a
+ * Membership and purchase history from then on — see docs/13_DECISIONS.md's
+ * Sprint 19.7 entry: this is the platform's one permanent end-user
+ * identity, a deliberate decision *against* introducing a separate
+ * consumer `User` model. See docs/14_ACCESS_CONTROL.md and
+ * docs/13_DECISIONS.md's merge-strategy entry for the full reasoning.
  *
  * `email`/`mobile` are both optional and independently sparse-unique — a
  * single lead is meant to eventually own both once evidence links them
@@ -51,16 +53,30 @@ const VerifiedLeadSchema = new Schema(
       maxlength: 100,
       default: '',
     },
+    // No `default: null` here (Sprint 19.7a fix) — MongoDB's sparse index
+    // only excludes documents where the field is entirely *absent*, not
+    // documents where it's explicitly `null`. A default of `null` made
+    // every fresh lead's unset identifier explicitly `null`, so the sparse
+    // unique index below only ever allowed ONE lead total with a null
+    // email (or mobile) before throwing a duplicate-key error on the very
+    // next email-only (or mobile-only) verification. The `set` below
+    // converts any explicit `null` assignment (this field's own code paths,
+    // plus lib/verifiedLead.js's tombstoning/merge logic) to `undefined`,
+    // which both Mongoose and the MongoDB driver treat as "omit this key
+    // entirely" on insert/save — restoring true sparse-index behavior
+    // regardless of which code path sets the value. See
+    // scripts/migrateVerifiedLeadNulls.mjs for the one-time backfill this
+    // needed on already-existing documents.
     email: {
       type: String,
       trim: true,
       lowercase: true,
-      default: null,
+      set: (v) => (v === null ? undefined : v),
     },
     mobile: {
       type: String,
       trim: true,
-      default: null,
+      set: (v) => (v === null ? undefined : v),
     },
     preferredMethod: {
       type: String,
@@ -76,15 +92,6 @@ const VerifiedLeadSchema = new Schema(
       default: null,
     },
     lastActivityAt: {
-      type: Date,
-      default: null,
-    },
-    linkedUser: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      default: null,
-    },
-    linkedUserAt: {
       type: Date,
       default: null,
     },
@@ -152,7 +159,7 @@ const VerifiedLeadSchema = new Schema(
         value: { type: String, required: true },
         method: {
           type: String,
-          enum: ['otp', 'linked_user_account', 'admin_manual'],
+          enum: ['otp', 'admin_manual'],
           required: true,
         },
         linkedAt: { type: Date, default: Date.now },
@@ -168,7 +175,6 @@ const VerifiedLeadSchema = new Schema(
 VerifiedLeadSchema.index({ email: 1 }, { unique: true, sparse: true });
 VerifiedLeadSchema.index({ mobile: 1 }, { unique: true, sparse: true });
 VerifiedLeadSchema.index({ mergedInto: 1 });
-VerifiedLeadSchema.index({ linkedUser: 1 }, { sparse: true });
 
 VerifiedLeadSchema.methods.toSafeObject = function toSafeObject() {
   return {
@@ -180,7 +186,6 @@ VerifiedLeadSchema.methods.toSafeObject = function toSafeObject() {
     emailVerifiedAt: this.emailVerifiedAt,
     mobileVerifiedAt: this.mobileVerifiedAt,
     lastActivityAt: this.lastActivityAt,
-    linkedUser: this.linkedUser,
     membership: this.membership,
     membershipExpiry: this.membershipExpiry,
     mergedInto: this.mergedInto,

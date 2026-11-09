@@ -5,9 +5,12 @@ import Booking from '@/models/Booking';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
 import { isValidEmail, isValidMobile } from '@/lib/eventValidation';
 import { generateBookingReference } from '@/lib/bookingReference';
+import { isRateLimited } from '@/lib/rateLimit';
 import { queueBookingNotification } from '@/lib/notifications/bookingNotifications';
 
 export const dynamic = 'force-dynamic';
+
+const BOOKING_RATE_LIMIT = { max: 10, windowMs: 15 * 60 * 1000 };
 
 /**
  * POST /api/bookings — public "Book Your Seat" submission.
@@ -29,6 +32,12 @@ export const POST = withErrorHandling(async (request) => {
   if (!name?.trim()) return fail('Name is required', 400);
   if (!isValidMobile(mobile)) return fail('Please enter a valid mobile number', 400);
   if (!isValidEmail(email)) return fail('Please enter a valid email address', 400);
+
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rateLimitKey = `${mobile.trim()}:${ip}`;
+  if (isRateLimited(rateLimitKey, BOOKING_RATE_LIMIT)) {
+    return fail('Too many booking attempts. Please try again in a few minutes.', 429);
+  }
 
   const existing = await Event.findOne({ _id: eventId, status: 'published' });
   if (!existing) return fail('This event is not available for booking', 404);

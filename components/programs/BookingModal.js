@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { AlertCircle, CheckCircle2, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { isValidEmail, isValidMobile } from '@/lib/eventValidation';
 import { formatTimeRange } from '@/lib/eventFormat';
+import { useModalA11y } from '@/components/useModalA11y';
 
 function formatPrice(amount) {
   if (!amount) return 'Free';
@@ -18,6 +19,8 @@ export default function BookingModal({ event, onClose, onSuccess }) {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [booking, setBooking] = useState(null);
+  const panelRef = useRef(null);
+  useModalA11y(panelRef, onClose);
 
   function update(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -67,7 +70,11 @@ export default function BookingModal({ event, onClose, onSuccess }) {
       aria-modal="true"
       aria-label={booking ? 'Booking confirmed' : 'Book your seat'}
     >
-      <div className="w-full max-w-md overflow-y-auto rounded-xl2 bg-white p-6 shadow-xl max-h-[90vh]">
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        className="w-full max-w-md overflow-y-auto rounded-xl2 bg-white p-6 shadow-xl max-h-[90vh] outline-none"
+      >
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-accent-dark">

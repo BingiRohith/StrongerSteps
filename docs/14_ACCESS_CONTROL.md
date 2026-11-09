@@ -1,5 +1,34 @@
 # 14. Access Control
 
+## Knowledge Center member-session reuse (2026-11-04)
+
+Active members do not repeat OTP for Knowledge Center downloads. Resource-file
+annotations and streaming both use `lib/access/knowledgeAccess.js`, which adds
+an active-member grant for OTP files and otherwise delegates to `canAccess`.
+PUBLIC previews, MEMBER gates, PURCHASED requirements and ADMIN restrictions
+retain their existing meaning. This exception is scoped to Knowledge Center:
+the generic `canAccess` OTP policy for Courses/Tools is unchanged.
+
+Infographic downloads first try
+`GET /api/infographics/[id]/download?fileKind=image|pdf`. This route resolves the
+existing signed VerifiedLead session and checks active membership on every
+request, serves published records only, uses private storage/media readers,
+logs the download against the lead and returns private, non-cacheable bytes.
+Guests (401) and non-members/expired members (403) fall back to the existing
+OTP modal and signed download-token flow. Invalid kinds, unpublished records
+and missing files do not fall back to OTP. No schema or migration is needed.
+
+## Payment-driven membership grants (2026-11-03)
+
+Sprint 19.7b reuses the existing `canAccess`/`isActiveMember` grant: only a
+server-verified captured payment may activate a pending membership. Signature,
+stored order, amount and currency checks precede a transaction that updates
+MembershipPayment, MembershipSubscription and VerifiedLead together. Checkout
+success on its own grants nothing. Repeated callbacks/events preserve expiry;
+full refunds revoke access, and late captures after cancellation require staff
+review. Receipts are restricted to the paying lead or authenticated staff.
+No consumer User model or Edge membership middleware was introduced.
+
 ## Booking notification data boundary (Sprint 24)
 
 Booking notifications do not extend public or admin access. They run only after the existing booking/status write succeeds and use the Booking's already-validated contact values transiently at provider call time. `NotificationDelivery` retains no recipient identifier, message body, OTP, provider exception text, admin secret, or credential; its Booking/Event references remain accessible only through the existing admin booking controls.
@@ -26,7 +55,7 @@ resource**, not pricing tiers — a module's price/plan logic (e.g.
 | Level | Who can access it | Proof mechanism |
 |---|---|---|
 | `PUBLIC` | Anyone, no verification | None |
-| `OTP` | Anyone who verifies an email/mobile via OTP for *this specific resource* | Short-lived signed download token (`app/api/verify/*`, unchanged since Sprint 12.5) |
+| `OTP` | Resource-specific OTP; active membership also suffices for Knowledge Center downloads only | Signed download token, or the Knowledge Center member-session policy above |
 | `MEMBER` | A visitor with a `VerifiedLead` that has an active, non-expired `Membership` | `VerifiedLead.membership` + `membershipExpiry` |
 | `PURCHASED` | A visitor whose `VerifiedLead` has this `(resourceType, resourceId)` pair in its purchase history | `VerifiedLead.purchasedItems` (polymorphic — one list for every purchasable type) |
 | `ADMIN` | An authenticated admin/editor session | `lib/auth.js`'s existing JWT session (unchanged) |
@@ -116,14 +145,65 @@ creating a second one — see the merge-strategy section below.
 
 ## How Membership affects access
 
-Not built this sprint (`docs/03_CLIENT_REQUIREMENTS.md` §8's Membership CMS
-purchase flow is future work), but the schema is ready:
-`VerifiedLead.membership` (ref → `Membership`) and `.membershipExpiry`
-determine `MEMBER`-level access. `canAccess()`'s `isActiveMember()` check:
-a lead with `membership` set and either no `membershipExpiry` (not yet
-time-boxed) or a future `membershipExpiry` passes; an expired one does not.
-When the Membership purchase flow ships, it only needs to set those two
-fields on the visitor's `VerifiedLead` — no change to `canAccess()` itself.
+**Shipped Sprint 19.7a** (request/activation flow, no payment automation —
+that's Sprint 19.7b): `VerifiedLead.membership` (ref → `Membership`) and
+`.membershipExpiry` determine `MEMBER`-level access. `canAccess()`'s
+`isActiveMember()` check (now exported so
+[`lib/access/membershipStatus.js`](../lib/access/membershipStatus.js)
+reuses it instead of duplicating the logic): a lead with `membership` set
+and either no `membershipExpiry` (not yet time-boxed) or a future
+`membershipExpiry` passes; an expired one does not. These two fields are
+set by [`lib/membershipSubscription.js`](../lib/membershipSubscription.js)'s
+`activateMembershipSubscription()` (admin action) and cleared-forward-to-now
+by `expireMembershipSubscription()`/`cancelMembershipSubscription()` — see
+`docs/05_DATABASE.md`'s new `MembershipSubscription` entry for the full
+request/activation lifecycle. `canAccess()` itself is unchanged.
+
+**The request flow** (Guest → OTP Login/Verification → Membership Request
+→ Pending Activation): a visitor requests a plan from `/join`
+(`components/membership/PlanRequestButton.js`), verifying via the existing
+`VerificationModal`/`/api/verify/*` mechanics exactly like any other
+OTP-gated action (a new `membership` entry in
+[`lib/verification/resourceRegistry.js`](../lib/verification/resourceRegistry.js),
+same "no file, just gate an action" shape as the existing `tool` entry).
+`POST /api/membership/requests` then creates a `pending`
+`MembershipSubscription`; an admin activates it from `/admin/members`
+until Sprint 19.7b adds real payment automation. A lead may have at most
+one pending-or-active subscription at a time (DB-enforced, see
+`docs/05_DATABASE.md`).
+
+**`getMembershipStatus(lead)`**
+([`lib/access/membershipStatus.js`](../lib/access/membershipStatus.js)) is
+the centralized "what is this visitor's membership standing" helper —
+`guest` \| `registered` \| `active_member` \| `expired_member` — read by
+`GET /api/me`, the Member Dashboard (`/dashboard`), and
+`components/membership/MembersOnlyDialog.js`, so none of them duplicate
+this logic independently. This is an *access* status, distinct from the
+richer `MembershipSubscription.status` lifecycle — a lead with a `pending`
+request is still `registered` from an access standpoint.
+
+**`requireActiveMember(request)`**
+([`lib/access/requireMembership.js`](../lib/access/requireMembership.js))
+centralizes the membership check for API routes that need one, mirroring
+`lib/auth.js`'s `requireAuth()` shape exactly. This is a plain server-side
+guard function, **not** an expansion of `middleware.js`'s Edge matcher —
+see "Two parallel session types" above; that architecture decision still
+stands unchanged.
+
+**`GET /api/me`** is the single reusable "who am I" endpoint — resolves
+whatever lead session exists and returns `{ lead, membership: { status,
+plan, expiresAt }, subscription, permissions }`. Intended as the one
+source of truth for authenticated frontend pages and future non-page
+clients, so no page/component re-derives this shape independently.
+
+**Knowledge Center gating**: a `MEMBER`-gated `ResourceFile`/`Lesson` that
+a visitor lacks access to now opens
+`components/membership/MembersOnlyDialog.js` (via
+`components/resources/ResourceDownloadsSection.js`'s "Members only" button
+and the lesson page's `LockedLessonPanel` — replacing what was previously
+a dead, non-interactive badge) instead of doing nothing. The dialog offers
+Login (re-verify via the same OTP mechanics, no WhatsApp link) and a link
+to `/join` — no change to the underlying `canAccess()` gate itself.
 
 ## How future purchases will integrate
 
@@ -144,20 +224,20 @@ depending on it.
 ## The VerifiedLead merge strategy (evidence-based, never a guess)
 
 Goal, per the approved architecture: **One Person → One VerifiedLead → One
-User (future) → One Membership → One Purchase History.** A visitor who
-verifies by email today and by mobile next month should end up as one
+Membership → One Purchase History.** (Confirmed Sprint 19.7 — see
+[13_DECISIONS.md](13_DECISIONS.md): `VerifiedLead` is the platform's one
+permanent end-user identity; no separate consumer `User` model links to
+it. `linkUserToLead()` and `VerifiedLead.linkedUser` — speculative schema
+for that now-rejected direction — were removed the same sprint.) A visitor
+who verifies by email today and by mobile next month should end up as one
 record, not two — but only once there's real evidence they're the same
 person. See [`lib/verifiedLead.js`](../lib/verifiedLead.js) and
 [13_DECISIONS.md](13_DECISIONS.md) for the full reasoning; summary:
 
-- **What counts as sufficient evidence, this sprint:**
-  1. Verifying a second identifier via OTP *while an already-active lead
-     session recognizes the visitor* (`linkIdentifierToLead()`, method
-     `'otp'`) — they hold the session cookie **and** just proved control of
-     the new channel.
-  2. Linking the same `User` account to two different leads
-     (`linkUserToLead()`) — a future registration/login flow, not wired up
-     yet since no such flow exists this sprint.
+- **What counts as sufficient evidence, this sprint:** verifying a second
+  identifier via OTP *while an already-active lead session recognizes the
+  visitor* (`linkIdentifierToLead()`, method `'otp'`) — they hold the
+  session cookie **and** just proved control of the new channel.
 - **What is never auto-merged:** matching name, coincidental verification
   timing, or any other soft signal. Two leads that merely *look* like the
   same person stay two separate rows until one of the two evidence paths
@@ -165,7 +245,7 @@ person. See [`lib/verifiedLead.js`](../lib/verifiedLead.js) and
   with `reason: 'admin_manual'` — no admin UI for this yet, the function
   exists for a future admin tool to call).
 - **Conflicts abort the merge, loudly.** If the two leads disagree on an
-  identity-bearing field (different `linkedUser`, different `membership`),
+  identity-bearing field (different `membership`),
   `mergeVerifiedLeads()` throws `LeadMergeConflictError` with the specific
   conflicting fields rather than silently picking a side. This is
   deliberate — a data conflict means the "same person" assumption itself
@@ -203,18 +283,19 @@ correction of the existing `author` convention.
 
 ## Future extensibility — is the architecture ready?
 
-The platform goal is **One Person → One VerifiedLead → One User → One
+The platform goal is **One Person → One VerifiedLead → One
 Membership → One Purchase History**, with `VerifiedLead` as the permanent
-identity everything else attaches to. None of the following are built this
-sprint; this section is the honest answer to "would adding them later be
-difficult":
+identity everything else attaches to — confirmed, not just anticipated, as
+of Sprint 19.7 (see [13_DECISIONS.md](13_DECISIONS.md)). None of the
+following are built this sprint; this section is the honest answer to
+"would adding them later be difficult":
 
 | Future feature | Ready today? | How it attaches |
 |---|---|---|
 | Bookmarks / saved resources | **Yes, field already added** | `VerifiedLead.bookmarks` — polymorphic `{resourceType, resourceId, savedAt}` list, added specifically because retrofitting type-specific arrays into one polymorphic list later would be a real migration (see [13_DECISIONS.md](13_DECISIONS.md)) |
 | Completed courses | Yes, zero-cost later | A plain `completedCourses: [ObjectId ref Course]`, added when Courses ship — a bounded, single-type list, unlike purchases/bookmarks which needed to span multiple types from day one |
 | Certificates | Yes, zero-cost later | A plain `certificates: [ObjectId ref Certificate]` — each `Certificate` doc holds its own detail (course, date, file); the lead just needs a flat list |
-| Membership history | Yes, zero-cost later | `membership`/`membershipExpiry` (today) stay the fast "current plan" lookup `canAccess()` reads; a full history of past plans belongs in its own `MembershipSubscription` collection with a `lead` foreign key (not an array on `VerifiedLead`) — see the "unbounded history" rule below |
+| Membership history | **Shipped Sprint 19.7a** | `membership`/`membershipExpiry` stay the fast "current plan" lookup `canAccess()` reads; the full history of requests/activations/expirations lives in `models/MembershipSubscription.js`, its own collection with a `lead` foreign key (not an array on `VerifiedLead`) — exactly as predicted below |
 | Purchase history | **Yes — fast-lookup half already built** | `VerifiedLead.purchasedItems` (polymorphic `{resourceType, resourceId, purchasedAt}`, consolidated from three per-type arrays during the pre-Sprint-19.2 audit — see [13_DECISIONS.md](13_DECISIONS.md)) is the fast "does this lead own X" cache `canAccess()` reads. `orders`/`invoices` are the authoritative transaction detail (amount, payment status, refunds), living on the future `Order`/`Invoice` models themselves, each referencing `lead` back |
 | Assessment history | Yes, zero-cost later, **but not as an array** | Should be its own collection (e.g. `AssessmentAttempt`) with a `lead` foreign key — this can grow unboundedly over years, which an embedded/referenced array on `VerifiedLead` handles poorly; same relational direction `models/Booking.js` already uses toward `Event` |
 | Notification preferences | Yes, zero-cost later | A plain nested object field (e.g. `notificationPreferences: {email, sms, whatsapp}`) — not added now because guessing its exact shape ahead of a real requirement is premature |
@@ -258,13 +339,59 @@ analytics dashboard is a read-only addition on top, not a schema change.
   This was the last safe moment: Sprint 19.2's Courses CMS is the very next
   sprint that would have started writing to whichever shape existed.
 
+## Account deletion / anonymization policy (Sprint 19.7 — documented, not implemented)
+
+Once `VerifiedLead` carries real membership/purchase/certificate history
+for real people, a "delete my account" request needs a defined answer.
+Decided ahead of any actual delete-account or profile-settings feature
+being built, so the policy exists before it's urgent, not invented under
+pressure once one is requested:
+
+- **Anonymize in place, never hard-delete.** The same reasoning that
+  already rules out hard-deleting a merged-away lead applies here — other
+  collections hold a `lead` foreign key (`CourseProgress`, `DownloadLog`,
+  and future `Certificate`/`Order`/`Invoice` models), so deleting the row
+  would either orphan them or require a cascade this codebase has
+  otherwise avoided for exactly this class of problem. `orders`/`invoices`
+  likely need retention independent of the person's wishes for tax/
+  accounting purposes (a legal question for the client, not one this
+  design guesses the retention window on).
+- **What anonymization clears:** `name`, `email`, `mobile`,
+  `identifierLinks` (replaced with a single anonymization audit entry),
+  `membership`/`membershipExpiry` (revokes access), `bookmarks`. A new
+  `anonymizedAt: Date` is stamped. This reuses the exact mechanic
+  `mergeVerifiedLeads()` already applies to a tombstoned lead (clear
+  email/mobile so the sparse-unique indexes stay valid) — a second trigger
+  on the same underlying operation, not a new class of behavior.
+- **What is kept:** `orders`/`invoices`/`purchasedItems` as opaque id
+  references — once the lead itself is anonymized these carry no personal
+  data, so the financial audit trail survives without carrying PII.
+  Referencing rows on `CourseProgress`/`DownloadLog`/future `Certificate`
+  are left in place, pointing at the anonymized lead — anonymous usage
+  data at that point, not personal data.
+- **Session handling:** `getCurrentLead()` must treat `anonymizedAt !=
+  null` as "no session" (return `null`) even if a stale `ss_lead` cookie
+  still resolves to the id — otherwise an anonymized record could still
+  pass `canAccess()` checks.
+- **Trigger:** a future `anonymizeVerifiedLead(leadId, { reason })`
+  function, sitting next to `mergeVerifiedLeads()` in
+  `lib/verifiedLead.js`, same "explicit function, no silent auto-trigger"
+  convention. **Not implemented this sprint** — no delete-account workflow,
+  no privacy/profile settings, and no caller exist yet, so building the
+  function now would be unused infrastructure. Implement it when account
+  management or self-service profile features are actually built.
+
 ## What Sprint 19.1B did not do (superseded)
 
 - ~~No Course/Resource/Tool models or CMS.~~ **Courses shipped in Sprint
-  19.2, Resources in Sprint 19.3** — see `docs/05_DATABASE.md`'s
-  `Course`/`Section`/`Lesson` and `Resource`/`ResourceFile` entries. Tools
-  remain unbuilt.
-- No admin UI for viewing/merging leads.
-- No Membership purchase flow (the fields exist; nothing sets them yet).
+  19.2, Resources in Sprint 19.3, Tools in Sprint 19.4** — see
+  `docs/05_DATABASE.md`'s `Course`/`Section`/`Lesson`,
+  `Resource`/`ResourceFile`, and `Tool`/`ToolSection`/`ToolQuestion` entries.
+- No admin UI for viewing/merging leads (still true — `/admin/members`,
+  Sprint 19.7a, manages `MembershipSubscription` records, not lead
+  merging).
+- ~~No Membership purchase flow.~~ **The request/activation flow shipped
+  Sprint 19.7a** (see above) — real payment collection (Razorpay) is
+  Sprint 19.7b.
 - No change to `middleware.js` or the existing Infographic OTP download gate's
   own token check — `canAccess()` sits alongside it, not in place of it.

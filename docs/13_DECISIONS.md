@@ -5,6 +5,81 @@ as of the 2026-07-07 documentation sprint — everything below Sprint 9 is
 reconstructed from code/CHANGELOG evidence, not from a prior decisions log
 (none existed).
 
+## 2026-07-24 — Sprint 19.7 planning: `VerifiedLead` confirmed as the permanent end-user identity, no separate consumer `User` model
+
+Before starting Sprint 19.7 (replacing the WhatsApp membership flow with
+real memberships/payments), reviewed whether `VerifiedLead` — originally
+built Sprint 19.1B as an OTP-verified download-gate identity — should keep
+absorbing responsibility (membership, course progress, purchases,
+certificates, future notifications/profile settings) or whether a separate
+consumer `User`/`Account` model should be introduced first, given the
+docs' own stated goal ("One Person → One VerifiedLead → One **User**
+(future) → One Membership...") implied a second identity node was still
+expected eventually.
+
+**What was decided:** no separate consumer `User` model. `VerifiedLead`
+is the platform's one permanent end-user identity, confirmed rather than
+merely anticipated. `models/User.js` remains staff/admin-only (per CRS
+§19). `Membership` (the plan catalog) stays a separate collection;
+subscription state (`membership`/`membershipExpiry`) stays on
+`VerifiedLead` as the fast lookup `canAccess()` reads — unchanged from
+Sprint 19.1B.
+
+**Why:** every `VerifiedLead` in this codebase is already created
+exclusively through OTP verification (`findOrCreateVerifiedLead`, one
+caller: `app/api/verify/verify-otp`) — there is no separate "cold
+marketing lead" population a unified identity would dilute. A second
+`User` record would resurrect, for no clear new capability, the exact
+identity-reconciliation problem (`mergeVerifiedLeads`/
+`LeadMergeConflictError`) this codebase already built once to solve the
+email-vs-mobile case. No password-based end-user login is being added
+either — OTP/`VerifiedLead` *is* the auth mechanism (cross-device already
+works today: re-verifying the same email resolves to the same lead via
+`findOrCreateVerifiedLead`'s existing-record lookup).
+
+**Rename considered, explicitly deferred:** `VerifiedLead` → `Account`
+would better reflect what the model now is, but renaming pre-launch would
+touch a large number of files for no functional benefit. Documented here
+as the permanent identity under its current name; the rename is deferred
+to a future maintenance release, only if it's ever worth doing then — this
+entry is the record of that reasoning, not a TODO to act on.
+
+**What changed as a direct consequence:** `VerifiedLead.linkedUser`/
+`linkedUserAt` and `lib/verifiedLead.js`'s `linkUserToLead()` — schema and
+code that existed only to support the now-rejected separate-`User`
+direction, with zero callers anywhere in the app (`linkUserToLead()` was
+invoked only by its own test) — were removed outright, per this project's
+existing precedent (Sprint 19.4's Team-tree removal) of deleting unused
+code once the reason for it is gone rather than keeping it "just in case."
+Scope: `models/VerifiedLead.js` (fields + the `{linkedUser: 1}` index +
+the `linked_user_account` value from `identifierLinks.method`'s enum),
+`lib/verifiedLead.js` (`linkUserToLead()`, `linkedUser`'s role in
+`planLeadMerge()`/`toPlain()`/the merge-conflict check), the corresponding
+test in `tests/lib/verifiedLead.test.js` (replaced with an equivalent
+conflict test using `membership` instead, to keep that code path covered),
+and the `linkedUser` references in `docs/05_DATABASE.md`/
+`docs/14_ACCESS_CONTROL.md`.
+
+**Also decided, documented but explicitly not built yet:** an account
+deletion/anonymization policy (see `docs/14_ACCESS_CONTROL.md`'s "Account
+deletion / anonymization policy" section) — anonymize `VerifiedLead` in
+place on request rather than hard-delete, reusing the same clear-email/
+clear-mobile mechanic `mergeVerifiedLeads()` already uses for tombstoned
+leads. Deliberately **not implemented this sprint**: no delete-account
+workflow, no privacy/profile-settings feature, and no caller for an
+`anonymizeVerifiedLead()` function exist yet, so writing the function now
+would be unused infrastructure. Implement it when account management or
+self-service profile features are actually built — the policy is written
+down now specifically so that future work has a defined answer to build
+against, not so the function gets built ahead of a real caller.
+
+**How to apply:** any future field/responsibility added to `VerifiedLead`
+(notifications, profile settings, a future `MembershipSubscription`
+history collection) follows this same single-identity model — don't
+reintroduce a second consumer identity record, and don't re-add
+`linkedUser`-shaped schema, without a new, equally explicit decision
+superseding this one.
+
 ## 2026-07-22 — Sprint 19.5: Courses → LMS — progress tracking requires OTP verification, no anonymous tracking
 
 "Resume learning"/"mark complete"/completion % need to recognize the same

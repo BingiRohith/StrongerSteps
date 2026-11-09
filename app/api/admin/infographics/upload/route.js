@@ -1,5 +1,6 @@
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
+import { publicUploadRoot } from '@/lib/uploadStorage';
 import { requireAuth } from '@/lib/auth';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
 
@@ -7,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const MAX_SIZE_BYTES = 8 * 1024 * 1024; // 8MB — infographics can be large full-size images
-const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'infographics');
+const UPLOAD_DIR = path.join(publicUploadRoot(), 'infographics');
 
 function safeExt(filename, mimeType) {
   const fromName = path.extname(filename || '').toLowerCase();

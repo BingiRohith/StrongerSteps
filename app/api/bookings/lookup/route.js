@@ -3,8 +3,11 @@ import Booking from '@/models/Booking';
 import '@/models/Event';
 import { ok, fail, withErrorHandling } from '@/lib/apiResponse';
 import { isValidMobile, last10Digits } from '@/lib/eventValidation';
+import { isRateLimited } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
+
+const LOOKUP_RATE_LIMIT = { max: 20, windowMs: 15 * 60 * 1000 };
 
 /**
  * GET /api/bookings/lookup?mobile=...&reference=... — public, no login.
@@ -25,6 +28,12 @@ export const GET = withErrorHandling(async (request) => {
 
   if (!isValidMobile(mobile)) return fail('Enter a valid 10-digit mobile number', 400);
   if (!reference) return fail('Booking reference is required', 400);
+
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rateLimitKey = `${last10Digits(mobile)}:${ip}`;
+  if (isRateLimited(rateLimitKey, LOOKUP_RATE_LIMIT)) {
+    return fail('Too many lookup attempts. Please try again in a few minutes.', 429);
+  }
 
   const query = {
     mobile: new RegExp(`${last10Digits(mobile)}$`),

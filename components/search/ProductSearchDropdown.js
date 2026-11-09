@@ -95,7 +95,7 @@ export default function ProductSearchDropdown({ className = '', inputClassName =
                 onClick={() => goToProducts(query)}
                 className="w-full border-t border-line px-4 py-2.5 text-center text-xs font-semibold text-primary hover:bg-sage"
               >
-                See all results for "{query}"
+                See all results for &quot;{query}&quot;
               </button>
             </>
           ) : (

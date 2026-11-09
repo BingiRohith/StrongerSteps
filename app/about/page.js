@@ -4,6 +4,8 @@ import StepDivider from '@/components/StepDivider';
 import TeamGrid from '@/components/team/TeamGrid';
 import { getPublishedTeamMembers } from '@/lib/publicTeam';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'About Us',
   description:
@@ -106,7 +108,7 @@ export default async function AboutPage() {
                 Redefining what it means to age in India
               </h2>
               <p className="mt-4 max-w-2xl text-lg text-white/75">
-                We're building India\'s most trusted healthy-aging ecosystem — one that treats older adults as active, capable people with the right to expert guidance and a supportive community.
+                We&apos;re building India&apos;s most trusted healthy-aging ecosystem — one that treats older adults as active, capable people with the right to expert guidance and a supportive community.
               </p>
               <Button href="/join" variant="accent" className="mt-8">
                 Join us on this journey <ArrowRight size={18} />
