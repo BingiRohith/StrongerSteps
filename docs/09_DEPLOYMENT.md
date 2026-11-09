@@ -1,5 +1,41 @@
 # 09. Deployment
 
+## Private staging settings preparation (2026-11-05)
+
+Run `node scripts/prepareStagingEnv.mjs` locally to create the Git-ignored
+`.env.staging.local`. It refuses to overwrite an existing file, uses a separate
+`strongersteps_staging` database name, creates fresh signing/webhook secrets,
+copies only whitelisted provider configuration, rejects live Razorpay keys and
+keeps SMS/booking notifications mocked. It does not connect to MongoDB, create
+an administrator, copy content, or deploy anything. The original `.env.local`
+is never changed. When copying individual values into Render, omit dotenv's
+surrounding quotes. Never paste this file or its values into chat or Git.
+
+This is only preparation: the URI still uses the original Atlas credentials.
+Before public staging, use an Atlas database user restricted to the staging
+database and allow only required hosting egress. Confirm any existing staging
+data before creating/importing content. Set `NEXT_PUBLIC_SITE_URL` to the
+actual assigned HTTPS origin before the build. Configure the same generated
+webhook secret in Razorpay Test Mode after the endpoint exists. Both upload
+directories must be mapped to persistent storage and required files transferred
+before staging acceptance; no Render storage setup is implied by this script.
+
+### Render upload disk
+
+Attach a persistent disk at `/var/data` and set `UPLOAD_DATA_ROOT=/var/data`
+in the service environment for build and runtime. Transfer the contents of
+local `public/uploads` to `/var/data/public-uploads` and the contents of local
+`private-uploads` to `/var/data/private-uploads`, preserving subdirectories.
+Keep the directories separate. Transfer through Render's secure shell/file
+transfer workflow. Use staging fixtures or approved content only.
+
+Existing `/uploads/<folder>/<filename>` URLs serve supported public images
+and legacy PDFs from the disk. Protected files keep their existing authorized
+routes. With `UPLOAD_DATA_ROOT` unset, the app keeps its local directories.
+After deployment, upload a new image and protected PDF, verify access as
+appropriate, restart the service, and verify both files are still available.
+Render mounts its disk at runtime. Keep disk transfer out of build commands.
+
 ## Reconciled delivery deployment order (2026-11-03)
 
 1. Deploy the reconciled code, preserving the target environment's secrets,

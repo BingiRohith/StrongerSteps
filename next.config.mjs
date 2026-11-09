@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async rewrites() {
+    const uploads = { source: '/uploads/:folder/:filename', destination: '/api/public-uploads/:folder/:filename' };
+    return process.env.UPLOAD_DATA_ROOT
+      ? { beforeFiles: [uploads], afterFiles: [], fallback: [] }
+      : [uploads];
+  },
   // Sprint 19.6: a real .eslintrc.json (next/core-web-vitals) now exists and
   // the codebase lints clean, so `next build` runs ESLint for real instead
   // of skipping it — this was previously ignored because no config existed.

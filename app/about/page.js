@@ -4,6 +4,8 @@ import StepDivider from '@/components/StepDivider';
 import TeamGrid from '@/components/team/TeamGrid';
 import { getPublishedTeamMembers } from '@/lib/publicTeam';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'About Us',
   description:

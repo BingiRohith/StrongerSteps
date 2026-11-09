@@ -1,5 +1,5 @@
 import { unlink } from 'fs/promises';
-import path from 'path';
+import { publicUploadPath } from '@/lib/uploadStorage';
 import mongoose from 'mongoose';
 import connectDB from '@/lib/db';
 import Media from '@/models/Media';
@@ -56,9 +56,11 @@ export const DELETE = withErrorHandling(async (request, { params }) => {
   // A final live scan is required at delete time: stale client state must
   // never allow a shared asset to disappear from already-saved content.
   if (usage.length) return fail('This file is still used by content and cannot be deleted', 409, { usage });
+  const publicPath = /^\/uploads\/([^/]+)\/([^/]+)$/.exec(media.url);
   const filePath = media.storage === 'private'
     ? protectedFilePath('media', media.url)
-    : path.join(process.cwd(), 'public', media.url.replace(/^\//, ''));
+    : publicPath && publicUploadPath(publicPath[1], publicPath[2]);
+  if (!filePath) return fail('Invalid stored media path', 400);
   await unlink(filePath).catch((error) => {
     if (error.code !== 'ENOENT') throw error;
   });

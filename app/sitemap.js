@@ -5,6 +5,9 @@ import Course from '@/models/Course';
 import Resource from '@/models/Resource';
 import Tool from '@/models/Tool';
 
+// Published content comes from Atlas at request time, including on staging.
+export const dynamic = 'force-dynamic';
+
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
 const STATIC_ROUTES = [
